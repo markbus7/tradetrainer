@@ -461,7 +461,7 @@ var Mkt = (function () {
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", countTarget: 2,
     brooks: "A two-legged pullback to the 20-bar moving average in a bull trend is the highest-probability buy there is. The first attempt up traps bulls in too early; when it fails, those bulls capitulate and bears press \u2014 and the second attempt up traps the bears. Buy on a stop one tick above the High 2 signal bar.",
     mmRule: "Leg 1 equals leg 2: measure the prior leg up and project the same distance from the pullback low.",
-    howTo: ["It starts when an established bull trend makes its first pullback against itself. From that moment you are counting BARS, not eyeballing legs.", "The <b>High 1</b> is the first bar whose high trades above the high of the bar before it \u2014 the first attempt to resume the trend. If that attempt fails and price makes a new low for the pullback, the pullback is still running and the count is still live.", "The <b>High 2</b> is the next bar, after that new low, whose high trades above the prior bar's high \u2014 the second attempt. That bar is the setup. Note what is NOT required: leg two does not have to trade below leg one's low. Brooks takes High 2s whose second leg ends above the first one; it is the count that defines it, not the depth. If you demand a lower low you will sit out valid High 2s.", "The count resets the moment the trend makes a new high \u2014 from there any fresh pullback starts again at High 1.", "For the stop you have two choices and they are not the same trade: one tick below the SIGNAL BAR's low is the tight, Brooks-standard initial stop; below the second leg's low is the wider swing stop. The tight one risks less and gets stopped more."],
+    howTo: ["It starts when an established bull trend makes its first pullback against itself. From that moment you are counting BARS, not eyeballing legs.", "The <b>High 1</b> is the first bar whose high trades above the high of the bar before it \u2014 the first attempt to resume the trend.", "Then wait for one bar with a <b>lower high</b>. It can come one bar later or several. That single bar is all it takes to arm the next count \u2014 the correction does not have to make a new low, and it does not have to complete a leg.", "The <b>High 2</b> is the next bar after that whose high trades above the prior bar's high \u2014 the second attempt. That bar is the setup. Note what is NOT required: leg two does not have to trade below leg one's low. Brooks takes High 2s whose second leg ends above the first one; it is the count that defines it, not the depth. Demand a lower low and you will sit out valid High 2s.", "Third and fourth occurrences are a High 3 and a High 4. The count belongs to this correction \u2014 once the trend resumes and a fresh pullback starts, you begin again at High 1.", "For the stop you have two choices and they are not the same trade: one tick below the SIGNAL BAR's low is the tight, Brooks-standard initial stop; below the second leg's low is the wider swing stop. The tight one risks less and gets stopped more."],
     segs: function (R) {
       return [
         [R.i(16, 22), R.f(-0.05, 0.05), "A"],
@@ -884,16 +884,21 @@ var Mkt = (function () {
   }
 
   /** Brooks bar counting — High 1/2/3/4 in a bull pullback, Low 1/2/3/4 in a
-      bear pullback. The rule is mechanical and it is a BAR count, not a leg
-      count:
+      bear pullback. This follows the Brooks Trading Course glossary wording
+      exactly:
 
-        · a bar whose high trades above the prior bar's high is an attempt to
-          resume a bull trend;
-        · the first such bar after the pullback begins is the High 1;
-        · that attempt only "uses up" a count once. For the next one to count
-          as a High 2, the pullback must first make a NEW LOW — otherwise a run
-          of consecutive higher highs would count as H1, H2, H3 and the count
-          would be meaningless.
+        "A high 1 is a bar with a high above the prior bar in a bull flag or
+         near the bottom of a trading range. If there is then a bar with a
+         lower high (it can occur one or several bars later), the next bar in
+         this correction whose high is above the prior bar's high is a high 2.
+         Third and fourth occurrences are a high 3 and 4."
+
+      So the count increments on a bar that trades above the prior bar's high,
+      and it re-arms on a bar with a LOWER HIGH. The re-arm condition is that
+      single lower-high bar — NOT a new low for the pullback, and not a
+      completed leg. Requiring a new low is stricter than Brooks and would
+      under-count, which is the same mistake as demanding leg two break leg
+      one's low before calling something a High 2.
 
       d = +1 counts Highs (bull pullback), d = -1 counts Lows (bear pullback).
       `from` is the bar the pullback starts at, `to` the bar being judged.
@@ -902,14 +907,15 @@ var Mkt = (function () {
     from = Math.max(0, from | 0);
     to = Math.min(bars.length - 1, to | 0);
     if (to <= from) return { n: 0, idx: [] };
-    var ext = d > 0 ? bars[from].l : bars[from].h;
     var armed = true, idx = [];
     for (var i = from + 1; i <= to; i++) {
-      /* a new extreme for the pullback re-arms the count */
-      var newExt = d > 0 ? bars[i].l < ext : bars[i].h > ext;
-      if (newExt) { ext = d > 0 ? bars[i].l : bars[i].h; armed = true; }
       var attempt = d > 0 ? bars[i].h > bars[i - 1].h : bars[i].l < bars[i - 1].l;
-      if (attempt && armed) { idx.push(i); armed = false; }
+      if (attempt) {
+        if (armed) { idx.push(i); armed = false; }
+      } else if (d > 0 ? bars[i].h < bars[i - 1].h : bars[i].l > bars[i - 1].l) {
+        /* a bar with a lower high (bull) / higher low (bear) re-arms the count */
+        armed = true;
+      }
     }
     return { n: idx.length, idx: idx };
   }
@@ -2771,8 +2777,9 @@ KIND.barCount = {
       ch: ch, meta: { n: n },
       q: "Count it the way Brooks counts it. Since the pullback began, how many times has a bar traded " +
          (bull ? "above the prior bar's <b>high</b>" : "below the prior bar's <b>low</b>") +
-         " — where a fresh attempt only counts once the pullback has made a new " +
-         (bull ? "low" : "high") + " in between? The last bar on the chart is the one you are naming.",
+         " — where the next one only counts once a bar with a " +
+         (bull ? "<b>lower high</b>" : "<b>higher low</b>") +
+         " has printed in between? The last bar on the chart is the one you are naming.",
       ui: {
         mode: "mcq", options: [
           { k: "1", t: bull ? "High 1 — first attempt to resume the bull trend" : "Low 1 — first attempt to resume the bear trend" },
