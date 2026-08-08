@@ -4316,6 +4316,10 @@ var PROG = (function () {
       '<p>Charts are generated rather than replayed from a feed, but the <b>probabilities are real</b>: each context ' +
       'resolves at the rate the app quotes for it, and every tradeable context has positive expectancy while every ' +
       'no-trade context has negative expectancy. The base rates you feel here are the ones the app teaches.</p>' +
+      '<p>You start at <b>Tier 0 — the first three setups</b>, and the placement test cannot skip it. Brooks is ' +
+      'blunt that a beginner should trade a handful of the strongest setups and pass on everything else, so that ' +
+      'tier drills the two-legged pullback, the failed breakout and the major trend reversal end to end — ' +
+      'recognise, count, enter, stop, target, manage — before the rest of the ladder opens.</p>' +
 
       '<h3>The market cycle</h3>' +
       '<p>Breakout becomes channel, channel becomes trading range, range becomes the next breakout. Name the phase ' +
@@ -4346,13 +4350,32 @@ var PROG = (function () {
       'side — that tail is the other side pushing your way and failing. Body size is not the test: a small body with ' +
       'a long far-side tail and a close at the extreme is a textbook reversal bar and a good signal bar. What is bad ' +
       'is a close in the middle (a doji — both sides rejected) or a long tail on the side you want to trade toward. ' +
-      'Stops belong just beyond the structure that has to hold — the signal bar, the ' +
-      'swing, the range edge — plus room for noise. Inside the structure is too tight; several ATR beyond destroys ' +
-      'the R multiple.</p>' +
+      'Brooks has <b>two</b> stops and they are different trades: the <b>initial stop</b> one tick beyond the signal ' +
+      'bar, and the <b>swing stop</b> beyond the structure that has to hold. Both are graded as correct here, ' +
+      'because they carry different risk, different size and different R. When an oversized signal bar makes the ' +
+      'initial stop the <i>wider</i> of the two, that is a reason to skip the trade, not to accept the extra risk. ' +
+      'Inside the structure is too tight; several ATR beyond destroys the R multiple.</p>' +
+      '<p>Entries are mechanical too. With the trend you enter on a <b>stop</b> one tick beyond the signal bar, so ' +
+      'price has to trade there to fill you — that is the confirmation. Fading a range edge you use a <b>limit</b>, ' +
+      'because waiting for confirmation means paying the edge away. Getting this backwards turns a correct read ' +
+      'into a losing trade.</p>' +
+
+      '<h3>Bar counting</h3>' +
+      '<p>Brooks counts <b>bars</b>, not legs. A <b>High 1</b> is a bar with a high above the prior bar in a bull ' +
+      'flag. If there is then a bar with a <b>lower high</b> — one bar later or several — the next bar whose high ' +
+      'is above the prior bar\'s high is a <b>High 2</b>. Third and fourth occurrences are a High 3 and 4. Lows ' +
+      'mirror it exactly.</p>' +
+      '<p>What is <b>not</b> required: the correction does not have to make a new low, and leg two does not have to ' +
+      'trade below leg one\'s low. That single lower-high bar is the whole re-arm condition. Demand more and you ' +
+      'will sit out valid High 2s. This app counts off the actual bars with that rule, so the answer is whatever ' +
+      'the tape shows — sometimes a High 1, sometimes a High 3.</p>' +
 
       '<h3>Scoring</h3>' +
-      '<p>Each node is a set of reps and your best score is kept. A tier unlocks at 70%; certification needs 85%. ' +
-      'In execution drills the <b>process score</b> and the <b>R result</b> are reported separately on purpose — a ' +
+      '<p>Each node is a set of reps. A node is passed only when a <b>single session</b> clears both the pass mark ' +
+      '(85% by default) <b>and</b> the required run of consecutive clean answers — an average on its own can hide a ' +
+      'skill you only half have, and the streak is what removes the doubt. Mastery certification needs <b>92%</b> ' +
+      'with an eight-answer streak.</p>' +
+      '<p>In execution drills the <b>process score</b> and the <b>R result</b> are reported separately on purpose — a ' +
       'good plan that loses is still a good plan, and a win on a bad plan is the most expensive kind.</p>' +
 
       '<h3>Controls</h3>' +
