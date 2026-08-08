@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.5.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.6.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.5.0", build: "2026-08-01", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.6.0", build: "2026-08-08", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -398,8 +398,8 @@ var Mkt = (function () {
   CTX.tightChannel = {
     name: "Tight bull channel", twin: "Tight bear channel",
     family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.88, pWin: 0.65,
-    style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong",
-    brooks: "A tight channel is a one-sided market: the pullbacks are tiny and every reversal attempt fails. Do not look for shorts here — bears keep getting trapped. Buy the first pullback (a High 1) and hold; roughly seven of ten counter-trend attempts in a tight channel lose.",
+    style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", countTarget: 1,
+    brooks: "A tight channel is a one-sided market: the pullbacks are tiny and every reversal attempt fails. Do not look for shorts here — bears keep getting trapped. Buy the first pullback (a High 1) and hold. Countertrend trading here is the worst trade on the chart: about four out of five attempts to reverse a strong trend fail, and in a genuinely tight channel it is worse than that. Bears do not get a good entry until the channel first breaks and price then returns to test the high.",
     mmRule: "Measure the first leg of the channel and project it from the pullback low.",
     howTo: ["It starts at the first clear swing low that begins a run of higher highs and higher lows.", "It is still developing as long as every pullback stays small \u2014 shallow, only a few bars, bought quickly. That shallowness is what makes it 'tight'.", "Structure breaks the moment a pullback goes deeper than the one before it, or closes below the most recent higher low \u2014 that is the first real sign sellers are more than just noise.", "The stop sits just below that most recent higher low (the High 1 / High 2 pullback low) \u2014 that is the swing that has to hold for 'tight uptrend' to still be true."],
     segs: function (R) {
@@ -458,10 +458,10 @@ var Mkt = (function () {
   CTX.twoLegPullback = {
     name: "Two-legged pullback (High 2)", twin: "Two-legged pullback (Low 2)",
     family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.76, pWin: 0.63,
-    style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong",
-    brooks: "A two-legged pullback to the moving average in a bull trend is the highest-probability buy there is. The first leg down traps bulls out, the second leg down traps bears in. Buy above the High 2 signal bar with a stop below the second leg low.",
+    style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", countTarget: 2,
+    brooks: "A two-legged pullback to the 20-bar moving average in a bull trend is the highest-probability buy there is. The first attempt up traps bulls in too early; when it fails, those bulls capitulate and bears press \u2014 and the second attempt up traps the bears. Buy on a stop one tick above the High 2 signal bar.",
     mmRule: "Leg 1 equals leg 2: measure the prior leg up and project the same distance from the pullback low.",
-    howTo: ["It starts when an established trend makes its first pullback leg against itself \u2014 call this leg one.", "It is still developing through leg one (a partial bounce that fails to make a new trend high) and leg two \u2014 the second down-leg that takes out leg one's low.", "The structure 'completes' exactly when leg two takes out leg one's low without a new trend high forming first \u2014 that double failure is what makes it a valid High 2 setup, trapping the early bulls from leg one and the new bears from leg two together.", "The stop sits just below leg two's low \u2014 if price takes that out too, there is no leg structure left to trust; it would just be a fresh downtrend, not a pullback."],
+    howTo: ["It starts when an established bull trend makes its first pullback against itself. From that moment you are counting BARS, not eyeballing legs.", "The <b>High 1</b> is the first bar whose high trades above the high of the bar before it \u2014 the first attempt to resume the trend. If that attempt fails and price makes a new low for the pullback, the pullback is still running and the count is still live.", "The <b>High 2</b> is the next bar, after that new low, whose high trades above the prior bar's high \u2014 the second attempt. That bar is the setup. Note what is NOT required: leg two does not have to trade below leg one's low. Brooks takes High 2s whose second leg ends above the first one; it is the count that defines it, not the depth. If you demand a lower low you will sit out valid High 2s.", "The count resets the moment the trend makes a new high \u2014 from there any fresh pullback starts again at High 1.", "For the stop you have two choices and they are not the same trade: one tick below the SIGNAL BAR's low is the tight, Brooks-standard initial stop; below the second leg's low is the wider swing stop. The tight one risks less and gets stopped more."],
     segs: function (R) {
       return [
         [R.i(16, 22), R.f(-0.05, 0.05), "A"],
@@ -801,6 +801,7 @@ var Mkt = (function () {
       family: s.family, cycle: s.cycle,
       dir: -s.dir, alwaysIn: -s.alwaysIn, prob: s.prob, pWin: s.pWin,
       style: s.style, mmType: s.mmType, entryType: s.entryType, sigQ: s.sigQ,
+      countTarget: s.countTarget,
       brooks: flipWords(s.brooks), mmRule: flipWords(s.mmRule),
       howTo: s.howTo.map(flipWords),
       segs: s.segs, hU: s.hU, gt: s.gt
@@ -880,6 +881,37 @@ var Mkt = (function () {
       if (isL) out.push({ i: i, p: bars[i].l, d: -1 });
     }
     return out;
+  }
+
+  /** Brooks bar counting — High 1/2/3/4 in a bull pullback, Low 1/2/3/4 in a
+      bear pullback. The rule is mechanical and it is a BAR count, not a leg
+      count:
+
+        · a bar whose high trades above the prior bar's high is an attempt to
+          resume a bull trend;
+        · the first such bar after the pullback begins is the High 1;
+        · that attempt only "uses up" a count once. For the next one to count
+          as a High 2, the pullback must first make a NEW LOW — otherwise a run
+          of consecutive higher highs would count as H1, H2, H3 and the count
+          would be meaningless.
+
+      d = +1 counts Highs (bull pullback), d = -1 counts Lows (bear pullback).
+      `from` is the bar the pullback starts at, `to` the bar being judged.
+      Returns the running count and the index of each counting bar. */
+  function brooksCount(bars, from, to, d) {
+    from = Math.max(0, from | 0);
+    to = Math.min(bars.length - 1, to | 0);
+    if (to <= from) return { n: 0, idx: [] };
+    var ext = d > 0 ? bars[from].l : bars[from].h;
+    var armed = true, idx = [];
+    for (var i = from + 1; i <= to; i++) {
+      /* a new extreme for the pullback re-arms the count */
+      var newExt = d > 0 ? bars[i].l < ext : bars[i].h > ext;
+      if (newExt) { ext = d > 0 ? bars[i].l : bars[i].h; armed = true; }
+      var attempt = d > 0 ? bars[i].h > bars[i - 1].h : bars[i].l < bars[i - 1].l;
+      if (attempt && armed) { idx.push(i); armed = false; }
+    }
+    return { n: idx.length, idx: idx };
   }
 
   /** how far the path may wander off the skeleton between anchors */
@@ -1030,6 +1062,21 @@ var Mkt = (function () {
 
     /* ---- the signal bar: shape it deliberately, it is the decision ---- */
     var sigIdx = Math.max(6, Math.min(N - 2, g.sigIdx));
+
+    /* A context that claims to be a High 2 has to actually BE one on this tape,
+       or the drill teaches a wrong association. Where a context declares the
+       count it means (`countTarget`), move the decision bar onto the bar that
+       genuinely carries that count. If this tape did not produce it, the bar
+       stays where the context put it and the true count is reported anyway —
+       aim for the count, never assert one the bars do not show. */
+    if (dir && def.countTarget) {
+      var w0 = Math.max(0, sigIdx - 30);
+      var origin = (dir > 0 ? hiIn(bars, w0, sigIdx) : loIn(bars, w0, sigIdx)).i;
+      var pre = brooksCount(bars, origin, Math.min(N - 2, sigIdx + 3), dir);
+      var want = pre.idx[def.countTarget - 1];
+      if (want !== undefined && want > origin + 1) sigIdx = Math.max(6, Math.min(N - 2, want));
+    }
+
     var A14 = atr(bars, 14, sigIdx);
     var quality = opts.sigQ || def.sigQ;
     var sigQuality = shapeSignal(bars, sigIdx, dir || (m > 0 ? 1 : -1), quality, A14, R);
@@ -1054,6 +1101,32 @@ var Mkt = (function () {
     var height = Math.abs(g.measure.b.p - g.measure.a.p);
     var mmTarget = g.anchor.p + (g.measure.b.p - g.measure.a.p);
     var refRR = Math.abs(target - entry) / Math.max(1e-9, Math.abs(entry - invalid));
+
+    /* ---- Brooks distinguishes two stops, and they are different trades ----
+       The INITIAL stop is one tick beyond the signal bar's far extreme: the
+       tightest price that says "the signal bar was wrong". The SWING stop
+       (`invalid`) sits beyond the structure itself. Same entry, different risk,
+       therefore different position size and a different trader's equation.
+       Brooks also calls the distance from entry to the signal-bar stop the
+       "initial risk" — the unit that scalp and swing targets are quoted in. */
+    var sigStop = dir
+      ? (dir > 0 ? sb.l : sb.h) - dir * 0.08 * A14
+      : sb.l - 0.08 * A14;
+    var initialRisk = Math.abs(entry - sigStop);
+    var swingRisk = Math.abs(entry - invalid);
+    var sigRR = Math.abs(target - entry) / Math.max(1e-9, initialRisk);
+
+    /* ---- the bar count at the decision bar ----
+       The pullback runs from the trend extreme it fell away from, so for a bull
+       setup that origin is the highest high behind the signal bar. Counting
+       forward from there to the signal bar gives the High N / Low N the
+       decision bar actually is, read off this tape rather than assumed. */
+    var pbFrom = sigIdx, count = { n: 0, idx: [] };
+    if (dir) {
+      var win = Math.max(0, sigIdx - 30);
+      pbFrom = (dir > 0 ? hiIn(bars, win, sigIdx) : loIn(bars, win, sigIdx)).i;
+      count = brooksCount(bars, pbFrom, sigIdx, dir);
+    }
 
     /* ---- what the tape actually did ---- */
     var td = dir || rd;
@@ -1084,6 +1157,8 @@ var Mkt = (function () {
         measure: g.measure, anchor: g.anchor, labels: g.labels || [],
         height: height, entry: entry, target: target, mmTarget: mmTarget, altTarget: g.altTarget,
         invalid: invalid, refRR: refRR,
+        sigStop: sigStop, initialRisk: initialRisk, swingRisk: swingRisk, sigRR: sigRR,
+        pbFrom: pbFrom, barCount: count.n, countIdx: count.idx,
         rangeTop: g.rangeTop, rangeBot: g.rangeBot,
         sigIdx: sigIdx, decision: sigIdx, sigQuality: sigQuality, sigKind: quality,
         worked: hitT >= 0 && (hitI < 0 || hitT < hitI),
@@ -1126,7 +1201,7 @@ var Mkt = (function () {
 
   return {
     gen: gen, CTX: CTX, KEYS: KEYS, BASE: BASE, INSTR: INSTR, TFS: TFS,
-    atr: atr, ema: ema, pivots: pivots, hiIn: hiIn, loIn: loIn, mkR: mkR, rng: rng,
+    atr: atr, ema: ema, pivots: pivots, brooksCount: brooksCount, hiIn: hiIn, loIn: loIn, mkR: mkR, rng: rng,
     flipWords: flipWords
   };
 })();
@@ -1838,6 +1913,14 @@ Chart.prototype.readout = function () {
    grade() returns a score in 0..1 plus written feedback.
    ===================================================================== */
 
+/* The standard. PASS_MARK is the average a run must clear; CLEAN_MARK is what
+   counts as a clean answer when measuring the consecutive-correct streak. A
+   node that sets `streak: n` also demands n clean answers back to back in the
+   same run, so a lucky patch cannot carry a shaky one. */
+var PASS_MARK = 0.85;
+var CLEAN_MARK = 0.8;
+var DEFAULT_STREAK = 3;
+
 var SKILLS = {
   bars: "Bar reading",
   cycle: "Market cycle",
@@ -1852,8 +1935,8 @@ var SKILLS = {
 };
 
 var RANKS = [
-  { n: "Cadet" }, { n: "Bar Reader" }, { n: "Cycle Reader" }, { n: "Trend Trader" },
-  { n: "Range Trader" }, { n: "Trap Hunter" }, { n: "Cartographer" },
+  { n: "Cadet" }, { n: "Core Trader" }, { n: "Bar Reader" }, { n: "Cycle Reader" },
+  { n: "Trend Trader" }, { n: "Range Trader" }, { n: "Trap Hunter" }, { n: "Cartographer" },
   { n: "Reversal Trader" }, { n: "Operator" }, { n: "Master" }
 ];
 
@@ -1869,6 +1952,12 @@ var POOL = {
   all: Mkt.KEYS.slice(),
   tradeable: Mkt.KEYS.filter(function (k) { return Mkt.CTX[k].dir !== 0; }),
   measurable: Mkt.KEYS.filter(function (k) { return Mkt.CTX[k].mmType !== "none" && Mkt.CTX[k].dir !== 0; }),
+  /* contexts where a pullback is actually in progress, so a bar count means
+     something. Breakouts, reversals and ranges are excluded on purpose. */
+  pullback: both(["twoLegPullback", "tightChannel", "spikeChannel", "broadChannel"]),
+  /* the beginner's core: the three highest-probability setups Brooks tells a
+     new trader to trade, and nothing else */
+  core: both(["twoLegPullback", "failedBo", "mtr"]),
   mmSpike: both(["spikeChannel"]),
   mmLeg: both(["tightChannel", "twoLegPullback", "mtr", "finalFlag"]),
   mmRange: both(["successBo", "failedBo", "rangeLow"]),
@@ -2286,7 +2375,7 @@ KIND.stop = {
     return {
       ch: ch,
       q: "Place the <b>stop</b> for a " + (ch.gt.dir > 0 ? "long" : "short") + " here. Where is this idea simply wrong?",
-      ui: { mode: "chart", need: "hline", hint: "Beyond the structure that has to hold — the signal bar, the swing, or the range edge — plus room for noise." }
+      ui: { mode: "chart", need: "hline", hint: "Brooks has two: one tick beyond the signal bar, or beyond the structure that has to hold. Either is defensible — they are different trades." }
     };
   },
   grade: function (p, ans) {
@@ -2294,6 +2383,29 @@ KIND.stop = {
     var ch = p.ch, g = ch.gt, d = g.dir, a = ch.atr;
     var beyond = d > 0 ? (g.invalid - ans) : (ans - g.invalid);
     var s, verdict, note;
+
+    /* The signal-bar stop is the other legitimate answer, so grade it as one.
+       Which is tighter is not fixed: a large signal bar can reach past the
+       structure, and Brooks treats that as a reason to pass, not to shrug. */
+    var sigBeyond = d > 0 ? (g.sigStop - ans) : (ans - g.sigStop);
+    if (Math.abs(sigBeyond) <= 0.45 * a && Math.abs(g.sigStop - g.invalid) > 0.5 * a) {
+      var tighter = g.initialRisk <= g.swingRisk;
+      return {
+        score: 0.9, reveal: true, verdict: "The signal-bar stop",
+        lines: [
+          "<b>" + g.name + "</b>. " + g.brooks,
+          "You used the <b>initial stop</b> — one tick beyond the signal bar at <b>" + fmtN(g.sigStop, ch.dec) +
+          "</b> — rather than the structural stop at <b>" + fmtN(g.invalid, ch.dec) + "</b>. Both are Brooks; they are different trades.",
+          "Here that risks <b>" + fmtN(g.initialRisk, ch.dec) + "</b> against the structure's <b>" + fmtN(g.swingRisk, ch.dec) +
+          "</b>, so on the same target you are trading <b>" + g.sigRR.toFixed(2) + "R</b> instead of <b>" + g.refRR.toFixed(2) + "R</b>. " +
+          (tighter
+            ? "Tighter stop, better R, and you get stopped out more often — that is the trade you are making."
+            : "Note the signal bar here is <b>large</b>, so this stop is actually the WIDER of the two. Brooks treats an oversized signal bar as a reason to skip the trade rather than to accept the extra risk."),
+          g.hitInvalidAt >= 0 ? "Price did trade through the structural level on this tape." : "Price never reached the structural level on this tape."
+        ]
+      };
+    }
+
     if (beyond < -0.2 * a) {
       s = 0.12; verdict = "Inside the structure";
       note = "Your stop is <b>inside</b> the setup, " + fmtN(-beyond / a, 1) + " ATR before the level that actually invalidates it. Ordinary noise takes you out of a trade that was still working, and you will call it bad luck.";
@@ -2562,6 +2674,196 @@ KIND.replay = {
   }
 };
 
+/* --- 17. entry placement ------------------------------------------
+   Brooks' entry is mechanical, and it is the half of the trade the old
+   curriculum never tested: with the trend you enter on a STOP one tick beyond
+   the signal bar, because making price trade there is the confirmation. In a
+   range you fade the edge with a LIMIT, because waiting for confirmation means
+   paying the edge away. Getting this backwards is the single most common way a
+   correct read turns into a losing trade. */
+KIND.entry = {
+  skill: "execution", skill2: "risk",
+  prepare: function (sp, seed) {
+    var ch = Mkt.gen({ seed: seed, ctx: pickPool(sp.pool || POOL.tradeable, seed) });
+    var lim = ch.gt.entryType === "limit";
+    return {
+      ch: ch,
+      q: "Place your <b>entry</b> for a " + (ch.gt.dir > 0 ? "long" : "short") +
+         " here. Not roughly — exactly where the order goes.",
+      ui: {
+        mode: "chart", need: "hline",
+        hint: lim
+          ? "You are fading an edge, so you want to be filled AS price reaches it."
+          : "You are trading with the move, so price must trade through your level to fill you."
+      }
+    };
+  },
+  grade: function (p, ans) {
+    if (ans === null || ans === undefined) return { score: 0, verdict: "No entry placed", lines: [], reveal: true };
+    var ch = p.ch, g = ch.gt, d = g.dir, a = ch.atr, sb = ch.bars[g.sigIdx];
+    var trigger = d > 0 ? sb.h : sb.l;
+    var beyond = d * (ans - trigger);          /* >0 = beyond the bar */
+    var err = Math.abs(ans - g.entry);
+    var tol = 0.30 * a;
+    var s, verdict, note;
+
+    if (g.entryType === "limit") {
+      var edge = d > 0 ? g.rangeBot : g.rangeTop;
+      var inside = edge === undefined ? 0 : d * (ans - edge);
+      if (err <= tol) { s = 1; verdict = "Exact"; note = "A limit order right at the edge. You are paid to be early here, not late."; }
+      else if (inside < -0.9 * a) {
+        s = 0.2; verdict = "Limit too far outside";
+        note = "You put the limit well beyond the edge, which only fills if the range actually breaks — and about eight out of ten of those breakouts fail. You would be buying the breakdown instead of fading it.";
+      } else if (err <= 2 * tol) { s = 0.7; verdict = "Close"; note = "The right idea, a little loose. At an edge, precision is most of the reward."; }
+      else { s = band(err, tol * 1.6) * 0.7; verdict = "Off the edge"; note = "Fading a range edge means the level itself is the trade. Away from it there is no edge left."; }
+    } else if (beyond < -0.15 * a) {
+      s = 0.1; verdict = "That is a limit order, not a stop";
+      note = "You placed the entry <b>inside</b> the signal bar, so you get filled without price ever proving it can go your way. " +
+             "With the trend, Brooks makes the market come and take him in: the order sits one tick " +
+             (d > 0 ? "above" : "below") + " the signal bar's " + (d > 0 ? "high" : "low") +
+             " at <b>" + fmtN(g.entry, ch.dec) + "</b>. If price never trades there, there was no trade — and that is the point.";
+    } else if (beyond > 1.1 * a) {
+      s = 0.25; verdict = "Chasing";
+      note = "That is " + fmtN(beyond / a, 1) + " ATR beyond the signal bar. Every tick you pay above <b>" +
+             fmtN(g.entry, ch.dec) + "</b> is added to your risk and taken off your reward — same read, worse equation.";
+    } else if (err <= tol) {
+      s = 1; verdict = "Exact";
+      note = "One tick beyond the signal bar at <b>" + fmtN(g.entry, ch.dec) + "</b>. Price has to come and get you, which is the confirmation.";
+    } else if (err <= 2 * tol) {
+      s = 0.72; verdict = "Nearly";
+      note = "Right side, right idea, slightly off <b>" + fmtN(g.entry, ch.dec) + "</b>.";
+    } else {
+      s = band(err, tol * 1.7) * 0.65; verdict = "Loose";
+      note = "The entry belongs at <b>" + fmtN(g.entry, ch.dec) + "</b> — one tick beyond the signal bar, not a round number nearby.";
+    }
+    return {
+      score: clamp(s, 0, 1), reveal: true, verdict: verdict,
+      lines: [note, "<b>" + g.name + "</b>. " + entryHow(g)]
+    };
+  }
+};
+
+/* --- 18. bar counting (High 1/2/3/4, Low 1/2/3/4) ------------------
+   The count is read off THIS tape by the same mechanical rule Brooks uses, so
+   the answer is whatever the bars actually show — sometimes a High 1, sometimes
+   a High 3. That is deliberate: a drill that always answered "High 2" would
+   teach you to recognise a name instead of to count. */
+KIND.barCount = {
+  skill: "bars", skill2: "trend",
+  right: function (p) { return String(p.ch.gt.barCount); },
+  prepare: function (sp, seed) {
+    /* Left alone, this tape produces a High 1 or High 2 nine times out of ten,
+       and you could clear the drill by never once answering 3 or 4. So aim at a
+       rotated target count and hunt for a tape that actually shows it, falling
+       back to whatever valid count turns up. */
+    var want = [1, 2, 2, 3, 3, 4][(seed >>> 3) % 6];
+    var ch = null, n = 0, first = null, guard = 0;
+    for (; guard < 90; guard++) {
+      var c = Mkt.gen({ seed: (seed + guard * 7919) >>> 0, ctx: pickPool(sp.pool || POOL.pullback, (seed + guard * 131) >>> 0) });
+      var cn = c.gt.barCount;
+      if (cn < 1 || cn > 4) continue;
+      if (first === null) { first = c; }
+      if (cn === want) { ch = c; n = cn; break; }
+    }
+    if (!ch) { ch = first || Mkt.gen({ seed: seed, ctx: pickPool(POOL.pullback, seed) }); n = ch.gt.barCount; }
+    var bull = ch.gt.dir > 0;
+    return {
+      ch: ch, meta: { n: n },
+      q: "Count it the way Brooks counts it. Since the pullback began, how many times has a bar traded " +
+         (bull ? "above the prior bar's <b>high</b>" : "below the prior bar's <b>low</b>") +
+         " — where a fresh attempt only counts once the pullback has made a new " +
+         (bull ? "low" : "high") + " in between? The last bar on the chart is the one you are naming.",
+      ui: {
+        mode: "mcq", options: [
+          { k: "1", t: bull ? "High 1 — first attempt to resume the bull trend" : "Low 1 — first attempt to resume the bear trend" },
+          { k: "2", t: bull ? "High 2 — the two-legged pullback buy" : "Low 2 — the two-legged pullback sell" },
+          { k: "3", t: bull ? "High 3 — a wedge-shaped bull flag" : "Low 3 — a wedge-shaped bear flag" },
+          { k: "4", t: bull ? "High 4 — the count has gone too far; this is becoming a trading range" : "Low 4 — the count has gone too far; this is becoming a trading range" }
+        ]
+      }
+    };
+  },
+  grade: function (p, ans) {
+    var ch = p.ch, g = ch.gt, n = p.meta.n, bull = g.dir > 0, ok = String(n) === ans;
+    var H = bull ? "High" : "Low";
+    var why = {
+      1: "One attempt so far. In a strong trend the first one is often enough — Brooks buys the High 1 in a tight channel because there is never a deeper pullback to wait for.",
+      2: "Two attempts. This is the setup Brooks calls the highest-probability entry in a trend: the first attempt trapped traders in early, it failed, and the second attempt traps the other side. Note it is the COUNT that made this a " + H + " 2, not how deep the second leg went.",
+      3: "Three attempts. Three pushes is a wedge, and a wedge-shaped flag still works with the trend — but the trend is losing its grip, and a failure here often becomes the reversal.",
+      4: "Four attempts. Once the count runs this far the pullback has stopped being a pullback: repeated failures to resume mean two-sided trading, and you should be reading this as a developing trading range, not a flag."
+    }[n];
+    return {
+      score: ok ? 1 : 0, reveal: true,
+      verdict: ok ? "Correct — " + H + " " + n : "It is a " + H + " " + n,
+      lines: [
+        "<b>" + H + " " + n + "</b> on this tape. " + why,
+        "The count resets the moment the trend makes a new " + (bull ? "high" : "low") +
+        " — from there, the next pullback starts again at " + H + " 1."
+      ]
+    };
+  }
+};
+
+/* --- 19. trade management ------------------------------------------
+   The equation is only realised if the trade is managed. Brooks: scalps come
+   off at the scalp target, swings take partial profit and move to breakeven,
+   and a market that goes two-sided has ended your swing whatever your stop
+   says. */
+KIND.manage = {
+  skill: "execution", skill2: "discipline",
+  prepare: function (sp, seed) {
+    var R = Mkt.mkR((seed ^ 0x4d21) >>> 0);
+    var ch = Mkt.gen({ seed: seed, ctx: pickPool(sp.pool || POOL.tradeable, seed) });
+    var g = ch.gt, stalled = R.chance(0.4);
+    var scalp = g.style === "scalp";
+    var q = stalled
+      ? "You are " + (g.dir > 0 ? "long" : "short") + " this <b>" + g.name + "</b> from " + fmtN(g.entry, ch.dec) +
+        ". Price moved about 1R your way and has now spent eight bars going sideways in a tight overlapping cluster. Your stop has not been hit. What now?"
+      : "You are " + (g.dir > 0 ? "long" : "short") + " this <b>" + g.name + "</b> from " + fmtN(g.entry, ch.dec) +
+        ". Price has just reached your first target at " + fmtN(g.target, ch.dec) + ". What now?";
+    return {
+      ch: ch, meta: { stalled: stalled, scalp: scalp },
+      q: q,
+      ui: {
+        mode: "mcq", options: [
+          { k: "all", t: "Take the whole position off" },
+          { k: "partial", t: "Take partial profit, move the stop to breakeven, hold the rest for the measured move" },
+          { k: "hold", t: "Take nothing, hold it all for the measured move" },
+          { k: "add", t: "Add to the position" }
+        ]
+      }
+    };
+  },
+  grade: function (p, ans) {
+    var ch = p.ch, g = ch.gt, stalled = p.meta.stalled, scalp = p.meta.scalp;
+    var right = stalled ? "all" : (scalp ? "all" : "partial");
+    var ok = ans === right;
+    var why;
+    if (stalled) {
+      why = "A tight overlapping cluster is a trading range, and a trading range means the market has gone two-sided. " +
+            "Whatever your reason for entering was, it has stopped being true — the swing is over. Brooks takes what the market has already given him rather than waiting for a stop that is now far away and a target the market is no longer heading for. " +
+            "Holding here is how a winner becomes a scratch and then a loser.";
+    } else if (scalp) {
+      why = "This is a <b>scalp</b> context — " + g.name.toLowerCase() + ". You are being paid for being quick, not for being right for a long time. " +
+            "Take the target. In a trading range the move beyond the first target usually does not come, and holding for it hands back the edge you just earned.";
+    } else {
+      why = "This is a <b>swing</b> context — " + g.name.toLowerCase() + ". Take partial profit so the trade cannot hurt you, move the stop to breakeven, and let the rest run to the measured move at " +
+            fmtN(g.mmTarget, ch.dec) + ". " +
+            "Brooks scalps part and swings part precisely because he cannot know in advance which trades become the big ones — this is how you stay in the few that do.";
+    }
+    var lines = [why];
+    if (ans === "add") lines.push("Adding is the answer that ruins accounts. It converts a trade that is working into a bigger trade at a worse average price, and it does it exactly when you feel most certain.");
+    if (ans === "hold" && !stalled && scalp) lines.push("Holding a scalp for a swing target is trading a different setup from the one the chart actually offered.");
+    lines.push(outcomeLine(ch));
+    return {
+      score: ok ? 1 : (ans === "partial" && right === "all" ? 0.4 : ans === "all" && right === "partial" ? 0.5 : 0),
+      reveal: true,
+      verdict: ok ? "Correct" : "Not what this one asks for",
+      lines: lines.filter(Boolean)
+    };
+  }
+};
+
 /* ---------------- pool picker ---------------- */
 function pickPool(pool, seed) {
   var R = Mkt.mkR((seed ^ 0x9e37) >>> 0);
@@ -2595,7 +2897,21 @@ function learnChart(ctxKey) {
    ===================================================================== */
 var TIERS = [
   {
-    id: "t1", rank: 0, name: "Reading bars",
+    id: "t0", rank: 0, name: "The first three setups",
+    blurb: "Brooks is blunt about this: a beginner should trade a handful of the strongest setups and pass on everything else. These are those setups, end to end — read it, enter it, stop it, target it, manage it. Nothing here is optional and nothing else is worth your money yet.",
+    nodes: [
+      { id: "t0a", kind: "context", n: 8, title: "Know the three on sight", pool: POOL.core, pass: 0.85, streak: 4 },
+      { id: "t0b", kind: "barCount", n: 8, title: "Count the pullback", pool: POOL.pullback, pass: 0.85, streak: 4 },
+      { id: "t0c", kind: "entry", n: 8, title: "Where the order goes", pool: POOL.core, pass: 0.85, streak: 4 },
+      { id: "t0d", kind: "stop", n: 8, title: "Where you are wrong", pool: POOL.core, pass: 0.85, streak: 4 },
+      { id: "t0e", kind: "target", n: 8, title: "Where you are getting paid", pool: POOL.core, pass: 0.85, streak: 4 },
+      { id: "t0f", kind: "manage", n: 8, title: "Managing what you took", pool: POOL.core, pass: 0.85, streak: 4 },
+      { id: "t0g", kind: "plan", n: 8, title: "The whole trade, one chart", pool: POOL.core, minRR: 1.8, pass: 0.85, streak: 4 },
+      { id: "t0h", kind: "takeSide", n: 10, title: "Pass on everything else", pool: POOL.all, pass: 0.88, streak: 5 }
+    ]
+  },
+  {
+    id: "t1", rank: 1, name: "Reading bars",
     blurb: "Before context, before setups: what is this bar telling you, and which way is the market leaning?",
     nodes: [
       { id: "t1a", kind: "signalBar", n: 6, title: "Signal bar quality" },
@@ -2621,7 +2937,9 @@ var TIERS = [
       { id: "t3b", kind: "stop", n: 6, title: "Stops in trends", pool: POOL.trend },
       { id: "t3c", kind: "measure", n: 5, title: "Spike measured move", pool: POOL.mmSpike },
       { id: "t3d", kind: "measure", n: 5, title: "Leg one equals leg two", pool: POOL.mmLeg },
-      { id: "t3e", kind: "scalpSwing", n: 6, title: "Scalp or swing?", pool: POOL.trend.concat(POOL.rangeTradeable) }
+      { id: "t3e", kind: "scalpSwing", n: 6, title: "Scalp or swing?", pool: POOL.trend.concat(POOL.rangeTradeable) },
+      { id: "t3f", kind: "barCount", n: 8, title: "High 1, 2, 3, 4", pool: POOL.pullback },
+      { id: "t3g", kind: "entry", n: 6, title: "Stop entries with the trend", pool: POOL.trend }
     ]
   },
   {
@@ -2632,7 +2950,8 @@ var TIERS = [
       { id: "t4b", kind: "takeSide", n: 8, title: "Trade it or leave it", pool: POOL.range },
       { id: "t4c", kind: "stop", n: 6, title: "Stops at the edges", pool: POOL.rangeTradeable },
       { id: "t4d", kind: "target", n: 6, title: "Range targets", pool: POOL.rangeTradeable },
-      { id: "t4e", kind: "scalpSwing", n: 6, title: "Ranges are scalps", pool: POOL.rangeTradeable.concat(POOL.trend) }
+      { id: "t4e", kind: "scalpSwing", n: 6, title: "Ranges are scalps", pool: POOL.rangeTradeable.concat(POOL.trend) },
+      { id: "t4f", kind: "entry", n: 6, title: "Limit orders at the edge", pool: POOL.rangeTradeable }
     ]
   },
   {
@@ -2671,7 +2990,8 @@ var TIERS = [
       { id: "t8a", kind: "traderEq", n: 8, title: "Is it worth taking?" },
       { id: "t8b", kind: "size", n: 5, title: "Size from the stop" },
       { id: "t8c", kind: "expect", n: 5, title: "Expectancy maths" },
-      { id: "t8d", kind: "plan", n: 6, title: "Build it anywhere", pool: POOL.all, minRR: 1.8 }
+      { id: "t8d", kind: "manage", n: 8, title: "Managing the position", pool: POOL.tradeable },
+      { id: "t8e", kind: "plan", n: 6, title: "Build it anywhere", pool: POOL.all, minRR: 1.8 }
     ]
   },
   {
@@ -2687,14 +3007,15 @@ var TIERS = [
     id: "t10", rank: 9, name: "Mastery certification",
     blurb: "Everything, mixed, under one standard. Pass both and you are done here.",
     nodes: [
-      { id: "t10a", kind: "mixed", n: 14, title: "Mixed examination", pass: 0.85 },
-      { id: "t10b", kind: "replay", n: 8, title: "Certification session", pool: POOL.all, minRR: 1.8, pass: 0.8 }
+      { id: "t10a", kind: "mixed", n: 20, title: "Mixed examination", pass: 0.92, streak: 8 },
+      { id: "t10b", kind: "replay", n: 10, title: "Certification session", pool: POOL.all, minRR: 1.8, pass: 0.9, streak: 5 }
     ]
   }
 ];
 
 var MIXED_KINDS = ["alwaysIn", "cycle", "context", "signalBar", "takeSide", "rangePlace",
-  "boFate", "scalpSwing", "measure", "stop", "target", "traderEq", "plan"];
+  "boFate", "scalpSwing", "measure", "stop", "target", "traderEq", "plan",
+  "entry", "barCount", "manage"];
 
 function nodeById(id) {
   for (var i = 0; i < TIERS.length; i++) {
@@ -2758,19 +3079,29 @@ var PROG = (function () {
     st.xp += Math.round(score * 12) + 2;
     save();
   }
-  function nodeDone(node, avg) {
+  function nodeDone(node, avg, streak) {
     var rec = st.nodes[node.id] || (st.nodes[node.id] = { best: 0, tries: 0 });
     rec.tries++; rec.last = avg;
     if (avg > rec.best) rec.best = avg;
+    if (streak !== undefined && streak > (rec.bestStreak || 0)) rec.bestStreak = streak;
+    /* both conditions, in the same run, or it does not count */
+    if (avg >= (node.pass || PASS_MARK) && (streak || 0) >= (node.streak || 0)) rec.passed = true;
     rec.at = Date.now();
     st.xp += Math.round(avg * 45) + 10;
     st.journal.unshift({ t: Date.now(), node: node.id, title: node.title, avg: avg, n: node.n });
     st.journal = st.journal.slice(0, 60);
     recomputeRank(); save();
   }
+  /* A node is passed only by a single run that cleared BOTH the pass mark and
+     the required run of consecutive clean answers. Averaging alone lets a good
+     patch carry a bad one; the streak is what removes the doubt.
+     Saves written before streaks existed are grandfathered on score alone. */
   function nodePass(node) {
     var rec = st.nodes[node.id];
-    return !!rec && rec.best >= (node.pass || 0.7);
+    if (!rec) return false;
+    if (rec.passed) return true;
+    if (rec.legacy || rec.placed) return rec.best >= (node.pass || PASS_MARK);
+    return false;
   }
   function tierDone(tier) { return tier.nodes.every(nodePass); }
   function tierProgress(tier) {
@@ -2803,7 +3134,10 @@ var PROG = (function () {
   function place(rank) {
     st.placed = true;
     st.rank = Math.max(st.rank, rank);
-    for (var i = 0; i < rank; i++) {
+    /* Tier 0 is never granted by placement. The core setups are the ones you
+       are going to trade with real money first, so they get earned, not
+       inferred from a mixed test that only sampled them in passing. */
+    for (var i = 1; i < rank; i++) {
       TIERS[i].nodes.forEach(function (nd) {
         var rec = st.nodes[nd.id] || (st.nodes[nd.id] = { best: 0, tries: 0 });
         if (rec.best < 0.75) { rec.best = 0.75; rec.placed = true; }
@@ -3564,19 +3898,31 @@ var PROG = (function () {
   function finishNode() {
     var avg = S.scores.reduce(function (a, b) { return a + b; }, 0) / S.scores.length;
     if (S.placement) {
+      /* shifted by one now that tier 0 sits in front, and capped so placement
+         can never hand out the last two tiers */
       var rank = avg < 0.3 ? 0 : avg < 0.42 ? 1 : avg < 0.52 ? 2 : avg < 0.6 ? 3 : avg < 0.68 ? 4 :
         avg < 0.75 ? 5 : avg < 0.82 ? 6 : avg < 0.9 ? 7 : 8;
+      if (rank > 0) rank = Math.min(rank + 1, TIERS.length - 2);
       PROG.place(rank);
       modal('<h2>Placed: ' + RANKS[rank].n + '</h2>' +
         '<p>You scored <b>' + Math.round(avg * 100) + '%</b> across the mixed set.</p>' +
-        '<p>The ladder now starts at <b>' + TIERS[rank].name + '</b> and runs through to Mastery certification. ' +
-        'Everything below is unlocked if you want to revisit it — the scores there are provisional until you actually run the drills.</p>' +
+        '<p>Tiers up to <b>' + TIERS[rank].name + '</b> are unlocked, and the scores there are provisional until you actually run the drills.</p>' +
+        '<p><b>You still start at ' + TIERS[0].name + '.</b> Placement does not skip it, whatever you scored. ' +
+        'Those are the setups you would be putting real money on first, and Brooks’ advice to a new trader is to trade only those until they are automatic — so they get earned rather than inferred from a mixed test that only sampled them in passing.</p>' +
         '<button class="btn primary" id="okBtn">Show my path</button>');
       $("okBtn").onclick = function () { closeModal(); setView("path"); };
       return;
     }
-    var pass = avg >= (S.node.pass || 0.7);
-    PROG.nodeDone(S.node, avg);
+    /* longest run of clean answers in THIS session */
+    var streak = 0, run = 0;
+    for (var si = 0; si < S.scores.length; si++) {
+      if (S.scores[si] >= CLEAN_MARK) { run++; if (run > streak) streak = run; }
+      else run = 0;
+    }
+    var needStreak = S.node.streak || 0;
+    var mark = S.node.pass || PASS_MARK;
+    var pass = avg >= mark && streak >= needStreak;
+    PROG.nodeDone(S.node, avg, streak);
     var rTxt = "";
     if (S.rs.length) {
       var tot = S.rs.reduce(function (a, b) { return a + b; }, 0);
@@ -3586,8 +3932,17 @@ var PROG = (function () {
     }
     modal('<h2>' + esc(S.node.title) + '</h2>' +
       '<p>Score <b>' + Math.round(avg * 100) + '%</b> · ' +
-      (pass ? '<span class="up">passed</span>' : '<span class="dn">below the ' + Math.round((S.node.pass || 0.7) * 100) + '% pass mark</span>') + '</p>' + rTxt +
-      (pass ? "" : "<p>Retake it — repetition on the same skill is the whole point. Your best score is the one that counts.</p>") +
+      (pass
+        ? '<span class="up">passed</span>'
+        : '<span class="dn">' + (avg < mark
+            ? "below the " + Math.round(mark * 100) + "% pass mark"
+            : "cleared " + Math.round(mark * 100) + "% but not the streak") + '</span>') + '</p>' +
+      (needStreak
+        ? '<p>Longest clean run this session: <b>' + streak + '</b> of the <b>' + needStreak +
+          '</b> in a row required. A node is only passed when one session clears both the mark and the streak — ' +
+          'an average can hide a skill you only half have.</p>'
+        : '') + rTxt +
+      (pass ? "" : "<p>Retake it — repetition on the same skill is the whole point. Both conditions have to be met in the same session.</p>") +
       '<button class="btn primary" id="okBtn">' + (pass ? "Continue" : "Back to path") + '</button> ' +
       '<button class="btn ghost" id="againBtn">Run it again</button>');
     $("okBtn").onclick = function () { closeModal(); setView("path"); };
