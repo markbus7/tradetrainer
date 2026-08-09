@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.6.1 — Cadet to Master</title>
+<title>TRADE TRAINER v3.6.2 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.6.1", build: "2026-08-09", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.6.2", build: "2026-08-09", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -613,7 +613,7 @@ var Mkt = (function () {
     style: "scalp", mmType: "failedBo", entryType: "stop", sigQ: "strong",
     brooks: "About eight out of ten breakout attempts out of a trading range fail. Price broke below the range, found no sellers, and has reversed back inside — every breakout seller is now trapped and has to buy back. Buy, with a stop below the failed low, and target the other side of the range.",
     mmRule: "A failed breakout targets the opposite side of the range; the range height projected from the failed extreme is the stretch target.",
-    howTo: ["It starts exactly like a trading range \u2014 the setup here IS the range, so find that first.", "The failed-breakout structure begins the moment price pushes outside an edge \u2014 that push is what you now watch closely.", "It becomes a valid failed-breakout trade the moment that push shows no follow-through (small body, long tail back inside) and closes back inside the range \u2014 that snap-back in is the confirmation, not the push out.", "The stop sits just beyond the actual extreme of that failed push \u2014 the wick tip, not the range edge itself. If price trades back past that wick, the 'it was just a fakeout' read is wrong."],
+    howTo: ["It starts exactly like a trading range \u2014 the setup here IS the range, so find that first. That is what separates this from a major trend reversal: here the market was already two-sided, with no trend to reverse, so a failed probe is tradeable straight away. In a trend you would first need a significant trendline break before any reversal read counts.", "The failed-breakout structure begins the moment price pushes outside an edge \u2014 that push is what you now watch closely.", "It becomes a valid failed-breakout trade the moment that push shows no follow-through (small body, long tail back inside) and closes back inside the range \u2014 that snap-back in is the confirmation, not the push out.", "The stop sits just beyond the actual extreme of that failed push \u2014 the wick tip, not the range edge itself. If price trades back past that wick, the 'it was just a fakeout' read is wrong."],
     segs: function (R) {
       var top = R.f(0.96, 1.04), bot = R.f(0.0, 0.05);
       return [
@@ -708,9 +708,9 @@ var Mkt = (function () {
     name: "Major trend reversal (bull)", twin: "Major trend reversal (bear)",
     family: "reversal", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.62, pWin: 0.6,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong",
-    brooks: "A major trend reversal needs all of it: a strong bear trend, a break of the bear trendline, then a test of the low that holds — a higher low with a strong bull signal bar. Without the trendline break first, a reversal attempt is just a pullback and about seven in ten fail.",
+    brooks: "A major trend reversal needs all of it: a strong bear trend, a countertrend move strong enough to break the bear trendline (and usually the moving average), then a test of the old low that holds. The test can come as a higher low OR as a lower low that reverses — Brooks says the two happen about equally often, so do not insist on a higher low. Without the trendline break first, a reversal attempt is just a pullback, and about four out of five of those fail.",
     mmRule: "Measure the first leg up off the low and project it from the higher low.",
-    howTo: ["It starts with a real trend already in place \u2014 a clear sequence of lower highs and lower lows, not just one big bar.", "It is still just 'a trend' until two separate things both happen: a break of the trendline connecting the recent lower highs, AND a test of the old low that HOLDS as a higher low, not a new low.", "The break that actually matters is not the trendline break alone \u2014 trendline breaks are common and are usually still just a pullback. It is specifically that higher low holding afterward that flips the read to reversal.", "The stop sits just below that higher low, since that is the one point that, if it fails, means the 'reversal' was actually just a pause inside the same downtrend."],
+    howTo: ["It starts with a real trend already in place \u2014 a clear sequence of lower highs and lower lows, not just one big bar. This is the whole difference from a failed breakout: a failed breakout happens inside a TRADING RANGE, where the market was already two-sided and there is no trend to reverse. Here there is a trend, so it has to be broken before anything else counts.", "First requirement: a countertrend move strong enough to BREAK THE TRENDLINE drawn along the recent lower highs, and usually the moving average with it. Brooks is blunt that you should not even think about trading against a trend until a significant trendline has broken. Without it, what you are looking at is a pullback, and about four out of five of those fail.", "Second requirement: a test of the old low that holds. The test can be a HIGHER LOW or a LOWER LOW that reverses \u2014 Brooks says the two occur about equally often, so do not throw away the setup because price traded through the old low. A lower-low test that reverses hard IS the failed breakout of the trend's low, and that is one of the strongest versions of this pattern.", "So the sequence is: trend, then trendline break, then a test that holds. The trendline break alone is not enough, and the test alone is not enough \u2014 it is the pair, in that order.", "The stop sits just beyond the extreme of that test, since that is the one point that, if it fails, means the 'reversal' was just a pause inside the same downtrend."],
     segs: function (R) {
       return [
         [R.i(14, 20), R.f(1.20, 1.34), "start"],
@@ -2860,13 +2860,40 @@ KIND.barCount = {
       3: "Three attempts. Three pushes is a wedge, and a wedge-shaped flag still works with the trend — but the trend is losing its grip, and a failure here often becomes the reversal.",
       4: "Four attempts. Once the count runs this far the pullback has stopped being a pullback: repeated failures to resume mean two-sided trading, and you should be reading this as a developing trading range, not a flag."
     }[n];
+    /* The count says WHICH attempt this is, not how good it is. A deep or
+       strongly countertrend pullback produces exactly the same number as a
+       shallow one, and it is a materially worse trade — so say so. */
+    var bars = ch.bars, from = g.pbFrom, to = g.sigIdx, against = 0, run = 0, worst = 0;
+    for (var i = from + 1; i <= to && i < bars.length; i++) {
+      var cnt = bull ? bars[i].c < bars[i].o : bars[i].c > bars[i].o;
+      if (cnt) { run++; if (run > worst) worst = run; } else run = 0;
+      if (cnt) against++;
+    }
+    var span = Math.max(1, to - from);
+    var depth = Math.abs(bars[from][bull ? "h" : "l"] - bars[to][bull ? "l" : "h"]) / Math.max(1e-9, ch.atr);
+    var quality;
+    if (worst >= 4 || depth > 4) {
+      quality = "But look at the <b>shape</b> of this pullback, not just the number: " +
+        (worst >= 4 ? "there is a run of <b>" + worst + " consecutive " + (bull ? "bear" : "bull") + " bars</b> in it" : "it is <b>" + depth.toFixed(1) + " ATR deep</b>") +
+        ". That is a strong correction, and a " + H + " " + n + " coming out of one is a much weaker " +
+        (bull ? "buy" : "sell") + " than the same count out of a shallow, sideways flag. " +
+        "Brooks: if the pullback is deep enough to break the prior " + (bull ? "higher low" : "lower high") +
+        ", the trend itself is in question — check whether the always-in direction has flipped before you treat this as a " + (bull ? "bull" : "bear") + " flag at all.";
+    } else if (against / span < 0.4 && depth < 2.2) {
+      quality = "The pullback itself is shallow and sideways — " + against + " countertrend bars in " + span +
+        ", about " + depth.toFixed(1) + " ATR. That is what makes a count worth trading: the trend never really gave anything back.";
+    } else {
+      quality = "Pullback shape: " + against + " countertrend bars in " + span + ", about " + depth.toFixed(1) +
+        " ATR deep. Ordinary. The count tells you which attempt this is; the shape tells you how much it is worth.";
+    }
     return {
       score: ok ? 1 : 0, reveal: true,
       verdict: ok ? "Correct — " + H + " " + n : "It is a " + H + " " + n,
       lines: [
         "<b>" + H + " " + n + "</b> on this tape. " + why,
-        "The count resets the moment the trend makes a new " + (bull ? "high" : "low") +
-        " — from there, the next pullback starts again at " + H + " 1."
+        quality,
+        "The count does <b>not</b> reset because the correction gets ugly — countertrend bars are what re-arm it. It resets when the trend RESUMES and makes a new " +
+        (bull ? "high" : "low") + "; from there the next pullback starts again at " + H + " 1."
       ]
     };
   }
@@ -4416,6 +4443,21 @@ var PROG = (function () {
       'alternative — it is simply a bigger stop, so smaller size and a different equation — and both are graded as ' +
       'correct here. When an oversized signal bar makes that stop very wide, Brooks treats it as a reason to skip ' +
       'the trade rather than accept the extra risk.</p>' +
+
+      '<h3>Failed breakout or major trend reversal?</h3>' +
+      '<p>They look alike and they are graded separately, so the difference is worth being exact about. It is <b>what ' +
+      'came before</b>, not what the reversal looks like.</p>' +
+      '<li><b>Failed breakout</b> — the market was already in a <b>trading range</b>: two-sided, no trend to reverse. ' +
+      'A probe pokes through an edge, finds nobody, and snaps back in. Tradeable immediately, as a scalp, targeting ' +
+      'the other side of the range.</li>' +
+      '<li><b>Major trend reversal</b> — the market was in a real <b>trend</b>. Before any reversal read counts you ' +
+      'need a countertrend move strong enough to <b>break the trendline</b>, and usually the moving average with it. ' +
+      'Brooks: never even think about trading against a trend until a significant trendline has broken. Then you ' +
+      'need a test of the old extreme that holds. That is a swing, not a scalp.</li>' +
+      '<p>The test of the old low can be a <b>higher low or a lower low</b> — Brooks says the two happen about ' +
+      'equally often. So do not discard a reversal because price dipped under the old low: a lower-low test that ' +
+      'reverses hard <i>is</i> a failed breakout, of the trend\'s low rather than a range edge. The two patterns are ' +
+      'the same mechanic in different contexts, and the context is what decides how you trade it.</p>' +
 
       '<h3>Initial risk and actual risk</h3>' +
       '<p>These are two different numbers and Brooks separates them carefully.</p>' +
