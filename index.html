@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.9.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.10.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.9.0", build: "2026-08-09", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.10.0", build: "2026-08-09", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -491,17 +491,17 @@ var Mkt = (function () {
     style: "scalp", mmType: "range", entryType: "limit", sigQ: "strong",
     brooks: "In a trading range you buy low, sell high and scalp. Price is at the bottom of the range with buyers stepping in, so buy — but take profit at the middle or the top, not beyond. There is no always-in direction in a range; anyone trading it like a trend gets cut to pieces.",
     mmRule: "The range height is the measure. From the low, the realistic target is the middle; the top of the range is the stretch.",
-    howTo: ["A trading range starts once price stops trending and starts reversing on itself \u2014 two clear touches near the same high and two near the same low, neither one broken.", "It is still 'the range' as long as both edges keep holding \u2014 a wick beyond an edge that snaps back inside still counts as the range holding, not breaking.", "Structure breaks when a CLOSE \u2014 not just a wick \u2014 goes through an edge, with real follow-through on the next bar. That is the point it stops being a range and starts being a breakout.", "At an edge, the stop sits just beyond that edge, because a close beyond it is exactly what would mean the range is no longer the range."],
+    howTo: ["A trading range starts once price stops trending and starts reversing on itself \u2014 two clear touches near the same high and two near the same low, neither one broken.", "It is still 'the range' as long as both edges keep holding \u2014 a wick beyond an edge that snaps back inside still counts as the range holding, not breaking.", "Structure breaks when a CLOSE \u2014 not just a wick \u2014 goes through an edge, with real follow-through on the next bar. That is the point it stops being a range and starts being a breakout.", "At an edge, the stop sits just beyond that edge, because a close beyond it is exactly what would mean the range is no longer the range.", "Do not wait for a beautiful signal bar at the edge — <b>bad entry bars in a trading range are normal</b>, because both sides are still trading. What replaces bar quality here is <b>counting attempts</b>: the first try to turn the range usually fails, and the traders who took it are trapped, which is what fuels the next one. Brooks' standard trigger at a range edge is the <b>second entry</b>."],
     segs: function (R) {
       var top = R.f(0.96, 1.04), bot = R.f(-0.02, 0.03);
       return [
-        [R.i(10, 16), R.f(0.40, 0.60), "pre"],
-        [R.i(6, 9),   top, "t1"],
-        [R.i(6, 9),   bot + R.f(0, 0.05), "b1"],
-        [R.i(6, 9),   top - R.f(0, 0.07), "t2"],
-        [R.i(6, 9),   bot + R.f(0.02, 0.07), "b2"],
-        [R.i(5, 8),   top - R.f(0, 0.06), "t3"],
-        [R.i(6, 9),   bot + R.f(0, 0.04), "sig"]
+        [R.i(16, 22), R.f(0.40, 0.60), "pre"],
+        [R.i(22, 28), top, "t1"],
+        [R.i(22, 28), bot + R.f(0, 0.05), "b1"],
+        [R.i(22, 28), top - R.f(0, 0.07), "t2"],
+        [R.i(22, 28), bot + R.f(0.02, 0.07), "b2"],
+        [R.i(20, 26), top - R.f(0, 0.06), "t3"],
+        [R.i(18, 24), bot + R.f(0, 0.04), "sig"]
       ];
     },
     hU: function () { return 1.0; },
@@ -527,13 +527,13 @@ var Mkt = (function () {
     segs: function (R) {
       var top = R.f(0.96, 1.04), bot = R.f(-0.02, 0.03);
       return [
-        [R.i(10, 16), R.f(0.40, 0.60), "pre"],
-        [R.i(6, 9),   top, "t1"],
-        [R.i(6, 9),   bot + R.f(0, 0.05), "b1"],
-        [R.i(6, 9),   top - R.f(0, 0.07), "t2"],
-        [R.i(6, 9),   bot + R.f(0.02, 0.07), "b2"],
-        [R.i(5, 8),   top - R.f(0, 0.06), "t3"],
-        [R.i(6, 9),   R.f(0.42, 0.58), "sig"]
+        [R.i(16, 22), R.f(0.40, 0.60), "pre"],
+        [R.i(22, 28), top, "t1"],
+        [R.i(22, 28), bot + R.f(0, 0.05), "b1"],
+        [R.i(22, 28), top - R.f(0, 0.07), "t2"],
+        [R.i(22, 28), bot + R.f(0.02, 0.07), "b2"],
+        [R.i(20, 26), top - R.f(0, 0.06), "t3"],
+        [R.i(18, 24), R.f(0.42, 0.58), "sig"]
       ];
     },
     hU: function () { return 0.5; },
@@ -618,13 +618,13 @@ var Mkt = (function () {
     segs: function (R) {
       var top = R.f(0.96, 1.04), bot = R.f(0.0, 0.05);
       return [
-        [R.i(10, 15), R.f(0.4, 0.6), "pre"],
-        [R.i(6, 9),   top, "t1"],
-        [R.i(6, 9),   bot, "b1"],
-        [R.i(6, 9),   top - R.f(0, 0.07), "t2"],
-        [R.i(5, 8),   bot + R.f(0.02, 0.06), "b2"],
-        [R.i(4, 6),   R.f(-0.26, -0.16), "bo"],
-        [R.i(3, 5),   R.f(0.12, 0.20), "sig"]
+        [R.i(16, 22), R.f(0.4, 0.6), "pre"],
+        [R.i(22, 28), top, "t1"],
+        [R.i(22, 28), bot, "b1"],
+        [R.i(22, 28), top - R.f(0, 0.07), "t2"],
+        [R.i(20, 26), bot + R.f(0.02, 0.06), "b2"],
+        [R.i(5, 8),   R.f(-0.26, -0.16), "bo"],
+        [R.i(2, 3),   R.f(0.01, 0.07), "sig"]
       ];
     },
     hU: function () { return 0.85; },
@@ -651,11 +651,11 @@ var Mkt = (function () {
     segs: function (R) {
       var top = R.f(0.96, 1.04), bot = R.f(0.0, 0.05);
       return [
-        [R.i(10, 15), R.f(0.4, 0.6), "pre"],
-        [R.i(6, 9),   top, "t1"],
-        [R.i(6, 9),   bot, "b1"],
-        [R.i(6, 9),   top - R.f(0, 0.06), "t2"],
-        [R.i(5, 8),   bot + R.f(0.03, 0.08), "b2"],
+        [R.i(16, 22), R.f(0.4, 0.6), "pre"],
+        [R.i(22, 28), top, "t1"],
+        [R.i(22, 28), bot, "b1"],
+        [R.i(22, 28), top - R.f(0, 0.06), "t2"],
+        [R.i(20, 26), bot + R.f(0.03, 0.08), "b2"],
         [R.i(4, 6),   R.f(1.22, 1.34), "bo"],
         [R.i(3, 4),   R.f(1.16, 1.26), "sig"]
       ];
@@ -1218,6 +1218,12 @@ var Mkt = (function () {
         sigStop: sigStop, initialRisk: initialRisk, structureRisk: structureRisk,
         actualRisk: actualRisk, sigRR: sigRR,
         pbFrom: pbFrom, barCount: count.n, countIdx: count.idx,
+        /* Brooks' first and second entry are the same thing as the first two
+           counting bars: each is an attempt to turn the market your way. In a
+           trading range the first attempt usually fails, which is exactly why
+           the second entry is the standard trigger there. */
+        firstEntry: count.idx.length > 0 ? bars[count.idx[0]] : null,
+        secondEntry: count.idx.length > 1 ? bars[count.idx[1]] : null,
         rangeTop: g.rangeTop, rangeBot: g.rangeBot,
         sigIdx: sigIdx, decision: sigIdx, sigQuality: sigQuality, sigKind: quality,
         worked: hitT >= 0 && (hitI < 0 || hitT < hitI),
@@ -3039,6 +3045,57 @@ KIND.reversalType = {
   }
 };
 
+/* --- 21. first entry or second entry? ------------------------------
+   Brooks: in a trading range the first attempt to turn the market usually
+   fails, so you wait for the second entry. In a strong trend you do not get a
+   second chance — the first pullback is the trade. Signal-bar quality is not
+   the deciding factor, which is the point: bad-looking entry bars in a range
+   are normal, and counting attempts is what replaces waiting for a pretty bar. */
+KIND.secondEntry = {
+  skill: "traps", skill2: "execution",
+  right: function (p) { return p.ch.gt.family === "trend" ? "first" : "second"; },
+  prepare: function (sp, seed) {
+    var ch = Mkt.gen({ seed: seed, ctx: pickPool(sp.pool || POOL.tradeable, seed) });
+    var d = ch.gt.dir > 0 ? "up" : "down";
+    return {
+      ch: ch,
+      q: "The market is about to make its <b>first attempt</b> to turn " + d +
+         " here. Do you take that first attempt, or wait for the second?",
+      ui: {
+        mode: "mcq", options: [
+          { k: "first", t: "Take the first entry — in this context you will not get a better one" },
+          { k: "second", t: "Wait for the second entry — the first attempt here usually fails" },
+          { k: "quality", t: "Decide on the signal bar: take it only if the bar itself is strong" },
+          { k: "none", t: "Neither — there is no trade in this context" }
+        ]
+      }
+    };
+  },
+  grade: function (p, ans) {
+    var ch = p.ch, g = ch.gt, isTrend = g.family === "trend";
+    var right = isTrend ? "first" : "second", ok = ans === right;
+    var lines = ["<b>" + g.name + "</b>. " + g.brooks];
+    var whatFails = (g.family === "range" || g.family === "nothing")
+      ? "to turn a trading range" : "to reverse a move like this";
+    lines.push(isTrend
+      ? "This is a <b>trend</b>. The pullbacks are shallow and they do not come back — Brooks buys the first one, because waiting for a second entry in a tight channel usually means watching the move leave without you."
+      : "This is <b>two-sided</b>. The first attempt " + whatFails + " usually fails, and that failure is what traps the traders who took it — which is exactly what fuels the second attempt. The <b>second entry</b> is Brooks' standard trigger here.");
+    if (ans === "quality") {
+      lines.push("Judging it on the signal bar is the trap. <b>Bad entry bars are normal wherever the market is two-sided</b> — if you hold out for a clean one you will take almost nothing. Counting attempts is what replaces waiting for a pretty bar.");
+    }
+    if (g.firstEntry && g.secondEntry) {
+      lines.push("On this tape the first attempt came at <b>" + fmtN(g.dir > 0 ? g.firstEntry.h : g.firstEntry.l, ch.dec) +
+        "</b> and the second at <b>" + fmtN(g.dir > 0 ? g.secondEntry.h : g.secondEntry.l, ch.dec) + "</b>.");
+    }
+    lines.push(probLine(ch));
+    return {
+      score: ok ? 1 : (ans === "quality" ? 0.2 : 0), reveal: true,
+      verdict: ok ? "Correct" : (isTrend ? "Take the first one here" : "Wait for the second"),
+      lines: lines
+    };
+  }
+};
+
 /* ---------------- pool picker ---------------- */
 function pickPool(pool, seed) {
   var R = Mkt.mkR((seed ^ 0x9e37) >>> 0);
@@ -3077,6 +3134,7 @@ var TIERS = [
     nodes: [
       { id: "t0a", kind: "context", n: 8, title: "Know the three on sight", pool: POOL.core, pass: 0.85, streak: 4 },
       { id: "t0a2", kind: "reversalType", n: 8, title: "Failed breakout or reversal?", pool: POOL.confusable, pass: 0.85, streak: 4 },
+      { id: "t0a3", kind: "secondEntry", n: 8, title: "First entry or second?", pool: POOL.core.concat(POOL.trend), pass: 0.85, streak: 4 },
       { id: "t0b", kind: "barCount", n: 8, title: "Count the pullback", pool: POOL.pullback, pass: 0.85, streak: 4 },
       { id: "t0c", kind: "entry", n: 8, title: "Where the order goes", pool: POOL.core, pass: 0.85, streak: 4 },
       { id: "t0d", kind: "stop", n: 8, title: "Where you are wrong", pool: POOL.core, pass: 0.85, streak: 4 },
@@ -3127,7 +3185,8 @@ var TIERS = [
       { id: "t4c", kind: "stop", n: 6, title: "Stops at the edges", pool: POOL.rangeTradeable },
       { id: "t4d", kind: "target", n: 6, title: "Range targets", pool: POOL.rangeTradeable },
       { id: "t4e", kind: "scalpSwing", n: 6, title: "Ranges are scalps", pool: POOL.rangeTradeable.concat(POOL.trend) },
-      { id: "t4f", kind: "entry", n: 6, title: "Limit orders at the edge", pool: POOL.rangeTradeable }
+      { id: "t4f", kind: "entry", n: 6, title: "Limit orders at the edge", pool: POOL.rangeTradeable },
+      { id: "t4g", kind: "secondEntry", n: 8, title: "Why the second entry", pool: POOL.rangeTradeable.concat(POOL.trend) }
     ]
   },
   {
@@ -3192,7 +3251,7 @@ var TIERS = [
 
 var MIXED_KINDS = ["alwaysIn", "cycle", "context", "signalBar", "takeSide", "rangePlace",
   "boFate", "scalpSwing", "measure", "stop", "target", "traderEq", "plan",
-  "entry", "barCount", "manage", "reversalType"];
+  "entry", "barCount", "manage", "reversalType", "secondEntry"];
 
 function nodeById(id) {
   for (var i = 0; i < TIERS.length; i++) {
@@ -4673,6 +4732,17 @@ var PROG = (function () {
       'alternative — it is simply a bigger stop, so smaller size and a different equation — and both are graded as ' +
       'correct here. When an oversized signal bar makes that stop very wide, Brooks treats it as a reason to skip ' +
       'the trade rather than accept the extra risk.</p>' +
+
+      '<h3>The second entry</h3>' +
+      '<p>At a range edge the first attempt to turn the market usually fails. The traders who took it are now ' +
+      'trapped, and unwinding them is what fuels the next attempt — so Brooks\' standard trigger in two-sided ' +
+      'trading is the <b>second entry</b>, not the first.</p>' +
+      '<p>This matters more than it sounds, because it replaces something you cannot rely on. <b>Bad entry bars in ' +
+      'a trading range are normal</b> — both sides are still trading, so the bars are messy by nature. Hold out for ' +
+      'a clean signal bar at the edge and you will take almost nothing. Counting attempts is what you use instead.</p>' +
+      '<p>A <b>trend</b> is the opposite: the pullbacks are shallow and they do not come back, so Brooks takes the ' +
+      'first one. Waiting for a second entry in a tight channel usually means watching the move leave without you. ' +
+      'Which of the two you are in decides it — not how the bar looks.</p>' +
 
       '<h3>Failed breakout or major trend reversal?</h3>' +
       '<p>They look alike and they are graded separately, so the difference is worth being exact about. It is <b>what ' +
