@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.6.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.6.1 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.6.0", build: "2026-08-08", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.6.1", build: "2026-08-09", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -461,7 +461,7 @@ var Mkt = (function () {
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", countTarget: 2,
     brooks: "A two-legged pullback to the 20-bar moving average in a bull trend is the highest-probability buy there is. The first attempt up traps bulls in too early; when it fails, those bulls capitulate and bears press \u2014 and the second attempt up traps the bears. Buy on a stop one tick above the High 2 signal bar.",
     mmRule: "Leg 1 equals leg 2: measure the prior leg up and project the same distance from the pullback low.",
-    howTo: ["It starts when an established bull trend makes its first pullback against itself. From that moment you are counting BARS, not eyeballing legs.", "The <b>High 1</b> is the first bar whose high trades above the high of the bar before it \u2014 the first attempt to resume the trend.", "Then wait for one bar with a <b>lower high</b>. It can come one bar later or several. That single bar is all it takes to arm the next count \u2014 the correction does not have to make a new low, and it does not have to complete a leg.", "The <b>High 2</b> is the next bar after that whose high trades above the prior bar's high \u2014 the second attempt. That bar is the setup. Note what is NOT required: leg two does not have to trade below leg one's low. Brooks takes High 2s whose second leg ends above the first one; it is the count that defines it, not the depth. Demand a lower low and you will sit out valid High 2s.", "Third and fourth occurrences are a High 3 and a High 4. The count belongs to this correction \u2014 once the trend resumes and a fresh pullback starts, you begin again at High 1.", "For the stop you have two choices and they are not the same trade: one tick below the SIGNAL BAR's low is the tight, Brooks-standard initial stop; below the second leg's low is the wider swing stop. The tight one risks less and gets stopped more."],
+    howTo: ["It starts when an established bull trend makes its first pullback against itself. From that moment you are counting BARS, not eyeballing legs.", "The <b>High 1</b> is the first bar whose high trades above the high of the bar before it \u2014 the first attempt to resume the trend.", "Then wait for one bar with a <b>lower high</b>. It can come one bar later or several. That single bar is all it takes to arm the next count \u2014 the correction does not have to make a new low, and it does not have to complete a leg.", "The <b>High 2</b> is the next bar after that whose high trades above the prior bar's high \u2014 the second attempt. That bar is the setup. Note what is NOT required: leg two does not have to trade below leg one's low. Brooks takes High 2s whose second leg ends above the first one; it is the count that defines it, not the depth. Demand a lower low and you will sit out valid High 2s.", "Third and fourth occurrences are a High 3 and a High 4. The count belongs to this correction \u2014 once the trend resumes and a fresh pullback starts, you begin again at High 1.", "The protective stop goes one tick below the SIGNAL BAR's low. That distance from your entry is your initial risk — the number you size from. Below the second leg's low is a defensible wider alternative, but it is just a bigger stop: smaller size, different equation. Either way, what the market actually takes out of you before the trade works — the actual risk — is usually far less, and you only learn it afterwards."],
     segs: function (R) {
       return [
         [R.i(16, 22), R.f(-0.05, 0.05), "A"],
@@ -1108,18 +1108,27 @@ var Mkt = (function () {
     var mmTarget = g.anchor.p + (g.measure.b.p - g.measure.a.p);
     var refRR = Math.abs(target - entry) / Math.max(1e-9, Math.abs(entry - invalid));
 
-    /* ---- Brooks distinguishes two stops, and they are different trades ----
-       The INITIAL stop is one tick beyond the signal bar's far extreme: the
-       tightest price that says "the signal bar was wrong". The SWING stop
-       (`invalid`) sits beyond the structure itself. Same entry, different risk,
-       therefore different position size and a different trader's equation.
-       Brooks also calls the distance from entry to the signal-bar stop the
-       "initial risk" — the unit that scalp and swing targets are quoted in. */
+    /* ---- initial risk, structural risk, and (later) actual risk ----
+       Brooks' protective stop goes one tick beyond the signal bar's far
+       extreme, and the distance from entry to there is the INITIAL RISK. That
+       is the number you size from and the number that belongs in the trader's
+       equation, because you do not tighten the stop just because the market
+       goes sideways after you enter.
+
+       A stop beyond the structure itself (`invalid`) is a wider alternative —
+       a bigger initial risk, so smaller size and a different equation. It is
+       not a separate Brooks concept with its own name; it is just a wider stop.
+
+       ACTUAL RISK is the genuinely distinct idea, and it is a different thing
+       from either of these: the distance from entry to the extreme of the
+       pullback that happens AFTER entry. It is knowable only in hindsight and
+       is usually far smaller than the initial risk. Computed below, once the
+       tape has been resolved. */
     var sigStop = dir
       ? (dir > 0 ? sb.l : sb.h) - dir * 0.08 * A14
       : sb.l - 0.08 * A14;
     var initialRisk = Math.abs(entry - sigStop);
-    var swingRisk = Math.abs(entry - invalid);
+    var structureRisk = Math.abs(entry - invalid);
     var sigRR = Math.abs(target - entry) / Math.max(1e-9, initialRisk);
 
     /* ---- the bar count at the decision bar ----
@@ -1152,6 +1161,23 @@ var Mkt = (function () {
       res = scan(); hitT = res[0]; hitI = res[1];
     }
 
+    /* ---- actual risk ----
+       Brooks: the distance from the entry to the extreme of the pullback that
+       happened AFTER entry — not to where the stop was. You can only know it in
+       hindsight, and it is usually much smaller than the initial risk, which is
+       why a trade that looked like 2R on entry so often turns out to have been
+       far better than that. Measured to whichever came first, target or stop. */
+    var actualRisk = 0;
+    if (dir) {
+      var lastBar = hitT >= 0 ? hitT : (hitI >= 0 ? hitI : bars.length - 1);
+      var worst = entry;
+      for (var w = sigIdx + 1; w <= lastBar && w < bars.length; w++) {
+        var adverse = dir > 0 ? bars[w].l : bars[w].h;
+        if (dir > 0 ? adverse < worst : adverse > worst) worst = adverse;
+      }
+      actualRisk = Math.abs(entry - worst);
+    }
+
     return {
       seed: seed, sym: inst.sym, nm: inst.nm, dec: inst.dec, kind: inst.kind,
       tf: tf.k, tfLbl: tf.lbl, bars: bars, atr: A14, U: U,
@@ -1163,7 +1189,8 @@ var Mkt = (function () {
         measure: g.measure, anchor: g.anchor, labels: g.labels || [],
         height: height, entry: entry, target: target, mmTarget: mmTarget, altTarget: g.altTarget,
         invalid: invalid, refRR: refRR,
-        sigStop: sigStop, initialRisk: initialRisk, swingRisk: swingRisk, sigRR: sigRR,
+        sigStop: sigStop, initialRisk: initialRisk, structureRisk: structureRisk,
+        actualRisk: actualRisk, sigRR: sigRR,
         pbFrom: pbFrom, barCount: count.n, countIdx: count.idx,
         rangeTop: g.rangeTop, rangeBot: g.rangeBot,
         sigIdx: sigIdx, decision: sigIdx, sigQuality: sigQuality, sigKind: quality,
@@ -2031,6 +2058,24 @@ function entryHow(g) {
       " is exactly how traders get trapped here, because about eight out of ten range breakouts fail."
     : "You get in here with a <b>stop order</b> just " + side + " the signal bar: price has to trade there to fill you, which is the confirmation. The protective stop then sits " + other + " the bar or the swing behind it.";
 }
+/** Brooks' actual risk: how far the market really went against the entry after
+    you were filled, as opposed to how far your stop sat. Hindsight only — you
+    size from initial risk — but seeing the gap between the two is most of why
+    a good entry is worth so much more than a nearly-good one. */
+function actualRiskLine(ch) {
+  var g = ch.gt;
+  if (!g.tradeable || !isFinite(g.actualRisk)) return "";
+  var ar = g.actualRisk, ir = g.initialRisk;
+  if (ir <= 0) return "";
+  var frac = ar / ir;
+  var head = "On this tape your <b>actual risk</b> — entry to the worst the pullback got after you were filled — was <b>" +
+    fmtN(ar, ch.dec) + "</b>, against an initial risk of <b>" + fmtN(ir, ch.dec) + "</b>.";
+  if (!g.worked) return head + " The trade failed here, so the actual risk ran all the way to the stop and past it. That is the case the initial risk exists for.";
+  if (frac <= 0.45) return head + " The market barely came back at you — roughly " + pct(frac) +
+    " of what you were prepared to lose. Brooks' point is that this is normal on a good entry, and it is why you can only judge a trade's real maths in hindsight. You still had to be willing to risk the full stop.";
+  return head + " It used about " + pct(frac) + " of the stop before working. Comfortable, but not much room spare.";
+}
+
 function outcomeLine(ch) {
   var g = ch.gt;
   if (!g.tradeable) return "";
@@ -2390,25 +2435,25 @@ KIND.stop = {
     var beyond = d > 0 ? (g.invalid - ans) : (ans - g.invalid);
     var s, verdict, note;
 
-    /* The signal-bar stop is the other legitimate answer, so grade it as one.
-       Which is tighter is not fixed: a large signal bar can reach past the
-       structure, and Brooks treats that as a reason to pass, not to shrug. */
+    /* One tick beyond the signal bar is Brooks' standard protective stop, so
+       grade it as fully correct. A stop beyond the structure is a wider
+       alternative, not a differently-named Brooks concept. */
     var sigBeyond = d > 0 ? (g.sigStop - ans) : (ans - g.sigStop);
     if (Math.abs(sigBeyond) <= 0.45 * a && Math.abs(g.sigStop - g.invalid) > 0.5 * a) {
-      var tighter = g.initialRisk <= g.swingRisk;
+      var tighter = g.initialRisk <= g.structureRisk;
       return {
-        score: 0.9, reveal: true, verdict: "The signal-bar stop",
+        score: 1, reveal: true, verdict: "The initial stop — Brooks' standard",
         lines: [
           "<b>" + g.name + "</b>. " + g.brooks,
-          "You used the <b>initial stop</b> — one tick beyond the signal bar at <b>" + fmtN(g.sigStop, ch.dec) +
-          "</b> — rather than the structural stop at <b>" + fmtN(g.invalid, ch.dec) + "</b>. Both are Brooks; they are different trades.",
-          "Here that risks <b>" + fmtN(g.initialRisk, ch.dec) + "</b> against the structure's <b>" + fmtN(g.swingRisk, ch.dec) +
-          "</b>, so on the same target you are trading <b>" + g.sigRR.toFixed(2) + "R</b> instead of <b>" + g.refRR.toFixed(2) + "R</b>. " +
-          (tighter
-            ? "Tighter stop, better R, and you get stopped out more often — that is the trade you are making."
-            : "Note the signal bar here is <b>large</b>, so this stop is actually the WIDER of the two. Brooks treats an oversized signal bar as a reason to skip the trade rather than to accept the extra risk."),
-          g.hitInvalidAt >= 0 ? "Price did trade through the structural level on this tape." : "Price never reached the structural level on this tape."
-        ]
+          "One tick beyond the signal bar at <b>" + fmtN(g.sigStop, ch.dec) + "</b>. That distance from your entry — <b>" +
+          fmtN(g.initialRisk, ch.dec) + "</b> — is your <b>initial risk</b>: the number you size from, and the number that " +
+          "belongs in the trader's equation. You do not tighten it just because the market goes sideways after you enter.",
+          "A stop beyond the structure at <b>" + fmtN(g.invalid, ch.dec) + "</b> risks <b>" + fmtN(g.structureRisk, ch.dec) +
+          "</b> instead — also defensible, but it is simply a wider stop, so smaller size and a different equation (<b>" +
+          g.sigRR.toFixed(2) + "R</b> here versus <b>" + g.refRR.toFixed(2) + "R</b> on the same target). " +
+          (tighter ? "" : "Note the signal bar here is <b>large</b>, so this stop is the wider of the two — Brooks treats an oversized signal bar as a reason to skip the trade rather than accept the extra risk."),
+          actualRiskLine(ch)
+        ].filter(Boolean)
       };
     }
 
@@ -2433,8 +2478,9 @@ KIND.stop = {
         "Invalidation is " + (lm ? "the <b>" + lm + "</b>, at " : "at ") +
         "<b>" + fmtN(g.invalid, ch.dec) + "</b>; you placed " + fmtN(ans, ch.dec) + ".",
         note,
+        actualRiskLine(ch),
         g.hitInvalidAt >= 0 ? "Price did trade through invalidation here — the stop was earned." : "Price never returned to invalidation on this tape."
-      ]
+      ].filter(Boolean)
     };
   }
 };
@@ -4365,11 +4411,22 @@ var PROG = (function () {
       'side — that tail is the other side pushing your way and failing. Body size is not the test: a small body with ' +
       'a long far-side tail and a close at the extreme is a textbook reversal bar and a good signal bar. What is bad ' +
       'is a close in the middle (a doji — both sides rejected) or a long tail on the side you want to trade toward. ' +
-      'Brooks has <b>two</b> stops and they are different trades: the <b>initial stop</b> one tick beyond the signal ' +
-      'bar, and the <b>swing stop</b> beyond the structure that has to hold. Both are graded as correct here, ' +
-      'because they carry different risk, different size and different R. When an oversized signal bar makes the ' +
-      'initial stop the <i>wider</i> of the two, that is a reason to skip the trade, not to accept the extra risk. ' +
-      'Inside the structure is too tight; several ATR beyond destroys the R multiple.</p>' +
+      'The protective stop goes <b>one tick beyond the signal bar</b>. Inside the structure is too tight; several ATR ' +
+      'beyond destroys the R multiple. A stop beyond the structure that has to hold is a defensible wider ' +
+      'alternative — it is simply a bigger stop, so smaller size and a different equation — and both are graded as ' +
+      'correct here. When an oversized signal bar makes that stop very wide, Brooks treats it as a reason to skip ' +
+      'the trade rather than accept the extra risk.</p>' +
+
+      '<h3>Initial risk and actual risk</h3>' +
+      '<p>These are two different numbers and Brooks separates them carefully.</p>' +
+      '<li><b>Initial risk</b> — entry to your protective stop below the signal bar. This is what you size from, and ' +
+      'it is the risk that belongs in the trader\'s equation, because you do not tighten your stop just because the ' +
+      'market goes sideways right after you enter.</li>' +
+      '<li><b>Actual risk</b> — entry to the extreme of the pullback that happens <i>after</i> you are filled. If the ' +
+      'market drops three ticks and then runs, your actual risk was three ticks, not the full stop.</li>' +
+      '<p>You can only know actual risk in hindsight, so it never sizes a trade. But it is usually far smaller than ' +
+      'the initial risk, and that gap is most of why a good entry is worth so much more than a nearly-good one. ' +
+      'Every stop question here reports both, measured off the tape you were just looking at.</p>' +
       '<p>Entries are mechanical too. With the trend you enter on a <b>stop</b> one tick beyond the signal bar, so ' +
       'price has to trade there to fill you — that is the confirmation. Fading a range edge you use a <b>limit</b>, ' +
       'because waiting for confirmation means paying the edge away. Getting this backwards turns a correct read ' +
