@@ -22,6 +22,12 @@ Tier 0 — *The first three setups* — comes before everything else and cannot 
 
 Questions never show the answer, at any tier. What fades is the **feedback**. Tiers 0–2 reveal everything and name it; tiers 3–5 keep the structure drawn but drop the naming labels; tiers 6–8 drop the range box and keep only the trade levels; Live execution and Mastery certification draw nothing but the level the drill actually asked you to place. Getting a question wrong restores the full picture at any tier — the threshold is the same 80% that counts toward a streak — and the lesson cards are always fully marked, reachable any time from the **Learn** button. When the chart stops naming something you were asked to find, the feedback states it in words instead.
 
+## The funded account
+
+The final tier hands you $25,000 with a prop-firm rule set: reach +6%, never lose 3% in a session, never sit 5% below your peak, five trades per session and forty in total. You set risk per trade and place the stop; size follows from both. Breach a limit and the run ends.
+
+It is a constraint exercise, not a profit score — process is still the grade. The target is reachable because the edge is real, so blowing the drawdown is nearly always a sizing decision, and the debrief proves it by replaying *your own trades* at other risk levels: same reads, same order, different size, different outcome. It then models your realised win rate and average R into pass / blow-up / never-got-there odds against risk. On a typical edge here 1% passes about nine times in ten, 3% roughly halves that, and 5% blows up about four runs in ten — while no risk setting rescues weak reads.
+
 ## Passing standard
 
 A node is passed only when a **single session** clears both the pass mark (85% by default) and a required run of consecutive clean answers. An average alone can hide a skill you only half have, so the streak is what removes the doubt. Mastery certification requires 92% with an 8-answer streak.

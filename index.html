@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.10.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.11.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.10.0", build: "2026-08-09", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.11.0", build: "2026-08-09", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2010,7 +2010,7 @@ var SKILLS = {
 var RANKS = [
   { n: "Cadet" }, { n: "Core Trader" }, { n: "Bar Reader" }, { n: "Cycle Reader" },
   { n: "Trend Trader" }, { n: "Range Trader" }, { n: "Trap Hunter" }, { n: "Cartographer" },
-  { n: "Reversal Trader" }, { n: "Operator" }, { n: "Master" }
+  { n: "Reversal Trader" }, { n: "Operator" }, { n: "Master" }, { n: "Funded" }
 ];
 
 /* ---------------- context pools ---------------- */
@@ -2712,6 +2712,96 @@ KIND.expect = {
 };
 
 /* --- 16. live execution ------------------------------------------- */
+/* =====================================================================
+   the funded account
+
+   Everything before this tier grades one decision in isolation. This grades
+   the thing that actually ends trading careers: correct reads sized wrongly.
+
+   It is deliberately NOT a P&L score — that would contradict the rest of the
+   curriculum ("the R is the market's opinion, not a grade"). You pass by
+   respecting a rule set while taking setups with a real edge. The target is
+   reachable BECAUSE the edge is real, so a blown drawdown is nearly always a
+   sizing decision rather than bad luck, and the debrief proves that by
+   replaying your own trades at other risk levels.
+
+   The numbers come from a Monte Carlo against the app's own calibrated edge
+   (~60% at ~1.5R). Under these rules, good reads at 1% risk pass about nine
+   times in ten; 3% halves that; 5% passes about as often but blows the
+   drawdown 40% of the time; and no risk level rescues weak reads. That
+   discrimination is a property of the rules, not something the app asserts. */
+var FUND = {
+  start: 25000,
+  targetPct: 6,        /* profit target, % of starting balance */
+  dayLossPct: 3,       /* session loss limit, % of balance at session start */
+  maxDDPct: 5,         /* max drawdown from peak, % */
+  perSession: 5,       /* trades per session — a block, not a calendar day:  */
+  budget: 40,          /* every chart has its own clock, so there is no shared one */
+  defaultRisk: 1
+};
+
+/** Apply one trade's R to an account and report any rule breach. Pure, so the
+    verification harness can run it over thousands of simulated runs. */
+function fundApply(acc, r) {
+  var risk$ = acc.bal * acc.riskPct / 100;
+  var pl = r * risk$;
+  acc.bal += pl;
+  acc.tradeNo++;
+  if (acc.bal > acc.peak) acc.peak = acc.bal;
+  var ddPct = 100 * (acc.peak - acc.bal) / acc.peak;
+  var dayPct = 100 * (acc.sessionStart - acc.bal) / acc.sessionStart;
+  var gainPct = 100 * (acc.bal - acc.start) / acc.start;
+  var out = { pl: pl, risk$: risk$, ddPct: ddPct, dayPct: dayPct, gainPct: gainPct, over: null };
+  if (ddPct >= FUND.maxDDPct) out.over = "drawdown";
+  else if (dayPct >= FUND.dayLossPct) out.over = "session";
+  else if (gainPct >= FUND.targetPct) out.over = "PASS";
+  else if (acc.tradeNo >= FUND.budget) out.over = "budget";
+  else if (acc.tradeNo % FUND.perSession === 0) acc.sessionStart = acc.bal;  /* new session */
+  return out;
+}
+
+function newFundAccount(riskPct) {
+  return {
+    start: FUND.start, bal: FUND.start, peak: FUND.start,
+    riskPct: riskPct || FUND.defaultRisk, sessionStart: FUND.start,
+    tradeNo: 0, log: [], result: null
+  };
+}
+
+KIND.funded = {
+  skill: "risk", skill2: "discipline",
+  prepare: function (sp, seed) {
+    var ch = Mkt.gen({ seed: seed, ctx: pickPool(sp.pool || POOL.tradeable, seed) });
+    return {
+      ch: ch,
+      q: "Funded account. Size it from your stop, respect the rules, and execute — or pass. " +
+         "A breach of the session limit or the max drawdown ends the run.",
+      ui: { mode: "replay", funded: true, hint: "Set your risk, place the position, then Execute. Passing costs nothing but a trade from your budget." },
+      meta: { minRR: sp.minRR || 1.5 }
+    };
+  },
+  /* The account arithmetic happens in execute(); this grades the DECISION, on
+     the same basis as KIND.replay, so process stays the thing being judged. */
+  grade: function (p, ans) {
+    var g = KIND.replay.grade(p, ans);
+    if (ans && ans.acct) {
+      var a = ans.acct;
+      g.lines = (g.lines || []).concat(
+        "Balance <b>$" + Math.round(a.bal).toLocaleString() + "</b> · " +
+        (a.gainPct >= 0 ? "+" : "") + a.gainPct.toFixed(2) + "% of target " + FUND.targetPct + "% · " +
+        "drawdown " + a.ddPct.toFixed(2) + "% of " + FUND.maxDDPct + "% · trade " + a.tradeNo + " of " + FUND.budget);
+      if (a.risk$ !== undefined) {
+        g.lines.push("Risked <b>$" + Math.round(a.risk$).toLocaleString() + "</b> at " + a.riskPct +
+          "% · " + (a.pl >= 0 ? "made" : "lost") + " <b>$" + Math.round(Math.abs(a.pl)).toLocaleString() + "</b>.");
+      }
+      if (a.over === "drawdown") g.lines.push("<b>That breached the " + FUND.maxDDPct + "% maximum drawdown. The run is over.</b>");
+      else if (a.over === "session") g.lines.push("<b>That breached the " + FUND.dayLossPct + "% session loss limit. The run is over.</b>");
+      else if (a.over === "PASS") g.lines.push("<b>That took you through the " + FUND.targetPct + "% target. The run is complete.</b>");
+    }
+    return g;
+  }
+};
+
 KIND.replay = {
   skill: "execution", skill2: "discipline",
   prepare: function (sp, seed) {
@@ -3246,6 +3336,15 @@ var TIERS = [
       { id: "t10a", kind: "mixed", n: 20, title: "Mixed examination", pass: 0.92, streak: 8 },
       { id: "t10b", kind: "replay", n: 10, title: "Certification session", pool: POOL.all, minRR: 1.8, pass: 0.9, streak: 5 }
     ]
+  },
+  {
+    id: "t11", rank: 10, name: "The funded account",
+    blurb: "Everything so far graded one decision at a time. This grades the thing that actually ends careers: correct reads sized wrongly. $25,000, a 6% target, a 3% session loss limit and a 5% max drawdown. Breach a limit and the run is over.",
+    nodes: [
+      { id: "t11a", kind: "size", n: 6, title: "Size from the stop, again", pass: 0.85, streak: 4 },
+      { id: "t11b", kind: "expect", n: 5, title: "What your edge is worth", pass: 0.85, streak: 3 },
+      { id: "t11c", kind: "funded", n: FUND.budget, title: "The evaluation", pool: POOL.all, minRR: 1.5 }
+    ]
   }
 ];
 
@@ -3274,7 +3373,7 @@ function nodeById(id) {
    Keyed off the TIER the node lives in rather than the learner's rank, so
    replaying an early tier still gives early-tier help. (`tier.rank` is stale —
    t1 and t2 both carry rank 1 — and is read nowhere, so use the array index.) */
-var SCAFFOLD_BY_TIER = [3, 3, 3, 2, 2, 2, 1, 1, 1, 0, 0];
+var SCAFFOLD_BY_TIER = [3, 3, 3, 2, 2, 2, 1, 1, 1, 0, 0, 0];
 
 /* At level 0 the trade levels go, EXCEPT the one the drill actually asked you
    to place — otherwise the top tiers are punitive rather than demanding. You
@@ -3324,7 +3423,7 @@ function prepareRep(node, rep, seed) {
    ===================================================================== */
 var PROG = (function () {
   var KEY = "tt.brooks.v1";
-  var st = { xp: 0, placed: false, rank: 0, skills: {}, nodes: {}, journal: [], trades: [], made: Date.now() };
+  var st = { xp: 0, placed: false, rank: 0, skills: {}, nodes: {}, journal: [], trades: [], account: null, made: Date.now() };
   Object.keys(SKILLS).forEach(function (k) { st.skills[k] = { s: 0, n: 0 }; });
 
   function load() {
@@ -3802,8 +3901,20 @@ var PROG = (function () {
     S = {
       node: node, n: node.n, idx: 0, scores: [], rs: [], seed0: seed0,
       placement: !!opts.placement, prep: null, graded: null, sel: null, busy: false,
-      learnBases: bases, learnIdx: 0, learnMode: false
+      learnBases: bases, learnIdx: 0, learnMode: false,
+      account: null, runOver: null
     };
+    /* A funded run is a sequence against one balance, not N independent reps.
+       Resume an unfinished one so a reload mid-evaluation does not wipe it. */
+    if (node.kind === "funded") {
+      var saved = PROG.st.account;
+      S.account = (saved && saved.node === node.id && !saved.result)
+        ? saved
+        : newFundAccount(saved ? saved.riskPct : FUND.defaultRisk);
+      S.account.node = node.id;
+      S.idx = S.account.tradeNo;
+      PROG.st.account = S.account; PROG.save();
+    }
     setView("drill");
     var canLearn = bases.length > 0 && bases.length <= 8 && node.kind !== "mixed" &&
       !(KIND[node.kind] && KIND[node.kind].noChart);
@@ -4077,6 +4188,14 @@ var PROG = (function () {
     if ($("dirLong")) $("dirLong").onclick = function () { setDir(1); };
     if ($("dirShort")) $("dirShort").onclick = function () { setDir(-1); };
     if ($("execBtn")) $("execBtn").onclick = execute;
+    if ($("riskIn")) $("riskIn").onchange = function () {
+      var v = parseFloat(this.value);
+      if (!isFinite(v) || v <= 0) { this.value = S.account.riskPct; return; }
+      S.account.riskPct = clamp(v, 0.1, 10);
+      this.value = S.account.riskPct;
+      PROG.st.account = S.account; PROG.save();
+      paintDrillPanel();
+    };
     if ($("noTradeBtn")) $("noTradeBtn").onclick = function () {
       chD.locked = true; finishRep(S.prep.K.grade(S.prep, { passed: true }));
     };
@@ -4142,10 +4261,36 @@ var PROG = (function () {
     }
     return out.join("");
   }
+  /** The account read-out: balance, how far from the target, how much of the
+      drawdown is spent, and the risk dial. Shown above the ticket so the
+      constraints are in front of you while you size the trade, not after. */
+  function fundPanel() {
+    var a = S.account; if (!a) return "";
+    var gain = 100 * (a.bal - a.start) / a.start;
+    var dd = 100 * (a.peak - a.bal) / a.peak;
+    var day = 100 * (a.sessionStart - a.bal) / a.sessionStart;
+    var risk$ = a.bal * a.riskPct / 100;
+    var bar = function (pct, lim, cls) {
+      var w = Math.max(0, Math.min(100, 100 * pct / lim));
+      return '<div class="xpbar" style="height:5px;margin:3px 0 7px"><i class="xpfill ' + cls + '" style="width:' + w.toFixed(0) + '%"></i></div>';
+    };
+    return '<div class="ticket"><div class="hd">Account &middot; trade ' + (a.tradeNo + 1) + ' of ' + FUND.budget + '</div>' +
+      '<div class="row"><div class="grow"><b>$' + Math.round(a.bal).toLocaleString() + '</b> ' +
+      '<span class="' + (gain >= 0 ? "up" : "dn") + '">' + (gain >= 0 ? "+" : "") + gain.toFixed(2) + '%</span></div>' +
+      '<div class="hint">target +' + FUND.targetPct + '%</div></div>' +
+      bar(Math.max(0, gain), FUND.targetPct, "up") +
+      '<div class="row"><div class="grow hint">drawdown ' + dd.toFixed(2) + '% of ' + FUND.maxDDPct + '%</div>' +
+      '<div class="hint">session ' + (day > 0 ? day.toFixed(2) : "0.00") + '% of ' + FUND.dayLossPct + '%</div></div>' +
+      bar(dd, FUND.maxDDPct, "dn") +
+      '<div class="row" style="gap:7px;align-items:center"><label class="hint" for="riskIn">Risk per trade</label>' +
+      '<input class="num" id="riskIn" type="number" step="0.25" min="0.1" max="10" value="' + a.riskPct + '" style="width:74px">' +
+      '<div class="hint grow">= $' + Math.round(risk$).toLocaleString() + ' &middot; size follows your stop</div></div></div>';
+  }
+
   function replayPanel() {
     if (S.replayRun) return '<div class="ticket"><div class="hd">Executing</div><div class="hint">' + S.replayMsg + '</div></div>';
     if (S.graded) return "";
-    return dirToggle() +
+    return (S.account ? fundPanel() : "") + dirToggle() +
       '<div class="row" style="margin-top:9px;gap:7px">' +
       '<button class="btn primary grow" id="execBtn">Execute</button>' +
       '<button class="btn grow" id="passBtn">Pass</button></div>';
@@ -4162,7 +4307,8 @@ var PROG = (function () {
     if (S.graded) {
       var last = S.idx >= S.n - 1;
       out.push('<button class="btn ghost" id="quitBtn">Path</button>');
-      out.push('<button class="btn primary" id="nextBtn">' + (last ? "Finish" : "Next") + '</button>');
+      out.push('<button class="btn primary" id="nextBtn">' +
+        (S.runOver ? (S.runOver === "PASS" ? "See your result" : "See what happened") : last ? "Finish" : "Next") + '</button>');
     } else if (S.prep.ui.mode === "replay") {
       out.push('<button class="btn ghost" id="quitBtn">Path</button>');
     } else {
@@ -4271,10 +4417,123 @@ var PROG = (function () {
   function nextRep() {
     Speech.stop();
     S.idx++;
-    if (S.idx >= S.n) return finishNode();
+    /* a funded run ends the moment a limit is breached or the target is hit —
+       it is a sequence against one balance, not a fixed number of reps */
+    if (S.runOver) return finishNode();
+    if (S.idx >= S.n) {
+      if (S.account && !S.account.result) { S.account.result = "budget"; S.runOver = "budget"; PROG.save(); }
+      return finishNode();
+    }
     loadRep();
   }
+  /** Replay a recorded R sequence against a different risk level. Because P&L
+      is r x risk$, the whole equity path is recoverable from the R sequence —
+      so we can show what the learner's OWN trades would have done sized
+      differently. That is the difference between being told a number and
+      seeing it. */
+  function replayAtRisk(rs, riskPct) {
+    var acc = newFundAccount(riskPct);
+    for (var i = 0; i < rs.length; i++) {
+      var ev = fundApply(acc, rs[i]);
+      if (ev.over) return { out: ev.over, at: i + 1, gainPct: ev.gainPct };
+    }
+    return { out: "budget", at: rs.length, gainPct: 100 * (acc.bal - acc.start) / acc.start };
+  }
+
+  /** Pass / blow-up odds at a given risk, using the learner's OWN realised win
+      rate and average R rather than an assumed edge. */
+  function fundOdds(p, R, riskPct, n) {
+    var pass = 0, blow = 0, slow = 0;
+    n = n || 3000;
+    for (var i = 0; i < n; i++) {
+      var acc = newFundAccount(riskPct), done = null;
+      for (var t = 0; t < FUND.budget && !done; t++) {
+        var ev = fundApply(acc, Math.random() < p ? R : -1);
+        if (ev.over) done = ev.over;
+      }
+      if (done === "PASS") pass++;
+      else if (done === "drawdown" || done === "session") blow++;
+      else slow++;                        /* never got there — the cost of under-risking */
+    }
+    return { pass: pass / n, blow: blow / n, slow: slow / n };
+  }
+
+  function fundDebrief() {
+    var a = S.account, rs = a.log.map(function (x) { return x.r; });
+    var wins = rs.filter(function (r) { return r > 0; });
+    var losses = rs.filter(function (r) { return r <= 0; });
+    var wr = rs.length ? wins.length / rs.length : 0;
+    var avgWin = wins.length ? wins.reduce(function (x, y) { return x + y; }, 0) / wins.length : 0;
+    var verdict = { PASS: "Funded", drawdown: "Blown — max drawdown", session: "Blown — session loss limit", budget: "Ran out of trades" }[a.result] || "Incomplete";
+    var out = [];
+    out.push('<h2>' + verdict + '</h2>');
+    out.push('<p>Finished at <b>$' + Math.round(a.bal).toLocaleString() + '</b> from $' + a.start.toLocaleString() +
+      ' — ' + (a.bal >= a.start ? "+" : "") + (100 * (a.bal - a.start) / a.start).toFixed(2) + '% over <b>' +
+      rs.length + '</b> trades at <b>' + a.riskPct + '%</b> risk.</p>');
+    if (!rs.length) return out.join("");
+
+    out.push('<p>Your reads: <b>' + Math.round(100 * wr) + '%</b> win rate, average winner <b>' +
+      avgWin.toFixed(2) + 'R</b>' + (losses.length ? '' : '') + '.</p>');
+
+    /* the same trades, sized differently */
+    var alts = [0.5, 1, 2, 3, 5].filter(function (x) { return Math.abs(x - a.riskPct) > 0.01; });
+    var rows = alts.map(function (f) {
+      var res = replayAtRisk(rs, f);
+      var label = { PASS: "would have passed", drawdown: "would have blown the drawdown", session: "would have hit the session limit", budget: "would have finished at " + (res.gainPct >= 0 ? "+" : "") + res.gainPct.toFixed(2) + "%" }[res.out];
+      return "<li>at <b>" + f + "%</b> — " + label + (res.out === "drawdown" || res.out === "session" ? " on trade " + res.at : "") + "</li>";
+    });
+    out.push('<div class="seclabel" style="margin-top:12px">The same ' + rs.length + ' trades, sized differently</div><ul style="margin:0 0 0 18px;padding:0;font-size:12.5px;line-height:1.7">' + rows.join("") + '</ul>');
+    out.push('<p class="hint">Identical reads, identical order. Only the size changed. That is the whole point: the trades were not what decided this.</p>');
+
+    /* odds from the learner's own numbers */
+    if (rs.length >= 8 && avgWin > 0) {
+      var odds = [0.5, 1, 2, 3, 5].map(function (f) { return { f: f, o: fundOdds(wr, avgWin, f) }; });
+      var best = odds.slice().sort(function (x, y) { return y.o.pass - x.o.pass; })[0];
+      out.push('<div class="seclabel" style="margin-top:12px">On your own numbers (' + Math.round(100 * wr) + '% at ' + avgWin.toFixed(2) + 'R)</div>');
+      out.push('<table class="tbl"><tr><th>Risk</th><th>Pass</th><th>Blow up</th><th>Never got there</th></tr>' +
+        odds.map(function (x) {
+          return '<tr' + (Math.abs(x.f - a.riskPct) < 0.01 ? ' class="on"' : '') + '><td>' + x.f + '%</td><td>' +
+            Math.round(100 * x.o.pass) + '%</td><td class="dn">' + Math.round(100 * x.o.blow) +
+            '%</td><td>' + Math.round(100 * x.o.slow) + '%</td></tr>';
+        }).join("") + '</table>');
+      out.push('<p>Your best odds were at <b>' + best.f + '%</b>. There are two ways to fail and they pull in ' +
+        'opposite directions: size up and the drawdown gets you, size down and you never reach the target in the ' +
+        'trades you have. The highest risk is never the best — past a point you are buying variance, not return, ' +
+        'and the drawdown limit does not care why you hit it.</p>');
+      if (a.result === "budget") {
+        var slowOdds = fundOdds(wr, avgWin, a.riskPct).slow;
+        if (slowOdds >= 0.05) {
+          out.push('<p>You failed the slow way, which is the one nobody warns you about. At <b>' + a.riskPct +
+            '%</b> your odds of simply running out of trades were <b>' + Math.round(100 * slowOdds) +
+            '%</b>. Under-risking is not free — it is a real way to fail an evaluation with a perfectly good edge.</p>');
+        } else {
+          out.push('<p>You ran out of trades, but at <b>' + a.riskPct + '%</b> that should almost never happen ' +
+            'on these numbers — the modelled odds are about <b>' + Math.round(100 * slowOdds) + '%</b>. ' +
+            'So the budget was not the constraint: you traded <b>' + rs.length + '</b> of ' + FUND.budget +
+            ' and the rest went on setups you passed on, or on a sequence that ran cold. Selectivity has a price ' +
+            'too, and this is what it looks like.</p>');
+        }
+      }
+      if (wr * (1 + avgWin) - 1 <= 0.05) {
+        out.push('<p>Also worth facing: at ' + Math.round(100 * wr) + '% and ' + avgWin.toFixed(2) +
+          'R your edge was thin, and <b>no risk setting fixes that</b>. Sizing decides how fast a good edge compounds and how fast a bad one kills you. It cannot create one.</p>');
+      }
+    }
+    return out.join("");
+  }
+
   function finishNode() {
+    if (S.account) {
+      var passed = S.account.result === "PASS";
+      PROG.nodeDone(S.node, passed ? 1 : 0, passed ? (S.node.streak || 0) : 0);
+      modal(fundDebrief() +
+        '<button class="btn primary" id="okBtn" style="margin-top:6px">Back to path</button> ' +
+        '<button class="btn ghost" id="againBtn">New run</button>');
+      PROG.st.account = null; PROG.save();
+      $("okBtn").onclick = function () { closeModal(); setView("path"); };
+      $("againBtn").onclick = function () { closeModal(); startNode(S.node); };
+      return;
+    }
     var avg = S.scores.reduce(function (a, b) { return a + b; }, 0) / S.scores.length;
     if (S.placement) {
       /* shifted by one now that tier 0 sits in front, and capped so placement
@@ -4369,6 +4628,14 @@ var PROG = (function () {
     S.replayRun = true; S.replayMsg = "Waiting for fill…"; chD.locked = true;
     paintDrillPanel();
     var plan = { dir: p.dir, entry: p.entry, stop: p.stop, target: p.target };
+    /* Size is the OUTPUT of the stop, exactly as KIND.size teaches: a wider
+       stop mechanically buys fewer units, at the same money risk. */
+    if (S.account) {
+      var risk$ = S.account.bal * S.account.riskPct / 100;
+      plan.riskPct = S.account.riskPct;
+      plan.units = risk$ / Math.abs(p.entry - p.stop);
+      plan.risk$ = risk$;
+    }
     S.abortSim = simulate(ch, plan, chD.vis,
       function (i) {
         chD.vis = i;
@@ -4381,10 +4648,23 @@ var PROG = (function () {
       function (res) {
         S.replayRun = false; S.abortSim = null;
         plan.result = res;
-        PROG.logTrade({
+        var rec = {
           t: Date.now(), sym: ch.sym, tf: ch.tf, pattern: ch.gt.name, dir: plan.dir,
-          r: res.r, exit: res.exit, src: S.node.id
-        });
+          r: res.r, exit: res.exit, src: S.node.id, bars: res.bars
+        };
+        if (S.account) {
+          var ev = fundApply(S.account, res.r);
+          S.account.log.push({ r: res.r, pl: ev.pl, bal: S.account.bal, exit: res.exit });
+          plan.acct = {
+            bal: S.account.bal, riskPct: S.account.riskPct, tradeNo: S.account.tradeNo,
+            pl: ev.pl, risk$: ev.risk$, ddPct: ev.ddPct, dayPct: ev.dayPct, gainPct: ev.gainPct,
+            over: ev.over
+          };
+          rec.pl = ev.pl; rec.bal = S.account.bal; rec.units = plan.units;
+          if (ev.over) { S.account.result = ev.over; S.runOver = ev.over; }
+          PROG.st.account = S.account; PROG.save();
+        }
+        PROG.logTrade(rec);
         finishRep(S.prep.K.grade(S.prep, plan));
       });
   }
@@ -4732,6 +5012,22 @@ var PROG = (function () {
       'alternative — it is simply a bigger stop, so smaller size and a different equation — and both are graded as ' +
       'correct here. When an oversized signal bar makes that stop very wide, Brooks treats it as a reason to skip ' +
       'the trade rather than accept the extra risk.</p>' +
+
+      '<h3>The funded account</h3>' +
+      '<p>The last tier hands you <b>$25,000</b> and a rule set: reach <b>+6%</b>, never lose <b>3%</b> in a ' +
+      'session, never sit <b>5%</b> below your peak. Five trades to a session, forty trades in total. Breach a ' +
+      'limit and the run is over.</p>' +
+      '<p>You set your <b>risk per trade</b> and place the stop; the position size follows from the two, exactly as ' +
+      '<i>size is the output of the stop</i> says it must. A wider stop buys fewer units at the same money risk.</p>' +
+      '<p>This is <b>not</b> a profit score, and it does not overturn anything earlier — process is still the grade. ' +
+      'It is a constraint exercise. The target is reachable because the edge is real, so blowing the drawdown is ' +
+      'almost always a sizing decision rather than bad luck, and the debrief proves it by replaying <b>your own ' +
+      'trades</b> at other risk levels. Same reads, same order, different size, different outcome.</p>' +
+      '<p>Then it models your realised win rate and average R to show pass odds against risk. There are two ways to ' +
+      'fail and they pull opposite ways: size up and the drawdown gets you, size down and you never reach the ' +
+      'target in the trades you have. On a typical edge here, 1% passes about nine times in ten, 3% roughly halves ' +
+      'that, and 5% blows up about four runs in ten. No risk setting rescues weak reads — sizing decides how fast a ' +
+      'good edge compounds and how fast a bad one kills you, not whether you have one.</p>' +
 
       '<h3>The second entry</h3>' +
       '<p>At a range edge the first attempt to turn the market usually fails. The traders who took it are now ' +
