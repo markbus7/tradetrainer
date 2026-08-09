@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.11.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.12.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.11.0", build: "2026-08-09", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.12.0", build: "2026-08-09", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2400,26 +2400,41 @@ KIND.scalpSwing = {
     var ch = Mkt.gen({ seed: seed, ctx: pickPool(pool, seed) });
     return {
       ch: ch,
-      q: "You are taking this trade. Do you scalp it or swing it?",
+      q: "You are taking this trade. Do you hold it for the measured move, or take profit inside the structure?",
       ui: {
         mode: "mcq", options: [
-          { k: "swing", t: "Swing — hold for the measured move, this is a trend" },
-          { k: "scalp", t: "Scalp — take a small profit, this is two-sided or range-bound" }
+          { k: "swing", t: "Swing it — hold for the measured move, this is a trend" },
+          { k: "scalp", t: "Scalp it — take profit inside the range, this is two-sided" }
         ]
       }
     };
   },
   grade: function (p, ans) {
-    var g = p.ch.gt, ok = ans === g.style;
+    var g = p.ch.gt, ok = ans === g.style, ch = p.ch;
+    var lines = [
+      "<b>" + g.name + "</b> — " + (g.style === "swing"
+        ? "a trend context, so hold for the measured move. Scalping a strong trend means paying full risk for a fraction of the reward, over and over."
+        : "two-sided. Take what it gives you. Holding a range trade for a trend-sized target is how a winning scalp becomes a loser."),
+      g.brooks
+    ];
+    /* Brooks uses "scalp" in two senses and they do not always agree. This
+       chart is a chance to say which one is in play, using its actual R. */
+    lines.push("A word on the two meanings, because they get confused. " +
+      "Brooks' <b>strict</b> definition is arithmetic: a <b>scalp</b> is a trade whose reward is <i>smaller</i> than its risk, " +
+      "usually over in one to three bars — which is why it needs a win rate above 70%, and a good scalper runs 80&ndash;90%. " +
+      "A <b>swing</b> is a trade whose reward is at least <b>twice</b> the risk. " +
+      "The looser sense — the one in \"buy low, sell high and scalp\" — just means <i>take profit inside the range instead of holding for a trend</i>.");
+    lines.push("This chart offers <b>" + g.refRR.toFixed(2) + "R</b>" +
+      (g.refRR < 1
+        ? " — reward below risk, so it is a scalp in the strict sense too, and it only pays if you win most of the time."
+        : g.refRR >= 2
+          ? " — reward more than twice risk, a swing on the arithmetic as well."
+          : " — reward above risk but under 2R. Note that is <b>not</b> a scalp in the strict sense even though you take profit inside the structure. It sits between the two, and the honest read is that it is a modest swing you are choosing to close early.") +
+      " The stop, incidentally, goes in the same place either way. Scalp and swing differ in the target, never the stop.");
     return {
       score: ok ? 1 : 0, reveal: true,
       verdict: ok ? "Correct" : "This one is a " + g.style,
-      lines: [
-        "<b>" + g.name + "</b> — " + (g.style === "swing"
-          ? "a trend context, so hold for the measured move. Scalping a strong trend means paying full risk for a fraction of the reward, over and over."
-          : "two-sided. Take what it gives you. Holding a range trade for a trend-sized target is how a winning scalp becomes a loser."),
-        g.brooks
-      ]
+      lines: lines
     };
   }
 };
@@ -2490,7 +2505,7 @@ KIND.stop = {
           "<b>" + g.name + "</b>. " + g.brooks,
           "One tick beyond the signal bar at <b>" + fmtN(g.sigStop, ch.dec) + "</b>. That distance from your entry — <b>" +
           fmtN(g.initialRisk, ch.dec) + "</b> — is your <b>initial risk</b>: the number you size from, and the number that " +
-          "belongs in the trader's equation. You do not tighten it just because the market goes sideways after you enter.",
+          "belongs in the trader's equation. You do not tighten it just because the market goes sideways after you enter — the trade has not proven anything yet. That is a rule about the <b>initial</b> stop before the trade works. Once it is working and you are protecting an open profit, moving the stop is a different decision entirely, and a legitimate one.",
           "A stop beyond the structure at <b>" + fmtN(g.invalid, ch.dec) + "</b> risks <b>" + fmtN(g.structureRisk, ch.dec) +
           "</b> instead — also defensible, but it is simply a wider stop, so smaller size and a different equation (<b>" +
           g.sigRR.toFixed(2) + "R</b> here versus <b>" + g.refRR.toFixed(2) + "R</b> on the same target). " +
@@ -3082,7 +3097,22 @@ KIND.manage = {
             "Brooks scalps part and swings part precisely because he cannot know in advance which trades become the big ones — this is how you stay in the few that do.";
     }
     var lines = [why];
-    if (ans === "add") lines.push("Adding is the answer that ruins accounts. It converts a trade that is working into a bigger trade at a worse average price, and it does it exactly when you feel most certain.");
+    if (ans === "add") {
+      /* Brooks does NOT ban adding — scaling in is his standard range technique:
+         "bulls will scale into longs in the lower half of the range and scalp
+         out with profits in the top half". What ruins accounts is adding to a
+         loser you did not plan to add to, because the size grows exactly as the
+         read gets worse. The two are not the same thing and the app must not
+         blur them. */
+      lines.push("Careful — there are two different things here, and only one of them ruins accounts. " +
+        "<b>Adding unplanned, to a position going against you, because you cannot accept being wrong</b> is how accounts die: " +
+        "the size grows precisely as the read gets worse.");
+      lines.push("<b>Scaling in is not that.</b> It is a planned technique and Brooks uses it constantly — in a trading range, " +
+        "bulls scale into longs in the lower half and scale out in the upper half. The difference is that the total risk was " +
+        "decided <i>before</i> the first entry, the first entry was sized smaller to leave room, and each add comes on a " +
+        "signal rather than on hope. Most traders should add once or twice, not five times. You will drill this properly later.");
+      lines.push("But it is not the answer <i>here</i>: this question is about a position that is already working, and adding to a winner is a different decision again from either of those.");
+    }
     if (ans === "hold" && !stalled && scalp) lines.push("Holding a scalp for a swing target is trading a different setup from the one the chart actually offered.");
     lines.push(outcomeLine(ch));
     return {
@@ -5029,6 +5059,27 @@ var PROG = (function () {
       'that, and 5% blows up about four runs in ten. No risk setting rescues weak reads — sizing decides how fast a ' +
       'good edge compounds and how fast a bad one kills you, not whether you have one.</p>' +
 
+      '<h3>Scaling in — and whether it is one trade or two</h3>' +
+      '<p>Scaling in is not the same thing as "adding because I am losing". It is a planned technique and Brooks uses ' +
+      'it constantly: in a trading range, bulls scale into longs in the lower half and scale out in the upper half, ' +
+      'and aggressive traders buy below bars in the bottom third and <b>scale in lower</b>.</p>' +
+      '<li><b>How many.</b> Most traders should add <b>once or twice</b>, not five times. Brooks typically scales in ' +
+      'one or two more, with a wider stop planned from the start.</li>' +
+      '<li><b>On what.</b> Even when adding lower, wait for a signal — a reversal bar and a stop entry — rather than ' +
+      'adding blindly at a price. Adding on hope is the version that ruins accounts.</li>' +
+      '<li><b>Plan the total first.</b> Adding at the same stop <i>increases</i> your risk. So if you intend to scale ' +
+      'in, the first entry has to be <b>smaller</b>, sized so that the full scaled position still risks what you meant ' +
+      'to risk. Decide the total before the first entry, never after the second.</li>' +
+      '<p><b>Is a scaled position one trade or two?</b> <b>One.</b> It is a single position at an <b>average price</b>, ' +
+      'and every level you care about is measured from that average — breakeven means the average entry, not your ' +
+      'first one. Brooks manages it as a whole: in one live example he was short two contracts, added a fourth, and ' +
+      'scratched the entire position when price came back to the average. His stated middle path between the two ' +
+      'extremes — scratch everything, or hold everything — is to <b>take profit on part and swing another part</b>.</p>' +
+      '<p>That answers the platform question too. In cTrader (and any netting account) adding blends into one position ' +
+      'at an average price, which is exactly Brooks\' mental model. On a hedging account you <i>can</i> hold the legs ' +
+      'separately, but you should still think in the average, because that is the price your risk and your breakeven ' +
+      'are actually measured from.</p>' +
+
       '<h3>The second entry</h3>' +
       '<p>At a range edge the first attempt to turn the market usually fails. The traders who took it are now ' +
       'trapped, and unwinding them is what fuels the next attempt — so Brooks\' standard trigger in two-sided ' +
@@ -5059,7 +5110,9 @@ var PROG = (function () {
       '<p>These are two different numbers and Brooks separates them carefully.</p>' +
       '<li><b>Initial risk</b> — entry to your protective stop below the signal bar. This is what you size from, and ' +
       'it is the risk that belongs in the trader\'s equation, because you do not tighten your stop just because the ' +
-      'market goes sideways right after you enter.</li>' +
+      'market goes sideways right after you enter. That is a rule about the <b>initial</b> stop, before the trade has '  +
+      'proven anything &mdash; not about trailing a stop behind a move that is already working, which is a separate '  +
+      'decision and a legitimate one.</li>' +
       '<li><b>Actual risk</b> — entry to the extreme of the pullback that happens <i>after</i> you are filled. If the ' +
       'market drops three ticks and then runs, your actual risk was three ticks, not the full stop.</li>' +
       '<p>You can only know actual risk in hindsight, so it never sizes a trade. But it is usually far smaller than ' +

@@ -28,6 +28,12 @@ The final tier hands you $25,000 with a prop-firm rule set: reach +6%, never los
 
 It is a constraint exercise, not a profit score — process is still the grade. The target is reachable because the edge is real, so blowing the drawdown is nearly always a sizing decision, and the debrief proves it by replaying *your own trades* at other risk levels: same reads, same order, different size, different outcome. It then models your realised win rate and average R into pass / blow-up / never-got-there odds against risk. On a typical edge here 1% passes about nine times in ten, 3% roughly halves that, and 5% blows up about four runs in ten — while no risk setting rescues weak reads.
 
+## Scalp, swing, and scaling in
+
+Brooks uses "scalp" in two senses and the app now separates them. The **strict** definition is arithmetic — a scalp is a trade whose reward is *smaller* than its risk, usually over in one to three bars, which is why it needs a win rate above 70% and a good scalper runs 80–90%. A **swing** is a trade whose reward is at least twice the risk, and Brooks says swing trading should be the foundation for every trader. The looser sense, as in "buy low, sell high and scalp", just means take profit inside the range rather than holding for a trend. The scalp-or-swing drill now reports the chart's actual reward-to-risk so you can see which sense applies. The stop goes in the same place either way — scalp and swing differ in the target, never the stop.
+
+**Scaling in** is a planned technique, not the same thing as adding because you are losing. Add once or twice rather than five times, add on a signal rather than at a price, and decide the total risk *before* the first entry so the first one is sized smaller. A scaled position is **one position at an average price**: breakeven means the average entry, not your first fill — which is exactly how a netting platform such as cTrader treats it.
+
 ## Passing standard
 
 A node is passed only when a **single session** clears both the pass mark (85% by default) and a required run of consecutive clean answers. An average alone can hide a skill you only half have, so the streak is what removes the doubt. Mastery certification requires 92% with an 8-answer streak.
