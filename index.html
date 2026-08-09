@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.6.2 — Cadet to Master</title>
+<title>TRADE TRAINER v3.6.3 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.6.2", build: "2026-08-09", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.6.3", build: "2026-08-09", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2053,7 +2053,7 @@ function entryHow(g) {
   var trapVerb = g.dir > 0 ? "selling" : "buying";
   var trapEdge = g.dir > 0 ? "range low" : "range high";
   return g.entryType === "limit"
-    ? "You get in here with a <b>limit order</b> at the range edge, not a stop — in a range you are fading the edge, so you want to be filled as price reaches the edge, not after it breaks. " +
+    ? "You get in here with a <b>limit order</b> at the range edge, not a stop — in a range you are fading the edge, so you want to be filled as price reaches it. Brooks puts the limit at the prior extreme or a few ticks through it, so the probe that pokes past the edge fills you and then fails; much further out than that and you are catching a real breakout instead of fading a probe. " +
       trapVerb.charAt(0).toUpperCase() + trapVerb.slice(1) + " a stop " + other + " the " + trapEdge +
       " is exactly how traders get trapped here, because about eight out of ten range breakouts fail."
     : "You get in here with a <b>stop order</b> just " + side + " the signal bar: price has to trade there to fill you, which is the confirmation. The protective stop then sits " + other + " the bar or the swing behind it.";
@@ -2855,7 +2855,9 @@ KIND.barCount = {
     var ch = p.ch, g = ch.gt, n = p.meta.n, bull = g.dir > 0, ok = String(n) === ans;
     var H = bull ? "High" : "Low";
     var why = {
-      1: "One attempt so far. In a strong trend the first one is often enough — Brooks buys the High 1 in a tight channel because there is never a deeper pullback to wait for.",
+      1: "One attempt so far. In a strong trend the first one is often enough — Brooks " +
+         (bull ? "buys the High 1" : "sells the Low 1") +
+         " in a tight channel because there is never a deeper pullback to wait for.",
       2: "Two attempts. This is the setup Brooks calls the highest-probability entry in a trend: the first attempt trapped traders in early, it failed, and the second attempt traps the other side. Note it is the COUNT that made this a " + H + " 2, not how deep the second leg went.",
       3: "Three attempts. Three pushes is a wedge, and a wedge-shaped flag still works with the trend — but the trend is losing its grip, and a failure here often becomes the reversal.",
       4: "Four attempts. Once the count runs this far the pullback has stopped being a pullback: repeated failures to resume mean two-sided trading, and you should be reading this as a developing trading range, not a flag."
@@ -3367,8 +3369,48 @@ var PROG = (function () {
       : " — not tradeable"));
     if (g.tradeable) {
       L.push("App's levels: entry " + fmtN(g.entry, ch.dec) +
-        " / stop " + fmtN(g.invalid, ch.dec) + " / target " + fmtN(g.target, ch.dec));
+        " / structural stop " + fmtN(g.invalid, ch.dec) +
+        " / signal-bar stop " + fmtN(g.sigStop, ch.dec) +
+        " / target " + fmtN(g.target, ch.dec));
+      L.push("Risk: initial " + fmtN(g.initialRisk, ch.dec) +
+        " (to the signal-bar stop) / structural " + fmtN(g.structureRisk, ch.dec) +
+        " / actual, in hindsight " + fmtN(g.actualRisk, ch.dec));
     }
+    L.push("ATR(14) at the decision bar: " + fmtN(ch.atr, ch.dec) +
+      (g.barCount ? "   bar count here: " + (g.dir > 0 ? "High " : "Low ") + g.barCount : ""));
+    if (g.rangeTop !== undefined) {
+      L.push("Range: " + fmtN(g.rangeBot, ch.dec) + " to " + fmtN(g.rangeTop, ch.dec));
+    }
+    if ((g.labels || []).length) {
+      L.push("Structural levels the app is using:");
+      g.labels.forEach(function (lb) {
+        L.push("  " + fmtN(lb[0].p, ch.dec) + "  = " + lb[1] + "  (bar " + lb[0].i + ")");
+      });
+    }
+
+    /* ---- the bars themselves ----
+       Without these the paste cannot be read without re-running the generator,
+       and the seed only reproduces the same chart if the code version matches.
+       With them, the chart travels with the question. */
+    var dec = ch.dec, last = g.decision, first = Math.max(0, last - 59);
+    var emaArr = Mkt.ema(ch.bars, 20, last), cnt = {};
+    (g.countIdx || []).forEach(function (bi, k) { cnt[bi] = k + 1; });
+    function pad(s, w) { s = String(s); while (s.length < w) s = " " + s; return s; }
+    L.push("");
+    L.push("BARS — these are exactly the bars drawn on screen, oldest first.");
+    L.push("index | open | high | low | close | volume | ema20");
+    for (var bi = first; bi <= last; bi++) {
+      var b = ch.bars[bi], tags = [];
+      if (bi === g.sigIdx) tags.push("SIGNAL BAR / decision bar — the last one shown");
+      if (cnt[bi]) tags.push(">> " + (g.dir > 0 ? "High " : "Low ") + cnt[bi]);
+      if (bi === g.pbFrom && g.pbFrom !== g.sigIdx) tags.push("pullback starts here");
+      L.push("  " + pad(bi, 3) + "  " + pad(fmtN(b.o, dec), 10) + pad(fmtN(b.h, dec), 11) +
+        pad(fmtN(b.l, dec), 11) + pad(fmtN(b.c, dec), 11) + pad(b.v, 10) +
+        pad(fmtN(emaArr[bi], dec), 11) + (tags.length ? "   << " + tags.join(", ") : ""));
+    }
+    L.push("(" + (last - first + 1) + " bars shown, ending at the decision bar. " +
+      "Bars after it exist but were hidden when the question was asked.)");
+
     L.push("");
     L.push("QUESTION");
     L.push(sp(p.q));
@@ -4504,11 +4546,17 @@ var PROG = (function () {
       '<option value="1.2">Faster</option><option value="1.4">Fastest</option></select></div>' +
       '<h3>Disagree with an answer?</h3>' +
       '<p>Every question carries a <b>&#128203; Copy</b> button. One press puts the whole thing on ' +
-      'your clipboard: the chart\'s symbol, timeframe, seed and context, the question, the options, ' +
-      'your answer, the app\'s answer and its feedback.</p>' +
-      '<p>Paste that into a chat and the exact chart can be rebuilt from the seed, so the answer you ' +
-      'get is about the bars you were actually looking at — not a guess from a description. Use it ' +
-      'whenever a verdict looks wrong, or when you want the reasoning behind one spelled out.</p>' +
+      'your clipboard, including <b>the bars themselves</b> — every candle drawn on screen as ' +
+      'open/high/low/close/volume with its 20-EMA, the signal bar marked, and each bar that carried ' +
+      'a High or Low count tagged with its number.</p>' +
+      '<p>Alongside them: symbol, timeframe, seed and context; the app\'s entry, both stops and target; ' +
+      'initial, structural and actual risk; the range edges and every structural level the app is ' +
+      'using, each with the bar it sits on; the question, the options, whatever you drew, your answer, ' +
+      'the app\'s answer and its full feedback.</p>' +
+      '<p>That means the chart travels with the question. Paste it into a chat and the reply is about ' +
+      'the exact bars you were looking at — not a guess from a description, and not dependent on ' +
+      'rebuilding anything from the seed. Use it whenever a verdict looks wrong, or when you want the ' +
+      'reasoning behind one spelled out.</p>' +
       '<p class="hint" style="margin-top:14px">' + esc(APP.name) + ' <b>v' + esc(APP.version) +
       '</b> · build ' + esc(APP.build) + ' · ' + esc(APP.basis) + '</p>' +
       '<button class="btn primary" id="okBtn" style="margin-top:6px">Got it</button>');
