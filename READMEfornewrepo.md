@@ -28,6 +28,12 @@ The final tier hands you $25,000 with a prop-firm rule set: reach +6%, never los
 
 It is a constraint exercise, not a profit score — process is still the grade. The target is reachable because the edge is real, so blowing the drawdown is nearly always a sizing decision, and the debrief proves it by replaying *your own trades* at other risk levels: same reads, same order, different size, different outcome. It then models your realised win rate and average R into pass / blow-up / never-got-there odds against risk. On a typical edge here 1% passes about nine times in ten, 3% roughly halves that, and 5% blows up about four runs in ten — while no risk setting rescues weak reads.
 
+## Managing a live trade
+
+Positions are multi-leg. Once you are filled during a live replay you can take part off, move the stop to your **average** entry, trail it behind recent bars, scale in a second leg, drop the target and hold a runner, or close out. The read-out shows open size, average price, what you have banked and what is still at risk, all in R — and scaling in visibly pushes "at risk now" above 1R, which is why the total has to be planned before the first entry.
+
+Everything is measured against the risk you originally planned (`R = total P&L ÷ initial planned risk`), so 1R means the same thing before and after you manage the trade. A trade with no actions taken produces exactly the result the old single-exit engine did, verified across 880 charts.
+
 ## Scalp, swing, and scaling in
 
 Brooks uses "scalp" in two senses and the app now separates them. The **strict** definition is arithmetic — a scalp is a trade whose reward is *smaller* than its risk, usually over in one to three bars, which is why it needs a win rate above 70% and a good scalper runs 80–90%. A **swing** is a trade whose reward is at least twice the risk, and Brooks says swing trading should be the foundation for every trader. The looser sense, as in "buy low, sell high and scalp", just means take profit inside the range rather than holding for a trend. The scalp-or-swing drill now reports the chart's actual reward-to-risk so you can see which sense applies. The stop goes in the same place either way — scalp and swing differ in the target, never the stop.
