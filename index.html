@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.6.3 — Cadet to Master</title>
+<title>TRADE TRAINER v3.7.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.6.3", build: "2026-08-09", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.7.0", build: "2026-08-09", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -608,7 +608,7 @@ var Mkt = (function () {
   /* ---- 9. failed breakout (the 80% rule) ---------------------------- */
   CTX.failedBo = {
     name: "Failed breakout below the range", twin: "Failed breakout above the range",
-    family: "breakout", cycle: "trading range", dir: 1, alwaysIn: 1, prob: 0.68, pWin: 0.67,
+    family: "breakout", cycle: "trading range", dir: 1, alwaysIn: 1, prob: 0.68, pWin: 0.67, tex: 1.35,
     probe: function (ax) { return [ax.b2.i + 1, ax.bo.i + 1]; },
     style: "scalp", mmType: "failedBo", entryType: "stop", sigQ: "strong",
     brooks: "About eight out of ten breakout attempts out of a trading range fail. Price broke below the range, found no sellers, and has reversed back inside — every breakout seller is now trapped and has to buy back. Buy, with a stop below the failed low, and target the other side of the range.",
@@ -801,7 +801,7 @@ var Mkt = (function () {
       family: s.family, cycle: s.cycle,
       dir: -s.dir, alwaysIn: -s.alwaysIn, prob: s.prob, pWin: s.pWin,
       style: s.style, mmType: s.mmType, entryType: s.entryType, sigQ: s.sigQ,
-      countTarget: s.countTarget,
+      countTarget: s.countTarget, tex: s.tex,
       brooks: flipWords(s.brooks), mmRule: flipWords(s.mmRule),
       howTo: s.howTo.map(flipWords),
       segs: s.segs, hU: s.hU, gt: s.gt
@@ -1016,11 +1016,25 @@ var Mkt = (function () {
       var out = tCur; tCur += step; return out;
     }
     var bars = [];
+    /* ---- bar texture ----
+       Brooks reads a trading range off its BARS: overlapping, prominent tails,
+       at least one doji. A trend reads as the opposite — bodies closing near
+       their extremes with little tail against the move. Wick size is the lever:
+       bigger wicks mean a smaller body relative to the bar and more overlap
+       with the neighbours.
+
+       Without this the wick formula is identical everywhere, and because a
+       range traverses edge to edge while a trend spreads the same move over
+       more bars, ranges come out with LARGER bodies than trends — backwards for
+       a method built entirely on reading bars. */
+    var TEX = { trend: 0.60, breakout: 0.55, range: 1.55, nothing: 1.85, reversal: 0.95 };
+    var tex = def.tex !== undefined ? def.tex : (TEX[def.family] || 1);
+
     function candle(c, f, swp) {
       var o = bars.length === 0 ? c - R.t() * sig * P0 : bars[bars.length - 1].c;
       if (bars.length && R.chance(gapP)) o += R.t() * sig * P0 * R.f(0.5, 1.8);
-      var h = Math.max(o, c) + Math.abs(R.t()) * sig * P0 * 0.6 * f;
-      var l = Math.min(o, c) - Math.abs(R.t()) * sig * P0 * 0.6 * f;
+      var h = Math.max(o, c) + Math.abs(R.t()) * sig * P0 * 0.6 * f * tex;
+      var l = Math.min(o, c) - Math.abs(R.t()) * sig * P0 * 0.6 * f * tex;
       if (swp) { if (swp > 0) h += swp; else l += swp; }
       var mv = Math.abs(c - o) / (sig * P0);
       bars.push({
@@ -1988,6 +2002,9 @@ var POOL = {
   /* contexts where a pullback is actually in progress, so a bar count means
      something. Breakouts, reversals and ranges are excluded on purpose. */
   pullback: both(["twoLegPullback", "tightChannel", "spikeChannel", "broadChannel"]),
+  /* the two beginners confuse: a failed breakout out of a range, and a real
+     trend reversal. Drilled head to head so the discriminator gets learned. */
+  confusable: both(["failedBo", "mtr"]),
   /* the beginner's core: the three highest-probability setups Brooks tells a
      new trader to trade, and nothing else */
   core: both(["twoLegPullback", "failedBo", "mtr"]),
@@ -2961,6 +2978,47 @@ KIND.manage = {
   }
 };
 
+/* --- 20. failed breakout or major trend reversal? ------------------
+   These two are the pair beginners confuse, and naming them is not the skill —
+   the skill is knowing WHY. So the options are reasons, not names: what came
+   before, and whether a trendline had to break first. */
+KIND.reversalType = {
+  skill: "traps", skill2: "reversal",
+  right: function (p) { return p.ch.gt.family === "reversal" ? "mtr" : "fbo"; },
+  prepare: function (sp, seed) {
+    var ch = Mkt.gen({ seed: seed, ctx: pickPool(sp.pool || POOL.confusable, seed) });
+    return {
+      ch: ch,
+      q: "Price has turned. Which of these is it, and — more to the point — <b>why</b>?",
+      ui: {
+        mode: "mcq", options: [
+          { k: "fbo", t: "Failed breakout — the market was already in a trading range, so there was no trend to reverse. A probe poked through an edge, found nobody, and snapped back in." },
+          { k: "mtr", t: "Major trend reversal — there was a real trend. A countertrend move broke the trendline, and then a test of the old extreme held." },
+          { k: "nostructure", t: "Neither — there is no structure here worth naming yet." }
+        ]
+      }
+    };
+  },
+  grade: function (p, ans) {
+    var ch = p.ch, g = ch.gt, isMTR = g.family === "reversal", right = isMTR ? "mtr" : "fbo";
+    var ok = ans === right;
+    return {
+      score: ok ? 1 : 0, reveal: true,
+      verdict: ok ? "Correct" : "It is a " + (isMTR ? "major trend reversal" : "failed breakout"),
+      lines: [
+        "<b>" + g.name + "</b>. " + g.brooks,
+        isMTR
+          ? "The tell is <b>what came before</b>: there was a trend here — a real sequence of lower highs and lower lows — so a reversal read only counts once a countertrend move has broken the trendline. Brooks: never even think about trading against a trend until a significant trendline has broken. Then the test of the old extreme has to hold."
+          : "The tell is <b>what came before</b>: this was a trading range, already two-sided, with no trend to reverse. That is why the failed probe is tradeable straight away — there is no trendline to wait for, and about eight out of ten of these breakout attempts fail.",
+        "Do not try to separate them by how the reversal LOOKS. An MTR whose test of the old low comes as a <b>lower</b> low that reverses is itself a failed breakout — of the trend's low rather than a range edge. Same mechanic; the context is what differs, and the context decides whether you scalp it or swing it.",
+        isMTR
+          ? "So: swing it, and measure the first leg up off the low."
+          : "So: scalp it, and target the other side of the range."
+      ]
+    };
+  }
+};
+
 /* ---------------- pool picker ---------------- */
 function pickPool(pool, seed) {
   var R = Mkt.mkR((seed ^ 0x9e37) >>> 0);
@@ -2998,6 +3056,7 @@ var TIERS = [
     blurb: "Brooks is blunt about this: a beginner should trade a handful of the strongest setups and pass on everything else. These are those setups, end to end — read it, enter it, stop it, target it, manage it. Nothing here is optional and nothing else is worth your money yet.",
     nodes: [
       { id: "t0a", kind: "context", n: 8, title: "Know the three on sight", pool: POOL.core, pass: 0.85, streak: 4 },
+      { id: "t0a2", kind: "reversalType", n: 8, title: "Failed breakout or reversal?", pool: POOL.confusable, pass: 0.85, streak: 4 },
       { id: "t0b", kind: "barCount", n: 8, title: "Count the pullback", pool: POOL.pullback, pass: 0.85, streak: 4 },
       { id: "t0c", kind: "entry", n: 8, title: "Where the order goes", pool: POOL.core, pass: 0.85, streak: 4 },
       { id: "t0d", kind: "stop", n: 8, title: "Where you are wrong", pool: POOL.core, pass: 0.85, streak: 4 },
@@ -3075,6 +3134,7 @@ var TIERS = [
     blurb: "Most reversal attempts fail. The ones that work earn it: a trendline break first, then a test that holds.",
     nodes: [
       { id: "t7a", kind: "context", n: 6, title: "Name the reversal", pool: POOL.reversal },
+      { id: "t7a2", kind: "reversalType", n: 8, title: "Reversal, or just a failed breakout?", pool: POOL.confusable },
       { id: "t7b", kind: "takeSide", n: 6, title: "Take it or fade it", pool: POOL.reversal },
       { id: "t7c", kind: "stop", n: 6, title: "Stops on reversals", pool: POOL.reversal },
       { id: "t7d", kind: "plan", n: 5, title: "Build the reversal trade", pool: POOL.reversal, minRR: 1.8 }
@@ -3112,7 +3172,7 @@ var TIERS = [
 
 var MIXED_KINDS = ["alwaysIn", "cycle", "context", "signalBar", "takeSide", "rangePlace",
   "boFate", "scalpSwing", "measure", "stop", "target", "traderEq", "plan",
-  "entry", "barCount", "manage"];
+  "entry", "barCount", "manage", "reversalType"];
 
 function nodeById(id) {
   for (var i = 0; i < TIERS.length; i++) {
