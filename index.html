@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.7.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.8.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.7.0", build: "2026-08-09", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.8.0", build: "2026-08-09", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -1304,6 +1304,8 @@ Chart.prototype.load = function (chart, visIdx) {
   this.chart = chart;
   this.vis = (visIdx === undefined || visIdx < 0) ? chart.bars.length - 1 : visIdx;
   this.drawings = []; this.pending = null; this.gt = null; this.markers = []; this.sigBar = null; this.gtMeasure = false;
+  this.gtLevel = 3;                        /* how much of gt may be drawn; see scaffoldLevel() */
+  this.gtKeep = null;                      /* levels kept even at 0 — the drill's own answer */
   this.tool = "cursor";
   this.fit();
   return this;
@@ -1750,6 +1752,11 @@ Chart.prototype._sigMark = function (c, b) {
 /* ---------- ground-truth overlay (feedback) ---------- */
 Chart.prototype._gtOverlay = function (c, b) {
   var g = this.gt;
+  /* 3 = everything, 2 = drawn but unnamed, 1 = levels only, 0 = nothing.
+     The naming labels go first: you have to recognise the structure before you
+     lose the lines that tell you whether you were right. */
+  var lv = this.gtLevel === undefined ? 3 : this.gtLevel;
+  var keep = this.gtKeep || {};
   function lvl(self, p, col, txt, dash) {
     if (p === undefined || p === null || !isFinite(p)) return;
     var y = Math.round(self.y(p)) + 0.5;
@@ -1759,7 +1766,7 @@ Chart.prototype._gtOverlay = function (c, b) {
     c.fillStyle = col; c.fillText(txt + "  " + self.fmt(p), 6, y - 2);
   }
   /* the range the context lives in, shaded */
-  if (g.rangeTop !== undefined && g.rangeBot !== undefined) {
+  if (lv >= 2 && g.rangeTop !== undefined && g.rangeBot !== undefined) {
     var yt = this.y(g.rangeTop), yb = this.y(g.rangeBot);
     c.fillStyle = "rgba(91,155,213,.07)";
     c.fillRect(0, Math.min(yt, yb), b.r, Math.abs(yb - yt));
@@ -1767,9 +1774,9 @@ Chart.prototype._gtOverlay = function (c, b) {
     lvl(this, g.rangeBot, "rgba(91,155,213,.85)", "RANGE LOW", [2, 4]);
   }
   if (g.tradeable) {
-    lvl(this, g.entry, COL.amber, "ENTRY");
-    lvl(this, g.target, COL.ok, "TARGET");
-    lvl(this, g.invalid, COL.bad, "STOP");
+    if (lv >= 1 || keep.entry)   lvl(this, g.entry, COL.amber, "ENTRY");
+    if (lv >= 1 || keep.target)  lvl(this, g.target, COL.ok, "TARGET");
+    if (lv >= 1 || keep.invalid) lvl(this, g.invalid, COL.bad, "STOP");
   }
   /* the measured leg */
   if (this.gtMeasure && g.measure && g.measure.a && g.measure.b) {
@@ -1781,6 +1788,7 @@ Chart.prototype._gtOverlay = function (c, b) {
       c.beginPath(); c.arc(this.x(pt.i), this.y(pt.p), 3.5, 0, 6.284); c.fill();
     }, this);
   }
+  if (lv < 3) return;                      /* the naming labels are the first help to go */
   (g.labels || []).forEach(function (L) {
     var pt = L[0], x = this.x(pt.i), y = this.y(pt.p);
     c.font = "10px 'IBM Plex Mono',monospace"; c.textAlign = "center"; c.textBaseline = "bottom";
@@ -3183,6 +3191,43 @@ function nodeById(id) {
   return null;
 }
 
+/* How much ground truth the chart is allowed to draw AFTER you answer.
+
+     3  full      — shading, RANGE HIGH/LOW, ENTRY/STOP/TARGET, and the violet
+                    labels naming every structural point
+     2  unnamed   — same, minus the naming labels: the structure is drawn but
+                    you have to know what it is
+     1  bare      — levels only, so you can still see whether you were right
+     0  none      — nothing drawn; the verdict is words
+
+   Keyed off the TIER the node lives in rather than the learner's rank, so
+   replaying an early tier still gives early-tier help. (`tier.rank` is stale —
+   t1 and t2 both carry rank 1 — and is read nowhere, so use the array index.) */
+var SCAFFOLD_BY_TIER = [3, 3, 3, 2, 2, 2, 1, 1, 1, 0, 0];
+
+/* At level 0 the trade levels go, EXCEPT the one the drill actually asked you
+   to place — otherwise the top tiers are punitive rather than demanding. You
+   still see your line against the right one; you just no longer get the two
+   levels you were never asked about. Read/identify kinds get no exemption,
+   because entry/stop/target on a "name the context" reveal is decoration.
+   `manage` is deliberately absent: its question text already prints the entry
+   and the target verbatim. */
+var GT_KEEP = {
+  entry:  { entry: 1 },
+  stop:   { invalid: 1 },
+  target: { target: 1 },
+  plan:   { entry: 1, target: 1, invalid: 1 },
+  replay: { entry: 1, target: 1, invalid: 1 }
+};
+
+function scaffoldLevel(node, opts) {
+  if (!node || (opts && opts.placement) || node.id === "placement") return 3;
+  var f = nodeById(node.id);
+  if (!f) return 3;
+  var lv = SCAFFOLD_BY_TIER[f.ti];
+  return lv === undefined ? 3 : lv;
+}
+
 /** build one rep; resolves the "mixed" pseudo-kind */
 function prepareRep(node, rep, seed) {
   var spec = node, kindName = node.kind;
@@ -3422,30 +3467,47 @@ var PROG = (function () {
     L.push("TRADE TRAINER v" + APP.version + " — question detail");
     L.push("Lesson: " + (S.placement ? "Placement test" : S.node.title) +
       " (rep " + (S.idx + 1) + " of " + S.n + ")   drill type: " + p.kind);
-    L.push("Chart: " + ch.sym + " " + ch.tfLbl + "   seed=" + ch.seed + "   context=" + g.key);
-    L.push("Context: " + g.name + (g.tradeable
-      ? " — " + (g.dir > 0 ? "long" : "short") + " bias, " + Math.round(g.prob * 100) + "% win rate, " +
-        g.refRR.toFixed(2) + "R reference"
-      : " — not tradeable"));
-    if (g.tradeable) {
-      L.push("App's levels: entry " + fmtN(g.entry, ch.dec) +
-        " / structural stop " + fmtN(g.invalid, ch.dec) +
-        " / signal-bar stop " + fmtN(g.sigStop, ch.dec) +
-        " / target " + fmtN(g.target, ch.dec));
-      L.push("Risk: initial " + fmtN(g.initialRisk, ch.dec) +
-        " (to the signal-bar stop) / structural " + fmtN(g.structureRisk, ch.dec) +
-        " / actual, in hindsight " + fmtN(g.actualRisk, ch.dec));
+    /* Everything below that names or prices the setup is the ANSWER. Copy exists
+       so a chart can be discussed, and the bars carry that on their own — so the
+       bars, the question and your own working are always included, and only the
+       answer key waits until you have submitted. */
+    var seen = !!S.graded;
+    L.push("Chart: " + ch.sym + " " + ch.tfLbl + "   seed=" + ch.seed +
+      (seen ? "   context=" + g.key : ""));
+    if (seen) {
+      L.push("Context: " + g.name + (g.tradeable
+        ? " — " + (g.dir > 0 ? "long" : "short") + " bias, " + Math.round(g.prob * 100) + "% win rate, " +
+          g.refRR.toFixed(2) + "R reference"
+        : " — not tradeable"));
+      if (g.tradeable) {
+        L.push("App's levels: entry " + fmtN(g.entry, ch.dec) +
+          " / structural stop " + fmtN(g.invalid, ch.dec) +
+          " / signal-bar stop " + fmtN(g.sigStop, ch.dec) +
+          " / target " + fmtN(g.target, ch.dec));
+        L.push("Risk: initial " + fmtN(g.initialRisk, ch.dec) +
+          " (to the signal-bar stop) / structural " + fmtN(g.structureRisk, ch.dec) +
+          " / actual, in hindsight " + fmtN(g.actualRisk, ch.dec));
+      }
     }
+    /* ATR is neutral and is exactly what sizing and stop-width talk needs, so it
+       is always emitted; the bar count is the barCount drill's answer, so it is not */
     L.push("ATR(14) at the decision bar: " + fmtN(ch.atr, ch.dec) +
-      (g.barCount ? "   bar count here: " + (g.dir > 0 ? "High " : "Low ") + g.barCount : ""));
-    if (g.rangeTop !== undefined) {
+      (seen && g.barCount ? "   bar count here: " + (g.dir > 0 ? "High " : "Low ") + g.barCount : ""));
+    if (seen && g.rangeTop !== undefined) {
       L.push("Range: " + fmtN(g.rangeBot, ch.dec) + " to " + fmtN(g.rangeTop, ch.dec));
     }
-    if ((g.labels || []).length) {
+    if (seen && (g.labels || []).length) {
       L.push("Structural levels the app is using:");
       g.labels.forEach(function (lb) {
         L.push("  " + fmtN(lb[0].p, ch.dec) + "  = " + lb[1] + "  (bar " + lb[0].i + ")");
       });
+    }
+    if (!seen) {
+      L.push("");
+      L.push("GROUND TRUTH — withheld. This question has not been answered yet, so the " +
+        "context name, the app's levels, the range, the structural labels and the bar count " +
+        "are not included. Everything needed to reason about the chart is below. Press Copy " +
+        "again after submitting and the full answer key comes with it.");
     }
 
     /* ---- the bars themselves ----
@@ -3461,9 +3523,12 @@ var PROG = (function () {
     L.push("index | open | high | low | close | volume | ema20");
     for (var bi = first; bi <= last; bi++) {
       var b = ch.bars[bi], tags = [];
+      /* the signal-bar tag stays either way: the app already draws that bracket
+         on the unanswered chart, so it gives nothing away, and the table is hard
+         to read without it. The count tags and the pullback origin ARE answers. */
       if (bi === g.sigIdx) tags.push("SIGNAL BAR / decision bar — the last one shown");
-      if (cnt[bi]) tags.push(">> " + (g.dir > 0 ? "High " : "Low ") + cnt[bi]);
-      if (bi === g.pbFrom && g.pbFrom !== g.sigIdx) tags.push("pullback starts here");
+      if (seen && cnt[bi]) tags.push(">> " + (g.dir > 0 ? "High " : "Low ") + cnt[bi]);
+      if (seen && bi === g.pbFrom && g.pbFrom !== g.sigIdx) tags.push("pullback starts here");
       L.push("  " + pad(bi, 3) + "  " + pad(fmtN(b.o, dec), 10) + pad(fmtN(b.h, dec), 11) +
         pad(fmtN(b.l, dec), 11) + pad(fmtN(b.c, dec), 11) + pad(b.v, 10) +
         pad(fmtN(emaArr[bi], dec), 11) + (tags.length ? "   << " + tags.join(", ") : ""));
@@ -3489,7 +3554,7 @@ var PROG = (function () {
     } else if (p.ui.mode === "numeric") {
       L.push("");
       L.push("My answer: " + (S.ansNum != null && S.ansNum !== "" ? S.ansNum : "(none)") +
-        (right != null ? "   App's answer: " + right : ""));
+        (seen && right != null ? "   App's answer: " + right : ""));
     } else {
       var d = (chD.drawings || []).map(function (w) {
         return w.type + (w.p != null ? " at " + fmtN(w.p, ch.dec) : "");
@@ -3687,7 +3752,10 @@ var PROG = (function () {
       S.saved = {
         drawings: chD.drawings, userMark: chD.userMark, markers: chD.markers,
         i0: chD.i0, i1: chD.i1, vis: chD.vis, locked: chD.locked,
-        gt: chD.gt, gtMeasure: chD.gtMeasure, sigBar: chD.sigBar
+        gt: chD.gt, gtMeasure: chD.gtMeasure, sigBar: chD.sigBar,
+        /* without these two, answering at a faded tier and then pressing Learn
+           would drop you back on the answered rep with the full overlay painted */
+        gtLevel: chD.gtLevel, gtKeep: chD.gtKeep
       };
     }
     S.learnMode = true;
@@ -3697,7 +3765,11 @@ var PROG = (function () {
     if (S.abortSim) { S.abortSim(); S.abortSim = null; }
     chD.locked = true;
     chD.load(ch, ch.bars.length - 1);
-    chD.gt = ch.gt; chD.gtMeasure = true; chD.sigBar = ch.gt.sigIdx;
+    chD.gt = ch.gt;
+    /* the lesson card is the teaching artefact — always fully marked, whatever
+       tier you are on */
+    chD.gtLevel = 3; chD.gtKeep = null;
+    chD.gtMeasure = true; chD.sigBar = ch.gt.sigIdx;
     chD.setTool("cursor");
     chD.fit();
     buildLearnToolbar(ch);
@@ -3789,6 +3861,7 @@ var PROG = (function () {
       chD.drawings = sv.drawings; chD.userMark = sv.userMark; chD.markers = sv.markers;
       chD.i0 = sv.i0; chD.i1 = sv.i1; chD.locked = sv.locked;
       chD.gt = sv.gt; chD.gtMeasure = sv.gtMeasure; chD.sigBar = sv.sigBar;
+      chD.gtLevel = sv.gtLevel === undefined ? 3 : sv.gtLevel; chD.gtKeep = sv.gtKeep;
       chD.onChange = paintDrillPanel;
     } else {
       chD.blank();
@@ -4063,6 +4136,33 @@ var PROG = (function () {
     }
     finishRep(S.prep.K.grade(S.prep, ans));
   }
+  /* When the chart stops marking structure, the words have to carry it — but
+     only for things you were actually asked to find. Range edges and named
+     structure are facts the drill wanted you to locate, so stating them
+     afterwards IS the feedback. The trade levels on a "name the context" drill
+     are not, and printing those would just re-add the scaffolding as text.
+
+     Appended to g.lines rather than to the panel HTML so the read-aloud and the
+     Copy snapshot pick it up for free. Additive, so the {score, reveal, verdict,
+     lines} shape the external test scripts rely on is unchanged. */
+  function fadeNote(g, ch, lv) {
+    if (!g || g._faded || lv >= 3 || !ch) return;
+    var t = ch.gt, out = [];
+    if (lv < 3 && (t.labels || []).length) {
+      out.push((t.labels).map(function (L) {
+        return "<b>" + esc(L[1]) + "</b> at " + fmtN(L[0].p, ch.dec);
+      }).join(" · "));
+    }
+    if (lv < 2 && t.rangeTop !== undefined) {
+      out.push("range <b>" + fmtN(t.rangeBot, ch.dec) + "</b> to <b>" + fmtN(t.rangeTop, ch.dec) + "</b>");
+    }
+    if (!out.length) return;
+    g.lines = (g.lines || []).concat(
+      "The chart no longer marks these for you at this stage — finding them is the skill being tested. " +
+      "For the record: " + out.join(" · ") + ".");
+    g._faded = true;
+  }
+
   function finishRep(g) {
     S.graded = g;
     S.scores[S.idx] = g.score;
@@ -4071,13 +4171,24 @@ var PROG = (function () {
     if (g.r !== undefined) S.rs.push(g.r);
     chD.locked = true;
     chD.setTool("cursor");                 /* free to pan/zoom and look around now */
-    if (g.marks) g.marks.forEach(function (m) { chD.markers.push(m); });
     if (g.reveal && S.prep.ch) {
+      /* Getting it wrong buys back the full overlay, at any tier — you only
+         lose scaffolding while you are getting things right. */
+      /* Getting it wrong buys back the full overlay, at any tier. CLEAN_MARK is
+         reused deliberately rather than a new constant: it is already the app's
+         definition of a clean answer, so a rep that counts toward your streak is
+         a rep you did not need the training wheels for. */
+      var lv = (g.score < CLEAN_MARK) ? 3 : scaffoldLevel(S.node, { placement: S.placement });
+      chD.gtLevel = lv;
+      chD.gtKeep = GT_KEEP[S.prep.kind] || null;
       chD.gt = S.prep.ch.gt;
       chD.gtMeasure = (S.prep.kind === "measure" || S.prep.kind === "target");
-      /* the bracket only conflicts with the A/B/C measure overlay; everywhere
-         else it is the one landmark that says "this is where you entered" */
+      /* The bracket only conflicts with the A/B/C measure overlay. It is NOT
+         faded by tier: it is already drawn during the unanswered question, so
+         removing it on reveal would make the answer show less than the question
+         did. It says which bar you decided on, not what the setup was. */
       if (chD.gtMeasure) chD.sigBar = null;
+      fadeNote(g, S.prep.ch, lv);
       var posD = chD.find("pos"), fromI = posD ? posD.i : S.prep.ch.gt.sigIdx;
       chD.revealTo(S.prep.ch.bars.length - 1, 26, function () { chD.fitRange(fromI, chD.bars.length - 1); });
     }
@@ -4586,6 +4697,26 @@ var PROG = (function () {
       'will sit out valid High 2s. This app counts off the actual bars with that rule, so the answer is whatever ' +
       'the tape shows — sometimes a High 1, sometimes a High 3.</p>' +
 
+      '<h3>The help fades as you climb</h3>' +
+      '<p>Questions never show you the answer — that has always been true, at every tier. What changes is the ' +
+      '<b>feedback</b>. Early on, answering paints the whole picture: the range shaded with its edges priced, ' +
+      'entry, stop and target, and violet labels naming every structural point. Later that thins out, because ' +
+      'being shown where the structure was is not the same as finding it.</p>' +
+      '<li><b>Tiers 0&ndash;2</b> &mdash; everything, named.</li>' +
+      '<li><b>Tiers 3&ndash;5</b> &mdash; the structure is still drawn, but the <b>names go</b>. You have to know that the ' +
+      'line you are looking at is the range high.</li>' +
+      '<li><b>Tiers 6&ndash;8</b> &mdash; the range box goes too. Only the trade levels remain, so you can still see ' +
+      'whether you were right.</li>' +
+      '<li><b>Live execution and certification</b> &mdash; nothing is drawn but the levels the drill actually asked you ' +
+      'to place. A stop question still shows the stop; it no longer shows you the entry and target you were never ' +
+      'asked about.</li>' +
+      '<p>Two things never fade. <b>Get it wrong and the full picture comes back</b>, at any tier — you only lose the ' +
+      'scaffolding while you are getting things right, and the threshold is the same 80% that counts toward your ' +
+      'streak. And the <b>lesson cards are always fully marked</b>: they are the teaching, so press <b>Learn</b> on ' +
+      'the toolbar whenever you want the labelled version back.</p>' +
+      '<p>When the chart stops naming something you were asked to find, the feedback states it in words instead, so ' +
+      'nothing is ever simply withheld from you.</p>' +
+
       '<h3>Scoring</h3>' +
       '<p>Each node is a set of reps. A node is passed only when a <b>single session</b> clears both the pass mark ' +
       '(85% by default) <b>and</b> the required run of consecutive clean answers — an average on its own can hide a ' +
@@ -4613,6 +4744,10 @@ var PROG = (function () {
       'initial, structural and actual risk; the range edges and every structural level the app is ' +
       'using, each with the bar it sits on; the question, the options, whatever you drew, your answer, ' +
       'the app\'s answer and its full feedback.</p>' +
+      '<p>Before you submit, the answer key is held back — the context name, the app\'s levels, the range, the ' +
+      'structural labels and the bar count are all withheld, and the paste says so. The bars, the question and your ' +
+      'own working are always there, which is what you need to ask about a chart. Press Copy again after answering ' +
+      'and the full ground truth comes with it.</p>' +
       '<p>That means the chart travels with the question. Paste it into a chat and the reply is about ' +
       'the exact bars you were looking at — not a guess from a description, and not dependent on ' +
       'rebuilding anything from the seed. Use it whenever a verdict looks wrong, or when you want the ' +

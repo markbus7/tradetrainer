@@ -17,6 +17,10 @@ Everything runs client-side in a single HTML file.
 
 Tier 0 — *The first three setups* — comes before everything else and cannot be skipped by the placement test. It drills only the three highest-probability setups Brooks tells a new trader to trade (the two-legged pullback, the failed breakout back into a range, and the major trend reversal), end to end: recognise it, count it, enter it, stop it, target it, manage it, and pass on everything else. The rest of the curriculum unlocks behind it.
 
+## Scaffolding fades with the tier
+
+Questions never show the answer, at any tier. What fades is the **feedback**. Tiers 0–2 reveal everything and name it; tiers 3–5 keep the structure drawn but drop the naming labels; tiers 6–8 drop the range box and keep only the trade levels; Live execution and Mastery certification draw nothing but the level the drill actually asked you to place. Getting a question wrong restores the full picture at any tier — the threshold is the same 80% that counts toward a streak — and the lesson cards are always fully marked, reachable any time from the **Learn** button. When the chart stops naming something you were asked to find, the feedback states it in words instead.
+
 ## Passing standard
 
 A node is passed only when a **single session** clears both the pass mark (85% by default) and a required run of consecutive clean answers. An average alone can hide a skill you only half have, so the streak is what removes the doubt. Mastery certification requires 92% with an 8-answer streak.
