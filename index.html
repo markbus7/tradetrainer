@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.12.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.13.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.12.0", build: "2026-08-09", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.13.0", build: "2026-08-09", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -4218,6 +4218,14 @@ var PROG = (function () {
     if ($("dirLong")) $("dirLong").onclick = function () { setDir(1); };
     if ($("dirShort")) $("dirShort").onclick = function () { setDir(-1); };
     if ($("execBtn")) $("execBtn").onclick = execute;
+    /* live management, repainting so the read-out follows the action */
+    var act = function (fn) { return function () { if (S.sim) { fn(S.sim); paintDrillPanel(); } }; };
+    if ($("mHalf")) $("mHalf").onclick = act(function (s) { s.partial(0.5); });
+    if ($("mBE")) $("mBE").onclick = act(function (s) { s.breakeven(); });
+    if ($("mTrail")) $("mTrail").onclick = act(function (s) { s.setTrail(3); });
+    if ($("mAdd")) $("mAdd").onclick = act(function (s) { s.addLeg(); });
+    if ($("mRun")) $("mRun").onclick = act(function (s) { s.dropTarget(); });
+    if ($("mClose")) $("mClose").onclick = act(function (s) { s.closeAll(); });
     if ($("riskIn")) $("riskIn").onchange = function () {
       var v = parseFloat(this.value);
       if (!isFinite(v) || v <= 0) { this.value = S.account.riskPct; return; }
@@ -4234,6 +4242,7 @@ var PROG = (function () {
     wireRead("qRead", function () { return Speech.strip(prep.q) + (ui.hint ? ". " + Speech.strip(ui.hint) : ""); });
     wireCopy("qCopy", snapshot);
     wireCopy("fbCopy", snapshot);
+    if (S.replayRun) updateLive();         /* fill the live values now, not on the next bar */
 
     paintFoot();
   }
@@ -4317,8 +4326,50 @@ var PROG = (function () {
       '<div class="hint grow">= $' + Math.round(risk$).toLocaleString() + ' &middot; size follows your stop</div></div></div>';
   }
 
+  /** While the tape runs you can actually manage the position, which is the
+      whole point — a partial you press is a different thing from a partial you
+      name in a multiple-choice question. */
+  function livePanel() {
+    var st = S.sim && S.sim.state ? S.sim.state() : null;
+    var out = ['<div class="ticket"><div class="hd">Executing</div><div class="hint">' + S.replayMsg + '</div>'];
+    if (st && st.filled && st.open > 0) {
+      out.push('<div class="row" style="margin-top:6px"><div class="grow hint" id="lvPos"></div>' +
+        '<div class="hint" id="lvBank"></div></div>');
+      out.push('<div class="row"><div class="grow hint" id="lvRisk"></div><div class="hint" id="lvTgt"></div></div>');
+      out.push('<div class="row" style="margin-top:7px;gap:6px;flex-wrap:wrap">' +
+        '<button class="btn grow" id="mHalf">Take half</button>' +
+        '<button class="btn grow" id="mBE">Stop to average</button>' +
+        '<button class="btn grow" id="mTrail">' + (st.trail ? 'Trailing' : 'Trail') + '</button></div>');
+      out.push('<div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">' +
+        '<button class="btn grow" id="mAdd"' + (st.armedAdd ? ' disabled' : '') + '>Scale in</button>' +
+        '<button class="btn grow" id="mRun">Drop target</button>' +
+        '<button class="btn grow" id="mClose">Close all</button></div>');
+    }
+    out.push('</div>');
+    return out.join("");
+  }
+
+  /** Refresh the live numbers in place. Rebuilding the whole panel every bar
+      would fight the buttons for focus, so only the values move. */
+  function updateLive() {
+    if (!S.sim || !S.sim.state) return;
+    var st = S.sim.state(), dec = S.prep.ch.dec, set = function (id, html) {
+      var el = $(id); if (el) el.innerHTML = html;
+    };
+    var hint = $("drillPanel").querySelector(".ticket .hint");
+    if (hint) hint.textContent = S.replayMsg;
+    if (!st.filled || st.open <= 0) return;
+    set("lvPos", "open <b>" + st.open.toFixed(2) + "</b> @ <b>" + fmtN(st.avg, dec) + "</b>" +
+      (st.legs > 1 ? " (" + st.legs + " legs)" : ""));
+    set("lvBank", 'banked <b class="' + (st.realisedR >= 0 ? "up" : "dn") + '">' +
+      (st.realisedR >= 0 ? "+" : "") + st.realisedR.toFixed(2) + "R</b>");
+    set("lvRisk", 'at risk now <b class="' + (st.openR > 1.05 ? "dn" : "") + '">' + st.openR.toFixed(2) + "R</b>" +
+      (st.openR > 1.05 ? " — more than you planned" : ""));
+    set("lvTgt", st.target === null ? "no target · trailing" : "target " + fmtN(st.target, dec));
+  }
+
   function replayPanel() {
-    if (S.replayRun) return '<div class="ticket"><div class="hd">Executing</div><div class="hint">' + S.replayMsg + '</div></div>';
+    if (S.replayRun) return livePanel();
     if (S.graded) return "";
     return (S.account ? fundPanel() : "") + dirToggle() +
       '<div class="row" style="margin-top:9px;gap:7px">' +
@@ -4625,29 +4676,144 @@ var PROG = (function () {
   /* =====================================================================
      TRADE SIMULATION (shared by replay drills and practice)
      ===================================================================== */
+  /* =====================================================================
+     the trade engine
+
+     A position is multi-leg: you can scale in, take part off, move the stop to
+     the AVERAGE entry, trail it, and hold a runner with no target. Everything
+     is measured against the risk you originally planned:
+
+         R = total P&L / (initial per-unit risk x the first leg's size)
+
+     which is what a prop trader means by R, and which survives partials and
+     scaling without changing meaning.
+
+     Backward compatibility is by construction: with no actions taken there is
+     one leg of size 1 and one exit, so `r` reduces exactly to the old
+     (px - fill) * dir / risk. KIND.replay and the funded account cannot notice.
+
+     Scaling in deliberately shows its cost. A second leg at the same stop makes
+     the open risk larger than 1R, and `maxOpenR` records how far it got — so
+     "plan the total before the first entry" stops being advice and becomes a
+     number you watched happen. */
+  function newPos(plan) {
+    return {
+      dir: plan.dir, legs: [], exits: [], stop: plan.stop,
+      target: plan.target === undefined ? null : plan.target,
+      trail: 0, pending: null, avg: 0, open: 0, realised: 0
+    };
+  }
+  function posAvg(p) {
+    var n = 0, s = 0;
+    p.legs.forEach(function (L) { n += L.size; s += L.px * L.size; });
+    return n > 0 ? s / n : 0;
+  }
+  function posOpen(p) {
+    var n = 0;
+    p.legs.forEach(function (L) { n += L.size; });
+    p.exits.forEach(function (X) { n -= X.size; });
+    return Math.max(0, n);
+  }
+  /** close `size` units at `px`, banking the P&L against the average entry */
+  function posExit(p, px, size, why, at) {
+    var open = posOpen(p);
+    size = Math.min(size, open);
+    if (size <= 0) return 0;
+    var pl = (px - posAvg(p)) * p.dir * size;
+    p.exits.push({ px: px, size: size, why: why, at: at });
+    p.realised += pl;
+    return pl;
+  }
+
   function simulate(ch, plan, fromIdx, onBar, done) {
-    var bars = ch.bars, i = fromIdx, filled = false, fillPx = 0, waited = 0;
+    var bars = ch.bars, i = fromIdx, waited = 0;
     var d = plan.dir, risk = Math.abs(plan.entry - plan.stop);
+    var unit = risk || 1e-9;                 /* one R, per unit of size */
+    var pos = newPos(plan);
+    var maxOpenR = 0, addPx = null, ended = false;
+
+    function openRiskR() {                   /* what is at stake right now, in R */
+      var open = posOpen(pos); if (!open) return 0;
+      return open * Math.abs(posAvg(pos) - pos.stop) / unit;
+    }
+    function finish(why, at) {
+      if (!pos.legs.length) return { r: 0, exit: "no fill", bars: waited, filledAt: -1 };
+      return {
+        r: pos.realised / unit, exit: why,
+        bars: at ? at - fromIdx : 0, filledAt: at || i,
+        legs: pos.legs.slice(), exits: pos.exits.slice(),
+        avg: posAvg(pos), maxOpenR: maxOpenR, managed: pos.legs.length > 1 || pos.exits.length > 1
+      };
+    }
+    function stopOut(px, at) {
+      posExit(pos, px, posOpen(pos), "stopped", at);
+      ended = true; clearInterval(timer); onBar(at); return done(finish("stopped", at));
+    }
+
     var timer = setInterval(function () {
       i++;
-      if (i >= bars.length) { clearInterval(timer); return done(finish("data end", filled ? bars[bars.length - 1].c : null)); }
+      if (i >= bars.length) {
+        clearInterval(timer);
+        if (posOpen(pos) > 0) posExit(pos, bars[bars.length - 1].c, posOpen(pos), "data end", i);
+        return done(finish(pos.legs.length ? "data end" : "no fill", i));
+      }
       var b = bars[i];
-      if (!filled) {
-        if (b.l <= plan.entry && plan.entry <= b.h) { filled = true; fillPx = plan.entry; }
+
+      if (!pos.legs.length) {
+        if (b.l <= plan.entry && plan.entry <= b.h) { pos.legs.push({ px: plan.entry, size: 1, at: i }); }
         else if (++waited > 14) { clearInterval(timer); onBar(i); return done({ r: 0, exit: "no fill", bars: waited, filledAt: -1 }); }
       } else {
-        var hitS = d > 0 ? b.l <= plan.stop : b.h >= plan.stop;
-        var hitT = d > 0 ? b.h >= plan.target : b.l <= plan.target;
-        if (hitS) { clearInterval(timer); onBar(i); return done(finish("stopped", plan.stop, i)); }
-        if (hitT) { clearInterval(timer); onBar(i); return done(finish("target", plan.target, i)); }
+        /* a queued scale-in fills when price trades through it */
+        if (addPx !== null && b.l <= addPx && addPx <= b.h) {
+          pos.legs.push({ px: addPx, size: 1, at: i }); addPx = null;
+        }
+        /* trail before testing the stop, so it can only ever help, never
+           reach back and stop you on a bar it was not on */
+        if (pos.trail > 0 && posOpen(pos) > 0) {
+          var lo = Infinity, hi = -Infinity;
+          for (var q = Math.max(0, i - pos.trail); q <= i - 1; q++) { lo = Math.min(lo, bars[q].l); hi = Math.max(hi, bars[q].h); }
+          if (d > 0 && isFinite(lo)) pos.stop = Math.max(pos.stop, lo - ch.atr * 0.05);
+          else if (d < 0 && isFinite(hi)) pos.stop = Math.min(pos.stop, hi + ch.atr * 0.05);
+        }
+        var openR = openRiskR(); if (openR > maxOpenR) maxOpenR = openR;
+        var hitS = d > 0 ? b.l <= pos.stop : b.h >= pos.stop;
+        var hitT = pos.target !== null && (d > 0 ? b.h >= pos.target : b.l <= pos.target);
+        if (hitS) return stopOut(pos.stop, i);
+        if (hitT) {
+          posExit(pos, pos.target, posOpen(pos), "target", i);
+          ended = true; clearInterval(timer); onBar(i); return done(finish("target", i));
+        }
       }
       onBar(i);
     }, 95);
-    function finish(why, px, at) {
-      if (px === null || !filled) return { r: 0, exit: "no fill", bars: waited, filledAt: -1 };
-      return { r: ((px - fillPx) * d) / (risk || 1e-9), exit: why, bars: at ? at - fromIdx : 0, filledAt: at || i };
-    }
-    return function abort() { clearInterval(timer); };
+
+    /* the live control surface — every action is a market order at this bar's
+       close, which is the honest approximation while the tape is running */
+    return {
+      abort: function () { clearInterval(timer); },
+      state: function () {
+        return { legs: pos.legs.length, open: posOpen(pos), avg: posAvg(pos), stop: pos.stop,
+                 target: pos.target, trail: pos.trail, realisedR: pos.realised / unit,
+                 openR: openRiskR(), armedAdd: addPx !== null, filled: !!pos.legs.length };
+      },
+      partial: function (frac) {
+        if (ended || !pos.legs.length) return;
+        posExit(pos, bars[i].c, posOpen(pos) * frac, "partial", i);
+        if (posOpen(pos) <= 1e-9) { ended = true; clearInterval(timer); done(finish("closed", i)); }
+      },
+      breakeven: function () { if (!ended && pos.legs.length) pos.stop = posAvg(pos); },
+      setTrail: function (n) { if (!ended) pos.trail = n; },
+      dropTarget: function () { if (!ended) pos.target = null; },
+      addLeg: function () {                  /* arm a scale-in a little beyond price */
+        if (ended || !pos.legs.length) return;
+        addPx = bars[i].c - d * ch.atr * 0.75;
+      },
+      closeAll: function () {
+        if (ended || !pos.legs.length) return;
+        posExit(pos, bars[i].c, posOpen(pos), "closed", i);
+        ended = true; clearInterval(timer); done(finish("closed", i));
+      }
+    };
   }
 
   function execute() {
@@ -4655,7 +4821,7 @@ var PROG = (function () {
     if (!p) { toast("Place the position on the chart first"); return; }
     if (Math.abs(p.entry - p.stop) < 1e-9) { toast("Stop and entry are the same price"); return; }
     var ch = S.prep.ch;
-    S.replayRun = true; S.replayMsg = "Waiting for fill…"; chD.locked = true;
+    S.replayRun = true; S.replayMsg = "Waiting for fill…"; S.liveShown = false; chD.locked = true;
     paintDrillPanel();
     var plan = { dir: p.dir, entry: p.entry, stop: p.stop, target: p.target };
     /* Size is the OUTPUT of the stop, exactly as KIND.size teaches: a wider
@@ -4666,17 +4832,21 @@ var PROG = (function () {
       plan.units = risk$ / Math.abs(p.entry - p.stop);
       plan.risk$ = risk$;
     }
-    S.abortSim = simulate(ch, plan, chD.vis,
+    S.sim = simulate(ch, plan, chD.vis,
       function (i) {
         chD.vis = i;
         if (i > chD.i1 - 3) { chD.i0 += 1; chD.i1 += 1; }
         chD.render();
         S.replayMsg = "Bar " + (i - ch.gt.decision) + " · " + ch.sym + " " + ch.bars[i].c.toFixed(ch.dec);
-        var el = $("drillPanel").querySelector(".ticket .hint");
-        if (el) el.textContent = S.replayMsg;
+        /* the management controls only exist once there is a position to manage,
+           so repaint on the fill and then update the numbers in place */
+        var st = S.sim && S.sim.state ? S.sim.state() : null;
+        var live = !!(st && st.filled && st.open > 0);
+        if (live !== S.liveShown) { S.liveShown = live; paintDrillPanel(); }
+        else updateLive();
       },
       function (res) {
-        S.replayRun = false; S.abortSim = null;
+        S.replayRun = false; S.abortSim = null; S.sim = null;
         plan.result = res;
         var rec = {
           t: Date.now(), sym: ch.sym, tf: ch.tf, pattern: ch.gt.name, dir: plan.dir,
@@ -4697,6 +4867,8 @@ var PROG = (function () {
         PROG.logTrade(rec);
         finishRep(S.prep.K.grade(S.prep, plan));
       });
+    S.abortSim = S.sim.abort;
+    paintDrillPanel();                     /* swap in the live management controls */
   }
   function passTrade() {
     chD.locked = true;
@@ -4715,7 +4887,7 @@ var PROG = (function () {
     prac.ch = Mkt.gen({ seed: seed, ctx: key });
     prac.live = null; prac.playing = false;
     if (prac.timer) { clearInterval(prac.timer); prac.timer = null; }
-    if (prac.abort) { prac.abort(); prac.abort = null; }
+    if (prac.sim) { prac.sim.abort(); prac.sim = null; }
     var start = Math.max(30, prac.ch.gt.decision - (4 + ((Math.random() * 10) | 0)));
     chP.load(prac.ch, start);
     chP.sigBar = null;
@@ -4874,7 +5046,7 @@ var PROG = (function () {
     if (prac.playing) togglePlay();
     prac.live = true; prac.result = null;
     var ch = prac.ch;
-    prac.abort = simulate(ch, { dir: p.dir, entry: p.entry, stop: p.stop, target: p.target }, chP.vis,
+    prac.sim = simulate(ch, { dir: p.dir, entry: p.entry, stop: p.stop, target: p.target }, chP.vis,
       function (i) {
         chP.vis = i;
         if (i > chP.i1 - 3) { chP.i0 += 1; chP.i1 += 1; }
@@ -5058,6 +5230,25 @@ var PROG = (function () {
       'target in the trades you have. On a typical edge here, 1% passes about nine times in ten, 3% roughly halves ' +
       'that, and 5% blows up about four runs in ten. No risk setting rescues weak reads — sizing decides how fast a ' +
       'good edge compounds and how fast a bad one kills you, not whether you have one.</p>' +
+
+      '<h3>Managing a live trade</h3>' +
+      '<p>Once you press Execute the tape runs, and you can now actually <b>manage</b> the position rather than watch ' +
+      'it. The controls appear as soon as you are filled:</p>' +
+      '<li><b>Take half</b> — bank part of it at the current price. What is left keeps running.</li>' +
+      '<li><b>Stop to average</b> — move the stop to your <b>average</b> entry. On a single-leg trade that is ' +
+      'breakeven; on a scaled position it is the average, which is the only price that means breakeven once you have ' +
+      'more than one fill.</li>' +
+      '<li><b>Trail</b> — the stop follows behind the recent bars and never moves backwards.</li>' +
+      '<li><b>Scale in</b> — arm a second leg a little beyond price. Watch the <b>at risk now</b> figure when it ' +
+      'fills: at the same stop, a second leg puts more than 1R at stake. That is why the total has to be planned ' +
+      'before the first entry.</li>' +
+      '<li><b>Drop target</b> — hold a runner with no target and let the trail decide the exit.</li>' +
+      '<li><b>Close all</b> — take what is there.</li>' +
+      '<p>The read-out shows the open size, your average, what you have <b>banked</b> so far and what is still ' +
+      '<b>at risk</b>, all in R. The result you are graded on is the blended total — so half off at 1R and the rest ' +
+      'stopped at the average is a very different number from a flat loss, and you will see it as one.</p>' +
+      '<p>Everything is still measured against the risk you originally planned, so 1R means the same thing before ' +
+      'and after you manage the trade.</p>' +
 
       '<h3>Scaling in — and whether it is one trade or two</h3>' +
       '<p>Scaling in is not the same thing as "adding because I am losing". It is a planned technique and Brooks uses ' +
