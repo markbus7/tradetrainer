@@ -678,7 +678,7 @@ var Mkt = (function () {
     family: "reversal", cycle: "trading range", dir: 1, alwaysIn: 1, prob: 0.55, pWin: 0.54,
     style: "swing", mmType: "wedge", entryType: "stop", sigQ: "strong",
     brooks: "Three pushes down, each one weaker than the last, inside a converging wedge — the sellers are exhausted. A wedge reversal usually returns to the start of the wedge, and often gives a two-legged move up. Stop below the third push.",
-    mmRule: "A wedge does not use a height projection: the classic target is the level where the wedge began.",
+    mmRule: "A wedge's first target is the level where the wedge began — usually reached in two legs. Only if price breaks beyond that does the height of the wedge get projected as the next target.",
     howTo: ["It starts at the first of three pushes down \u2014 you cannot call a wedge until you can already see at least two clear lower lows forming inside converging trendlines.", "It is still developing through push two and push three, and each one should be weaker (smaller, slower) than the last \u2014 that weakening momentum is the actual signal, not just the converging shape.", "It completes at push three's low, and breaks (invalidates) if price makes a new low below push three \u2014 that would mean the sellers were not actually exhausted after all.", "The stop sits just below push three's low, since that is the exact point that would prove the exhaustion read wrong."],
     segs: function (R) {
       return [
@@ -2699,7 +2699,7 @@ KIND.entry = {
       ui: {
         mode: "chart", need: "hline",
         hint: lim
-          ? "You are fading an edge, so you want to be filled AS price reaches it."
+          ? "You are fading an edge, so you want to be filled as price reaches it — at the prior extreme, or a few ticks through it."
           : "You are trading with the move, so price must trade through your level to fill you."
       }
     };
@@ -2714,14 +2714,29 @@ KIND.entry = {
     var s, verdict, note;
 
     if (g.entryType === "limit") {
+      /* Brooks fades a range edge by placing the limit AT or JUST BEYOND the
+         prior extreme — "buy limit orders below prior lows to get long" — so
+         the probe through the low fills you and then fails. Past roughly an
+         ATR beyond, you are no longer fading a probe, you are catching a real
+         breakout and needing to scale in lower. */
       var edge = d > 0 ? g.rangeBot : g.rangeTop;
-      var inside = edge === undefined ? 0 : d * (ans - edge);
-      if (err <= tol) { s = 1; verdict = "Exact"; note = "A limit order right at the edge. You are paid to be early here, not late."; }
-      else if (inside < -0.9 * a) {
-        s = 0.2; verdict = "Limit too far outside";
-        note = "You put the limit well beyond the edge, which only fills if the range actually breaks — and about eight out of ten of those breakouts fail. You would be buying the breakdown instead of fading it.";
-      } else if (err <= 2 * tol) { s = 0.7; verdict = "Close"; note = "The right idea, a little loose. At an edge, precision is most of the reward."; }
-      else { s = band(err, tol * 1.6) * 0.7; verdict = "Off the edge"; note = "Fading a range edge means the level itself is the trade. Away from it there is no edge left."; }
+      var past = edge === undefined ? 0 : -d * (ans - edge);   /* >0 = beyond the edge */
+      var intoRange = edge === undefined ? 0 : d * (ans - edge); /* >0 = inside the range */
+      var beginnerNote = " Brooks tells beginners to enter on stops even here; fading an edge with limits is the experienced, aggressive version of this trade.";
+      if (past >= -0.1 * a && past <= 0.85 * a) {
+        s = 1; verdict = "Exact";
+        note = "A limit at the edge, or a few ticks beyond it, so the probe through the " +
+               (d > 0 ? "low" : "high") + " fills you and then fails. That is the fade." + beginnerNote;
+      } else if (past > 0.85 * a) {
+        s = 0.3; verdict = "Limit too far beyond the edge";
+        note = "At " + fmtN(past / a, 1) + " ATR past the edge you are no longer fading a probe — that is a real breakout, and you would be catching it. Brooks' fade sits at the prior extreme or a few ticks through it, and he scales in lower rather than starting there.";
+      } else if (intoRange <= 2 * tol) {
+        s = 0.7; verdict = "Inside the edge";
+        note = "The right idea, but you are already " + fmtN(intoRange / a, 1) + " ATR inside the range. At an edge, precision is most of the reward.";
+      } else {
+        s = clamp(band(intoRange, tol * 1.8) * 0.6, 0, 1); verdict = "Off the edge";
+        note = "Fading a range means the edge itself is the trade. This far into the middle there is no edge left — and the middle of a range is where accounts go to die.";
+      }
     } else if (beyond < -0.15 * a) {
       s = 0.1; verdict = "That is a limit order, not a stop";
       note = "You placed the entry <b>inside</b> the signal bar, so you get filled without price ever proving it can go your way. " +
