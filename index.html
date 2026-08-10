@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.13.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.14.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.13.0", build: "2026-08-09", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.14.0", build: "2026-08-09", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2010,7 +2010,7 @@ var SKILLS = {
 var RANKS = [
   { n: "Cadet" }, { n: "Core Trader" }, { n: "Bar Reader" }, { n: "Cycle Reader" },
   { n: "Trend Trader" }, { n: "Range Trader" }, { n: "Trap Hunter" }, { n: "Cartographer" },
-  { n: "Reversal Trader" }, { n: "Operator" }, { n: "Master" }, { n: "Funded" }
+  { n: "Reversal Trader" }, { n: "Operator" }, { n: "Manager" }, { n: "Master" }, { n: "Funded" }
 ];
 
 /* ---------------- context pools ---------------- */
@@ -3216,6 +3216,126 @@ KIND.secondEntry = {
   }
 };
 
+/* --- 22. managing a live trade -------------------------------------
+   The first drill that grades what you PRESSED rather than what you named.
+   Three Brooks rules decide it:
+
+     · breakeven only after the trade has proven itself — about 1R, structure
+       intact. "A good trade should never reverse the entry bar", but moving the
+       stop up on bar one in chop just donates the trade back.
+     · trail in a TREND, behind the most recent higher low, and you may hold a
+       runner with no target at all.
+     · in a RANGE take the fixed target. Trailing inside two-sided trading gets
+       you shaken out of a trade that was going to reach its objective.
+
+   Scaling in is graded on planned size, not on whether you did it: pushing the
+   open risk past the 1R you planned is the error, adding itself is not. */
+KIND.manageLive = {
+  skill: "execution", skill2: "risk",
+  prepare: function (sp, seed) {
+    var ch = Mkt.gen({ seed: seed, ctx: pickPool(sp.pool || POOL.tradeable, seed) });
+    return {
+      ch: ch,
+      q: "Take the trade and then <b>manage it</b>. The controls appear once you are filled — half off, stop to the average, trail, scale in, drop the target, or close.",
+      ui: {
+        mode: "replay", manage: true,
+        hint: "Breakeven is worth having, but only once the trade has proven itself. Trend or range decides whether you trail or take a fixed target."
+      },
+      meta: { minRR: sp.minRR || 1.5 }
+    };
+  },
+  grade: function (p, ans) {
+    var base = KIND.replay.grade(p, ans);
+    if (!ans || ans.passed || !ans.result) return base;
+    var g = p.ch.gt, res = ans.result, acts = res.actions || [];
+    var isTrend = g.family === "trend" || g.family === "breakout";
+    var find = function (w) { var o = null; acts.forEach(function (a) { if (a.what === w && !o) o = a; }); return o; };
+    var be = find("breakeven"), tr = find("trail"), dt = find("dropTarget"), si = find("scaleIn"), ca = find("closeAll");
+    var m = 0.7, notes = [];
+
+    if (!acts.length) {
+      m = isTrend ? 0.55 : 1;
+      notes.push(isTrend
+        ? "You held it to the target untouched. Nothing wrong with the trade — but this was a <b>trend</b>, and a trend is where the runner lives. Trailing behind the higher lows, or dropping the target altogether, is what turns the occasional big one into the trade that pays for the month."
+        : "Held to the fixed target and left it alone. In a <b>range</b> that is exactly right — the market was heading for its objective and trailing would only have shaken you out early.");
+    } else {
+      if (be) {
+        if (be.unrealR < 0.9) {
+          m = Math.min(m, 0.35);
+          notes.push("You moved the stop to the average with only <b>" + be.unrealR.toFixed(2) +
+            "R</b> of open profit, on bar " + be.bar + ". Brooks moves to breakeven once the trade has moved about <b>1R</b> and the structure is intact — and not at all early in choppy tape. Before that the trade has proven nothing, and a breakeven stop in the noise just hands it back.");
+        } else {
+          m = Math.max(m, 0.9);
+          notes.push("Breakeven at <b>" + be.unrealR.toFixed(2) + "R</b> of open profit — after the trade proved itself, which is the condition. A good trade should not come back through your entry.");
+        }
+      }
+      if (isTrend && (tr || dt)) { m = Math.max(m, 1); notes.push("Trailing or running it in a trend is the right instinct: this is the context that pays for being held."); }
+      if (!isTrend && tr) {
+        m = Math.min(m, 0.45);
+        notes.push("You trailed inside <b>two-sided</b> trading. Brooks uses a fixed target in a range and lets the market reach its objective — a trailing stop in chop gets tapped by noise on the way there.");
+      }
+      if (!isTrend && !tr && (find("partial") || ca)) { m = Math.max(m, 0.85); notes.push("Taking it off inside the range rather than trailing is the right shape for two-sided trading."); }
+      if (si) {
+        if (res.maxOpenR > 1.15) {
+          m = Math.min(m, 0.5);
+          notes.push("The scale-in took your open risk to <b>" + res.maxOpenR.toFixed(2) +
+            "R</b>. Adding is not the mistake — <b>unplanned size</b> is. If you intend to scale in, the total has to be decided before the first entry, and the first entry sized smaller so the finished position still risks the 1R you meant.");
+        } else {
+          notes.push("Scaled in and kept the open risk at <b>" + res.maxOpenR.toFixed(2) + "R</b> — planned, not reactive. That is the version Brooks uses.");
+        }
+      }
+    }
+    /* the same trade, untouched — the only honest way to price the management */
+    if (ans.holdR !== undefined) {
+      var diff = res.r - ans.holdR;
+      notes.push("On this tape your management came to <b>" + (res.r >= 0 ? "+" : "") + res.r.toFixed(2) +
+        "R</b>; holding the original plan untouched would have been <b>" + (ans.holdR >= 0 ? "+" : "") + ans.holdR.toFixed(2) +
+        "R</b>. " + (Math.abs(diff) < 0.05
+          ? "Almost the same here — one tape is not evidence either way."
+          : diff > 0 ? "Your management earned <b>" + diff.toFixed(2) + "R</b> on this one."
+                     : "Your management cost <b>" + Math.abs(diff).toFixed(2) + "R</b> on this one — which is the price of the higher win rate it buys you, not a mistake by itself."));
+    }
+    base.score = clamp(0.55 * base.score + 0.45 * m, 0, 1);
+    base.lines = (base.lines || []).concat(notes);
+    base.verdict = m >= 0.85 ? "Well managed" : m <= 0.45 ? "Managed against the context" : base.verdict;
+    return base;
+  }
+};
+
+/* --- 23. trail it or take the target? ------------------------------ */
+KIND.trailOrTarget = {
+  skill: "execution", skill2: "range",
+  right: function (p) { var f = p.ch.gt.family; return (f === "trend" || f === "breakout") ? "trail" : "target"; },
+  prepare: function (sp, seed) {
+    var ch = Mkt.gen({ seed: seed, ctx: pickPool(sp.pool || POOL.tradeable, seed) });
+    return {
+      ch: ch,
+      q: "You are in the trade and it is working. Do you <b>trail</b> the stop behind the move, or hold the <b>fixed target</b> and let it get there?",
+      ui: {
+        mode: "mcq", options: [
+          { k: "trail", t: "Trail it — follow the higher lows, and consider dropping the target entirely" },
+          { k: "target", t: "Hold the fixed target — let the market reach its objective" }
+        ]
+      }
+    };
+  },
+  grade: function (p, ans) {
+    var g = p.ch.gt, isTrend = g.family === "trend" || g.family === "breakout";
+    var right = isTrend ? "trail" : "target", ok = ans === right;
+    return {
+      score: ok ? 1 : 0, reveal: true,
+      verdict: ok ? "Correct" : (isTrend ? "Trail this one" : "Take the fixed target"),
+      lines: [
+        "<b>" + g.name + "</b>. " + g.brooks,
+        isTrend
+          ? "This is a <b>trend</b>. Brooks trails the protective stop behind the most recent higher low as the move extends, and a trend is the one place where holding a runner with no target at all makes sense — you cannot know in advance which move keeps going, so you stop guessing and let the trail decide."
+          : "This is <b>two-sided</b>. In a range Brooks uses a <b>fixed target</b> and lets the market reach its objective rather than trailing. A trailing stop inside two-sided trading gets tapped by ordinary noise long before price gets to the other side, so you take the loss of a trade that was going to work.",
+        "The stop, as always, started in the same place either way. What changes with context is where you get out, never where you were wrong."
+      ]
+    };
+  }
+};
+
 /* ---------------- pool picker ---------------- */
 function pickPool(pool, seed) {
   var R = Mkt.mkR((seed ^ 0x9e37) >>> 0);
@@ -3360,7 +3480,17 @@ var TIERS = [
     ]
   },
   {
-    id: "t10", rank: 9, name: "Mastery certification",
+    id: "tM", rank: 9, name: "Managing the trade",
+    blurb: "Everything so far ended when the trade was placed. This is the other half: when to move the stop to breakeven and when that is just donating the trade back, whether to trail or hold a fixed target, and what scaling in does to the risk you thought you had.",
+    nodes: [
+      { id: "tMa", kind: "trailOrTarget", n: 8, title: "Trail it or take the target?", pass: 0.85, streak: 4 },
+      { id: "tMb", kind: "manageLive", n: 5, title: "Manage a trend", pool: POOL.trend, minRR: 1.5 },
+      { id: "tMc", kind: "manageLive", n: 5, title: "Manage a range trade", pool: POOL.rangeTradeable.concat(POOL.breakout), minRR: 1.5 },
+      { id: "tMd", kind: "manageLive", n: 6, title: "Manage anything", pool: POOL.tradeable, minRR: 1.5 }
+    ]
+  },
+  {
+    id: "t10", rank: 10, name: "Mastery certification",
     blurb: "Everything, mixed, under one standard. Pass both and you are done here.",
     nodes: [
       { id: "t10a", kind: "mixed", n: 20, title: "Mixed examination", pass: 0.92, streak: 8 },
@@ -3368,7 +3498,7 @@ var TIERS = [
     ]
   },
   {
-    id: "t11", rank: 10, name: "The funded account",
+    id: "t11", rank: 11, name: "The funded account",
     blurb: "Everything so far graded one decision at a time. This grades the thing that actually ends careers: correct reads sized wrongly. $25,000, a 6% target, a 3% session loss limit and a 5% max drawdown. Breach a limit and the run is over.",
     nodes: [
       { id: "t11a", kind: "size", n: 6, title: "Size from the stop, again", pass: 0.85, streak: 4 },
@@ -3380,7 +3510,7 @@ var TIERS = [
 
 var MIXED_KINDS = ["alwaysIn", "cycle", "context", "signalBar", "takeSide", "rangePlace",
   "boFate", "scalpSwing", "measure", "stop", "target", "traderEq", "plan",
-  "entry", "barCount", "manage", "reversalType", "secondEntry"];
+  "entry", "barCount", "manage", "reversalType", "secondEntry", "trailOrTarget"];
 
 function nodeById(id) {
   for (var i = 0; i < TIERS.length; i++) {
@@ -3403,7 +3533,7 @@ function nodeById(id) {
    Keyed off the TIER the node lives in rather than the learner's rank, so
    replaying an early tier still gives early-tier help. (`tier.rank` is stale —
    t1 and t2 both carry rank 1 — and is read nowhere, so use the array index.) */
-var SCAFFOLD_BY_TIER = [3, 3, 3, 2, 2, 2, 1, 1, 1, 0, 0, 0];
+var SCAFFOLD_BY_TIER = [3, 3, 3, 2, 2, 2, 1, 1, 1, 0, 0, 0, 0];
 
 /* At level 0 the trade levels go, EXCEPT the one the drill actually asked you
    to place — otherwise the top tiers are punitive rather than demanding. You
@@ -4725,16 +4855,26 @@ var PROG = (function () {
     return pl;
   }
 
-  function simulate(ch, plan, fromIdx, onBar, done) {
+  function simulate(ch, plan, fromIdx, onBar, done, opts) {
     var bars = ch.bars, i = fromIdx, waited = 0;
     var d = plan.dir, risk = Math.abs(plan.entry - plan.stop);
     var unit = risk || 1e-9;                 /* one R, per unit of size */
     var pos = newPos(plan);
-    var maxOpenR = 0, addPx = null, ended = false;
+    var maxOpenR = 0, addPx = null, ended = false, acts = [];
 
     function openRiskR() {                   /* what is at stake right now, in R */
       var open = posOpen(pos); if (!open) return 0;
       return open * Math.abs(posAvg(pos) - pos.stop) / unit;
+    }
+    /* open profit right now, in R — what "the trade has moved 1R in your
+       favour" actually means, and the number the management drills grade
+       timing against */
+    function unrealR() {
+      if (!pos.legs.length || posOpen(pos) <= 0) return 0;
+      return (bars[Math.min(i, bars.length - 1)].c - posAvg(pos)) * d / unit;
+    }
+    function logAct(what) {
+      acts.push({ at: i, bar: i - fromIdx, what: what, unrealR: unrealR(), openR: openRiskR() });
     }
     function finish(why, at) {
       if (!pos.legs.length) return { r: 0, exit: "no fill", bars: waited, filledAt: -1 };
@@ -4742,7 +4882,8 @@ var PROG = (function () {
         r: pos.realised / unit, exit: why,
         bars: at ? at - fromIdx : 0, filledAt: at || i,
         legs: pos.legs.slice(), exits: pos.exits.slice(),
-        avg: posAvg(pos), maxOpenR: maxOpenR, managed: pos.legs.length > 1 || pos.exits.length > 1
+        avg: posAvg(pos), maxOpenR: maxOpenR, managed: pos.legs.length > 1 || pos.exits.length > 1,
+        actions: acts.slice()
       };
     }
     function stopOut(px, at) {
@@ -4750,10 +4891,10 @@ var PROG = (function () {
       ended = true; clearInterval(timer); onBar(at); return done(finish("stopped", at));
     }
 
-    var timer = setInterval(function () {
+    function tick() {
       i++;
       if (i >= bars.length) {
-        clearInterval(timer);
+        ended = true; clearInterval(timer);
         if (posOpen(pos) > 0) posExit(pos, bars[bars.length - 1].c, posOpen(pos), "data end", i);
         return done(finish(pos.legs.length ? "data end" : "no fill", i));
       }
@@ -4761,7 +4902,7 @@ var PROG = (function () {
 
       if (!pos.legs.length) {
         if (b.l <= plan.entry && plan.entry <= b.h) { pos.legs.push({ px: plan.entry, size: 1, at: i }); }
-        else if (++waited > 14) { clearInterval(timer); onBar(i); return done({ r: 0, exit: "no fill", bars: waited, filledAt: -1 }); }
+        else if (++waited > 14) { ended = true; clearInterval(timer); onBar(i); return done({ r: 0, exit: "no fill", bars: waited, filledAt: -1 }); }
       } else {
         /* a queued scale-in fills when price trades through it */
         if (addPx !== null && b.l <= addPx && addPx <= b.h) {
@@ -4785,35 +4926,58 @@ var PROG = (function () {
         }
       }
       onBar(i);
-    }, 95);
+    }
+    /* Live runs are interval-driven; a dry run drives the same tick() in a
+       loop so counterfactuals ("what would holding have given?") come from the
+       identical code path and cannot drift from what the learner just did. */
+    var timer = (opts && opts.sync) ? null : setInterval(tick, 95);
 
     /* the live control surface — every action is a market order at this bar's
        close, which is the honest approximation while the tape is running */
-    return {
+    var ctrl = {
       abort: function () { clearInterval(timer); },
       state: function () {
         return { legs: pos.legs.length, open: posOpen(pos), avg: posAvg(pos), stop: pos.stop,
                  target: pos.target, trail: pos.trail, realisedR: pos.realised / unit,
-                 openR: openRiskR(), armedAdd: addPx !== null, filled: !!pos.legs.length };
+                 openR: openRiskR(), unrealR: unrealR(), armedAdd: addPx !== null,
+                 filled: !!pos.legs.length };
       },
       partial: function (frac) {
         if (ended || !pos.legs.length) return;
+        logAct("partial");
         posExit(pos, bars[i].c, posOpen(pos) * frac, "partial", i);
         if (posOpen(pos) <= 1e-9) { ended = true; clearInterval(timer); done(finish("closed", i)); }
       },
-      breakeven: function () { if (!ended && pos.legs.length) pos.stop = posAvg(pos); },
-      setTrail: function (n) { if (!ended) pos.trail = n; },
-      dropTarget: function () { if (!ended) pos.target = null; },
+      breakeven: function () { if (!ended && pos.legs.length) { logAct("breakeven"); pos.stop = posAvg(pos); } },
+      setTrail: function (n) { if (!ended) { logAct("trail"); pos.trail = n; } },
+      dropTarget: function () { if (!ended) { logAct("dropTarget"); pos.target = null; } },
       addLeg: function () {                  /* arm a scale-in a little beyond price */
         if (ended || !pos.legs.length) return;
+        logAct("scaleIn");
         addPx = bars[i].c - d * ch.atr * 0.75;
       },
       closeAll: function () {
         if (ended || !pos.legs.length) return;
+        logAct("closeAll");
         posExit(pos, bars[i].c, posOpen(pos), "closed", i);
         ended = true; clearInterval(timer); done(finish("closed", i));
       }
     };
+    /* the dry-run driver has to come after ctrl exists, so a script can act */
+    if (opts && opts.sync) {
+      var guard = 0;
+      while (!ended && guard++ < 4000) { tick(); if (!ended && opts.script) opts.script(ctrl, i - fromIdx); }
+    }
+    return ctrl;
+  }
+
+  /** Replay a plan against the same engine with a scripted management, and
+      return the result. Used for the counterfactuals in the feedback — the
+      same trade, managed differently. */
+  function dryRun(ch, plan, from, script) {
+    var out = null;
+    simulate(ch, plan, from, function () {}, function (r) { out = r; }, { sync: true, script: script });
+    return out;
   }
 
   function execute() {
@@ -4848,6 +5012,10 @@ var PROG = (function () {
       function (res) {
         S.replayRun = false; S.abortSim = null; S.sim = null;
         plan.result = res;
+        /* what the same plan would have returned untouched — so the feedback can
+           say what your management actually cost or earned, on this tape */
+        plan.holdR = dryRun(ch, { dir: plan.dir, entry: plan.entry, stop: plan.stop, target: plan.target },
+                            ch.gt.decision, null).r;
         var rec = {
           t: Date.now(), sym: ch.sym, tf: ch.tf, pattern: ch.gt.name, dir: plan.dir,
           r: res.r, exit: res.exit, src: S.node.id, bars: res.bars
@@ -5230,6 +5398,41 @@ var PROG = (function () {
       'target in the trades you have. On a typical edge here, 1% passes about nine times in ten, 3% roughly halves ' +
       'that, and 5% blows up about four runs in ten. No risk setting rescues weak reads — sizing decides how fast a ' +
       'good edge compounds and how fast a bad one kills you, not whether you have one.</p>' +
+
+      '<h3>When to move to breakeven, and when not to</h3>' +
+      '<p>Moving the stop to your entry is worth having, and it is also the most over-used button in trading. ' +
+      'Brooks moves to breakeven <b>once the trade has moved about 1R and the structure is intact</b> — and ' +
+      '<b>not</b> early in choppy tape. The reasoning is that a good trade should not come back through your entry, ' +
+      'so once it has proven itself the stop can come up. Before it has proven anything, a breakeven stop sitting in ' +
+      'the noise simply hands the trade back, and you get the loss without the trade.</p>' +
+      '<p>The management drills grade the <b>timing</b>, not the action. Press it at 0.2R and you will be marked ' +
+      'down with the reason; press it at 1R and you will not.</p>' +
+
+      '<h3>Trail, or hold a target?</h3>' +
+      '<p>Context decides, and the two answers are opposite.</p>' +
+      '<li><b>Trend</b> — trail the stop behind the most recent higher low as the move extends. A trend is the one ' +
+      'place where holding a <b>runner with no target at all</b> makes sense: you cannot know in advance which move ' +
+      'keeps going, so you stop guessing and let the trail decide.</li>' +
+      '<li><b>Range</b> — hold the <b>fixed target</b> and let the market reach its objective. A trailing stop inside ' +
+      'two-sided trading gets tapped by ordinary noise long before price gets to the other side, so you take a loss ' +
+      'on a trade that was going to work.</li>' +
+      '<p>The stop still starts in the same place either way. What context changes is where you get out — never ' +
+      'where you were wrong.</p>' +
+
+      '<h3>What management does to the trader\'s equation</h3>' +
+      '<p>The equation earlier in this ladder — probability times reward against probability of loss times risk — ' +
+      'assumes a trade has <b>two</b> outcomes: you win your target or you lose 1R. The moment you take a partial ' +
+      'that stops being true. Winners come back at varying sizes and losers come back <i>smaller</i> than 1R, ' +
+      'because part was already off.</p>' +
+      '<p>So if you scale out, the equation has to be computed on <b>what you actually do</b>, not on the plan you ' +
+      'drew. And the direction is not a matter of opinion — this app measured it over 660 of its own charts:</p>' +
+      '<li>hold to target: <b>59%</b> win rate, mean <b>0.75R</b></li>' +
+      '<li>half off then stop to breakeven: <b>69%</b> win rate, mean <b>0.29R</b></li>' +
+      '<p>Ten points of win rate bought with about 60% of the average reward. That is not an argument against taking ' +
+      'partials — it is Brooks\' law stated exactly: <i>whenever a trader does something to increase his ' +
+      'probability, he pays for it with a smaller reward, an increased risk, or both.</i> Knowing which side of that ' +
+      'trade you are making is the point. After every managed trade the app shows you both numbers on that tape: ' +
+      'what your management returned, and what holding untouched would have.</p>' +
 
       '<h3>Managing a live trade</h3>' +
       '<p>Once you press Execute the tape runs, and you can now actually <b>manage</b> the position rather than watch ' +
