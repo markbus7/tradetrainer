@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.14.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.15.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.14.0", build: "2026-08-09", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.15.0", build: "2026-08-10", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -366,7 +366,7 @@ var Mkt = (function () {
   /* ---- 1. spike and channel ---------------------------------------- */
   CTX.spikeChannel = {
     name: "Spike and channel", twin: "Spike and channel (bear)",
-    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.68, pWin: 0.52,
+    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.76, pWin: 0.52,
     style: "swing", mmType: "spike", entryType: "stop", sigQ: "strong",
     brooks: "The spike is the strongest part of the move — it is where the institutions were most eager. Measure the spike and project it from the top of the spike: that is where the channel is trying to reach. Buy pullbacks in the channel; the first pullback after a spike rarely fails.",
     mmRule: "Measure the spike (its low to its high) and project that height from the top of the spike.",
@@ -397,7 +397,7 @@ var Mkt = (function () {
   /* ---- 2. tight channel -------------------------------------------- */
   CTX.tightChannel = {
     name: "Tight bull channel", twin: "Tight bear channel",
-    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.88, pWin: 0.65,
+    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.91, pWin: 0.65,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong",
     brooks: "A tight channel is a one-sided market: the pullbacks are tiny and every reversal attempt fails. Do not look for shorts here — bears keep getting trapped. Buy the first pullback (a High 1) and hold. Countertrend trading here is the worst trade on the chart: about four out of five attempts to reverse a strong trend fail, and in a genuinely tight channel it is worse than that. Bears do not get a good entry until the channel first breaks and price then returns to test the high.",
     mmRule: "Measure the first leg of the channel and project it from the pullback low.",
@@ -420,7 +420,7 @@ var Mkt = (function () {
       return {
         sigIdx: ax.sig.i, measure: { a: a, b: bb }, anchor: pb,
         target: pb.p + (bb.p - a.p), invalid: pb.p,
-        labels: [[bb, "first leg high"], [pb, "pullback"]]
+        labels: [[bb, "first leg high"], [pb, "pullback low"]]
       };
     }
   };
@@ -428,7 +428,7 @@ var Mkt = (function () {
   /* ---- 3. broad channel -------------------------------------------- */
   CTX.broadChannel = {
     name: "Broad bull channel", twin: "Broad bear channel",
-    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.82, pWin: 0.58,
+    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.72, pWin: 0.58,
     style: "scalp", mmType: "none", entryType: "stop", sigQ: "strong",
     brooks: "A broad channel is really a trading range tilted upward — it is two-sided. Buying near the bottom of the channel is fine, but the swings are big and the follow-through is unreliable, so take profit at the top of the channel instead of holding for a big measured move.",
     mmRule: "Measure the prior leg up and project it from the pullback low.",
@@ -457,7 +457,7 @@ var Mkt = (function () {
   /* ---- 4. two-legged pullback (H2 / L2) ---------------------------- */
   CTX.twoLegPullback = {
     name: "Two-legged pullback", twin: "Two-legged pullback",
-    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.76, pWin: 0.56,
+    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.80, pWin: 0.56,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong",
     brooks: "A two-legged pullback to the 20-bar moving average in a bull trend is the highest-probability buy there is. The first attempt up traps bulls in too early; when it fails, those bulls capitulate and bears press \u2014 and the second attempt up traps the bears. Buy on a stop one tick above the High 2 signal bar.",
     mmRule: "Leg 1 equals leg 2: measure the prior leg up and project the same distance from the pullback low.",
@@ -668,7 +668,7 @@ var Mkt = (function () {
         sigIdx: ax.sig.i, measure: { a: bot, b: top }, anchor: top,
         rangeTop: top.p, rangeBot: bot.p,
         target: top.p + (top.p - bot.p), invalid: pb.p,
-        labels: [[top, "range high"], [bot, "range low"], [pb, "breakout pullback"]]
+        labels: [[top, "range high"], [bot, "range low"], [pb, "breakout pullback low"]]
       };
     }
   };
@@ -699,7 +699,7 @@ var Mkt = (function () {
       return {
         sigIdx: ax.sig.i, measure: { a: p3, b: org }, anchor: p3,
         target: org.p, invalid: p3.p,
-        labels: [[org, "wedge origin = target"], [p1, "push 1"], [p2, "push 2"], [p3, "push 3"]]
+        labels: [[org, "wedge origin = target"], [p1, "push 1"], [p2, "push 2"], [p3, "push 3 low"]]
       };
     }
   };
@@ -759,7 +759,7 @@ var Mkt = (function () {
       return {
         sigIdx: ax.sig.i, measure: { a: fail, b: flagTop }, anchor: flagTop,
         target: flagTop.p + (flagTop.p - fail.p), altTarget: st.p, invalid: fail.p,
-        labels: [[flagTop, "final flag"], [fail, "failed breakout"]]
+        labels: [[flagTop, "final flag"], [fail, "failed breakout low"]]
       };
     }
   };
@@ -1098,6 +1098,19 @@ var Mkt = (function () {
     var ax = {};
     anchors.forEach(function (a) { ax[a.tag] = a; });
     var C = ctxFor(m);
+
+    /* ---- the signal bar: shape it deliberately, it is the decision ----
+       This happens BEFORE the ground truth is read. shapeSignal rewrites the
+       signal bar's open/high/low/close, and every context's gt() looks back
+       through a window that includes that bar, so reading the structure first
+       would hand back prices that no longer exist on the chart that is drawn —
+       and the stop is placed off exactly those prices. */
+    var sigIdx = Math.max(6, Math.min(N - 2, ax.sig.i));
+    var A14 = atr(bars, 14, sigIdx);
+    var quality = opts.sigQ || def.sigQ;
+    var sigQuality = shapeSignal(bars, sigIdx, dir || (m > 0 ? 1 : -1), quality, A14, R);
+    A14 = atr(bars, 14, sigIdx);
+
     var g = def.gt(bars, ax, C);
     if (m < 0 && g.labels) g.labels = g.labels.map(function (L) { return [L[0], flipWords(L[1])]; });
     /* the gt is written in the bull frame, so a mirrored range comes back upside down */
@@ -1105,25 +1118,63 @@ var Mkt = (function () {
       var swp = g.rangeTop; g.rangeTop = g.rangeBot; g.rangeBot = swp;
     }
 
-    /* ---- the signal bar: shape it deliberately, it is the decision ---- */
-    var sigIdx = Math.max(6, Math.min(N - 2, g.sigIdx));
-
-
-    var A14 = atr(bars, 14, sigIdx);
-    var quality = opts.sigQ || def.sigQ;
-    var sigQuality = shapeSignal(bars, sigIdx, dir || (m > 0 ? 1 : -1), quality, A14, R);
-    A14 = atr(bars, 14, sigIdx);
-
     /* ---- entry, and guards so the trade is actually placeable ---- */
     var sb = bars[sigIdx], entry;
     if (!dir) entry = sb.c;
     else if (def.entryType === "stop") entry = (dir > 0 ? sb.h : sb.l) + dir * 0.08 * A14;
     else entry = sb.c;
 
-    var invalid = g.invalid, target = g.target;
+    var invalid = g.invalid, target = g.target, stopLevel = "the structure behind the entry";
     if (dir) {
-      /* the stop must sit beyond the structure, and far enough that noise alone will not take it */
-      if (dir * (entry - invalid) < 1.40 * A14) invalid = entry - dir * 1.40 * A14;
+      /* ---- the stop is a PRICE on the chart, never a distance ----
+         It goes just beyond a low you can point at — the structure the context
+         nominates, a swing low, or the signal bar's own low — with a few ticks
+         of air under it. Nothing here is derived from ATR, because "1.4 times
+         average range" is not a level anyone can see.
+
+         The test for "too tight" is Brooks' own and needs no volatility number:
+         a stop must clear the SIGNAL BAR. If it sits inside that bar, a single
+         bar of ordinary noise takes it out, so step out to the next real low. */
+      var tick = Math.pow(10, -inst.dec), buf = 4 * tick;
+      var sbar = bars[sigIdx], floorPx = dir > 0 ? sbar.l : sbar.h;
+      var clears = function (p) { return dir > 0 ? p <= floorPx + 1e-12 : p >= floorPx - 1e-12; };
+      /* A stop can only reference a bar the trader can SEE. The contexts read
+         their structure through a window that runs a couple of bars past the
+         decision bar, which is fine for naming a swing but not for placing a
+         stop: a level taken from a bar that has not printed yet is one the
+         tape has, by construction, already traded through. */
+      var seen = function (p) {
+        for (var vi = 0; vi <= sigIdx; vi++) {
+          if (Math.abs((dir > 0 ? bars[vi].l : bars[vi].h) - p) < 1e-9) return true;
+        }
+        return false;
+      };
+      var level = invalid;
+      if (!clears(invalid) || !seen(invalid)) {
+        var cands = [];
+        (g.labels || []).forEach(function (L) { if (L[0].i <= sigIdx) cands.push({ p: L[0].p, n: L[1] }); });
+        pivots(bars, 3, sigIdx).forEach(function (pv) {
+          if ((dir > 0 && pv.d < 0) || (dir < 0 && pv.d > 0)) cands.push({ p: pv.p, n: dir > 0 ? "swing low" : "swing high" });
+        });
+        cands.push({ p: floorPx, n: "signal bar " + (dir > 0 ? "low" : "high") });
+        /* nearest candidate to the entry that still clears the signal bar */
+        var best = null;
+        cands.forEach(function (c) {
+          if (!clears(c.p) || !seen(c.p)) return;
+          if (best === null || (dir > 0 ? c.p > best.p : c.p < best.p)) best = c;
+        });
+        if (best === null) best = { p: floorPx, n: "signal bar " + (dir > 0 ? "low" : "high") };
+        level = best.p; stopLevel = best.n;
+      } else {
+        var named = null;
+        (g.labels || []).forEach(function (L) { if (named === null && Math.abs(L[0].p - level) < 1e-9) named = L[1]; });
+        stopLevel = named || "the structure behind the entry";
+      }
+      /* the buffer applies whichever level was chosen: a stop resting exactly
+         ON the low is taken out by a tick that merely retests it, which is why
+         Brooks says one tick beyond and why in practice you eyeball a little
+         air under the candle rather than sitting on it. */
+      invalid = level - dir * buf;
       /* the target must be on the right side, and worth more than the noise */
       if (dir * (target - entry) < 1.0 * A14) target = entry + dir * Math.max(1.6 * A14, 0.8 * Math.abs(entry - invalid));
     } else {
@@ -1171,20 +1222,33 @@ var Mkt = (function () {
 
     /* ---- what the tape actually did ---- */
     var td = dir || rd;
+    /* The entry is a resting order, so nothing can be won or lost until it
+       fills. Scanning from the signal bar regardless meant a setup that never
+       triggered — price fell away without ever reaching the stop-entry price —
+       was recorded as a stop-out, and the feedback then told the learner "the
+       stop came first" about a trade they were never in. */
+    function fills(bar) {
+      if (!dir) return true;
+      return def.entryType === "limit"
+        ? (td > 0 ? bar.l <= entry : bar.h >= entry)
+        : (td > 0 ? bar.h >= entry : bar.l <= entry);
+    }
     function scan() {
+      var fill = -1;
       for (var qq = sigIdx + 1; qq < bars.length; qq++) {
+        if (fill < 0) { if (!fills(bars[qq])) continue; fill = qq; }
         var tH = td > 0 ? bars[qq].h >= target : bars[qq].l <= target;
         var iH = td > 0 ? bars[qq].l <= invalid : bars[qq].h >= invalid;
-        if (iH) return [tH ? qq : -1, qq];
-        if (tH) return [qq, -1];
+        if (iH) return [tH ? qq : -1, qq, fill];
+        if (tH) return [qq, -1, fill];
       }
-      return [-1, -1];
+      return [-1, -1, fill];
     }
-    var res = scan(), hitT = res[0], hitI = res[1], guard = 0;
+    var res = scan(), hitT = res[0], hitI = res[1], fillAt = res[2], guard = 0;
     while (hitT < 0 && hitI < 0 && guard++ < 3) {
       extend(intended ? target + td * Math.abs(target - entry) * 0.25
         : invalid - td * Math.abs(entry - invalid) * 0.6, R.i(9, 18));
-      res = scan(); hitT = res[0]; hitI = res[1];
+      res = scan(); hitT = res[0]; hitI = res[1]; fillAt = res[2];
     }
 
     /* ---- actual risk ----
@@ -1197,7 +1261,7 @@ var Mkt = (function () {
     if (dir) {
       var lastBar = hitT >= 0 ? hitT : (hitI >= 0 ? hitI : bars.length - 1);
       var worst = entry;
-      for (var w = sigIdx + 1; w <= lastBar && w < bars.length; w++) {
+      for (var w = Math.max(sigIdx + 1, fillAt < 0 ? sigIdx + 1 : fillAt); w <= lastBar && w < bars.length; w++) {
         var adverse = dir > 0 ? bars[w].l : bars[w].h;
         if (dir > 0 ? adverse < worst : adverse > worst) worst = adverse;
       }
@@ -1215,7 +1279,7 @@ var Mkt = (function () {
         measure: g.measure, anchor: g.anchor, labels: g.labels || [],
         height: height, entry: entry, target: target, mmTarget: mmTarget, altTarget: g.altTarget,
         invalid: invalid, refRR: refRR,
-        sigStop: sigStop, initialRisk: initialRisk, structureRisk: structureRisk,
+        sigStop: sigStop, initialRisk: initialRisk, structureRisk: structureRisk, stopLevel: stopLevel,
         actualRisk: actualRisk, sigRR: sigRR,
         pbFrom: pbFrom, barCount: count.n, countIdx: count.idx,
         /* Brooks' first and second entry are the same thing as the first two
@@ -1227,6 +1291,7 @@ var Mkt = (function () {
         rangeTop: g.rangeTop, rangeBot: g.rangeBot,
         sigIdx: sigIdx, decision: sigIdx, sigQuality: sigQuality, sigKind: quality,
         worked: hitT >= 0 && (hitI < 0 || hitT < hitI),
+        filled: fillAt >= 0, fillAt: fillAt,
         hitTargetAt: hitT, hitInvalidAt: hitI
       }
     };
@@ -2087,7 +2152,31 @@ function labelFor(ch, price) {
   return null;
 }
 /** how you get filled in this context — stop orders trend, limit orders fade */
-function entryHow(g) {
+/** Which level did THIS example's stop actually use, and how far out is it?
+    "below the bar or the swing behind it" leaves the learner unable to tell
+    whether a stop that survived had earned its room or been handed it, so the
+    answer is named: the chart's own label for the point, the price, and the
+    distance in ATR so it can be compared with the signal-bar stop. */
+function stopLine(g, ch) {
+  if (!g || !g.tradeable || !g.stopLevel) return "";
+  var other = g.dir > 0 ? "below" : "above";
+  var named = /\b(low|high)\b/.test(g.stopLevel)
+    ? "the <b>" + g.stopLevel + "</b>"
+    : "the point this chart labels <b>" + g.stopLevel + "</b>";
+  var s = " On this example that is " + named + ", so the stop goes a few ticks " + other + " it";
+  if (ch) {
+    s += " at <b>" + fmtN(g.invalid, ch.dec) + "</b> — " + (g.initialRisk / ch.atr).toFixed(2) +
+      " ATR from the entry";
+    /* the swing stop is the wider alternative; say by how much, so a stop that
+       looks generous can be checked rather than guessed at */
+    if (g.sigStop !== undefined && Math.abs(g.initialRisk - Math.abs(g.entry - g.sigStop)) > 0.15 * ch.atr) {
+      s += ", against " + (Math.abs(g.entry - g.sigStop) / ch.atr).toFixed(2) +
+        " ATR if you had stopped at the signal bar alone";
+    }
+  }
+  return s + ".";
+}
+function entryHow(g, ch) {
   if (!g || !g.tradeable) return "";
   var side = g.dir > 0 ? "above" : "below";
   var other = g.dir > 0 ? "below" : "above";
@@ -2098,8 +2187,8 @@ function entryHow(g) {
   return g.entryType === "limit"
     ? "You get in here with a <b>limit order</b> at the range edge, not a stop — in a range you are fading the edge, so you want to be filled as price reaches it. Brooks puts the limit at the prior extreme or a few ticks through it, so the probe that pokes past the edge fills you and then fails; much further out than that and you are catching a real breakout instead of fading a probe. " +
       trapVerb.charAt(0).toUpperCase() + trapVerb.slice(1) + " a stop " + other + " the " + trapEdge +
-      " is exactly how traders get trapped here, because about eight out of ten range breakouts fail."
-    : "You get in here with a <b>stop order</b> just " + side + " the signal bar: price has to trade there to fill you, which is the confirmation. The protective stop then sits " + other + " the bar or the swing behind it.";
+      " is exactly how traders get trapped here, because about eight out of ten range breakouts fail." + stopLine(g, ch)
+    : "You get in here with a <b>stop order</b> just " + side + " the signal bar: price has to trade there to fill you, which is the confirmation. The protective stop then sits " + other + " the bar or the swing behind it." + stopLine(g, ch);
 }
 /** Brooks' actual risk: how far the market really went against the entry after
     you were filled, as opposed to how far your stop sat. Hindsight only — you
@@ -2114,9 +2203,25 @@ function actualRiskLine(ch) {
   var head = "On this tape your <b>actual risk</b> — entry to the worst the pullback got after you were filled — was <b>" +
     fmtN(ar, ch.dec) + "</b>, against an initial risk of <b>" + fmtN(ir, ch.dec) + "</b>.";
   if (!g.worked) return head + " The trade failed here, so the actual risk ran all the way to the stop and past it. That is the case the initial risk exists for.";
-  if (frac <= 0.45) return head + " The market barely came back at you — roughly " + pct(frac) +
-    " of what you were prepared to lose. Brooks' point is that this is normal on a good entry, and it is why you can only judge a trade's real maths in hindsight. You still had to be willing to risk the full stop.";
-  return head + " It used about " + pct(frac) + " of the stop before working. Comfortable, but not much room spare.";
+  /* Two different stops are in play and they answer different questions. The
+     initial risk above is the SIGNAL BAR stop; the stop this chart actually
+     drew is the structural one. A win that used 96% of the stop is not the
+     same trade as one that used half, and calling both "it worked" is how a
+     learner decides a stop was well placed when it survived by a few ticks. */
+  var sr = g.structureRisk, sf = sr > 0 ? ar / sr : frac;
+  var used = " Against the stop this chart actually drew — " + (g.stopLevel || "the structure behind the entry") +
+    ", " + fmtN(sr, ch.dec) + " away — it used <b>" + pct(sf) + "</b>.";
+  if (frac > 1.0) return head + used +
+    " Note what that means: the market traded back through where a <i>signal-bar</i> stop would have sat, and only the wider structural stop kept you in the trade. " +
+    "Roughly one winner in six here does this. It is not an argument for always using the wider stop — the wider stop means smaller size for the same money risked, so it is a different trade with a different equation, not a free one.";
+  if (sf >= 0.90) return head + used +
+    " That is a <b>narrow</b> win, not a comfortable one. A few ticks either way and this is a loss on the identical read, so do not take it as proof the stop was well placed. " +
+    "Roughly one winner in sixteen here comes this close; the median winner uses about half its stop.";
+  if (sf >= 0.75) return head + used +
+    " That is most of the room you gave it — the band where moving the stop up early would have cost you the trade. About one winner in nine lands here.";
+  if (sf <= 0.45) return head + used +
+    " The market barely came back at you. Brooks' point is that this is normal on a good entry, and it is why you can only judge a trade's real maths in hindsight — you still had to be willing to risk the full stop.";
+  return head + used + " Comfortable, and close to the typical winner here, which uses about half its stop.";
 }
 
 function outcomeLine(ch) {
@@ -2253,7 +2358,7 @@ KIND.signalBar = {
     };
   },
   grade: function (p, ans) {
-    var g = p.ch.gt, ok = ans === g.sigKind;
+    var ch = p.ch, g = ch.gt, ok = ans === g.sigKind;
     var d = { strong: "a strong signal bar", weak: "a weak signal bar", doji: "a doji" }[g.sigKind];
     return {
       score: ok ? 1 : (ans !== "strong" && g.sigKind !== "strong" ? 0.6 : 0), reveal: true,
@@ -2267,7 +2372,7 @@ KIND.signalBar = {
               ? "<b>where it closed</b>: right in the middle of its own range, with tails on both ends. Both sides pushed, both got rejected, and the bar settled back where it started — that is what 'no conviction' means"
               : "<b>which end the long tail is on</b>: it is on the side you want to trade toward, so the move you are betting on is exactly the one that already got rejected inside this bar, and the close sits in the wrong third of the range") +
             ". A bad signal bar then costs you <b>twice</b>: the probability drops, and the risk grows, because your protective stop still has to sit beyond the whole bar — mostly tail — so you pay a wide stop for a bar that proved nothing. Worse odds and worse reward-to-risk on the same setup.",
-        entryHow(g) + (g.sigKind === "strong"
+        entryHow(g, ch) + (g.sigKind === "strong"
           ? (g.entryType === "limit"
             ? " A clean bar at the edge does not change the order type — in a range the edge is still where you want your fill, so the limit order stays. What a good bar buys you here is confidence that the edge is holding."
             : " With a bar this clean you also have a choice: entering <b>at market on its close</b> gets a better price and a smaller risk to the same stop, but you give up the proof that price actually continued. Brooks' default is the stop entry; take the market entry only when the trend is strong enough that waiting means missing it.")
@@ -2953,7 +3058,7 @@ KIND.entry = {
     }
     return {
       score: clamp(s, 0, 1), reveal: true, verdict: verdict,
-      lines: [note, "<b>" + g.name + "</b>. " + entryHow(g)]
+      lines: [note, "<b>" + g.name + "</b>. " + entryHow(g, ch)]
     };
   }
 };
@@ -3360,8 +3465,20 @@ function fnv1a(str) {
   return h >>> 0;
 }
 /** one clean, fully-resolved worked example for a given structure */
+/** The lesson card is the worked example, so it has to be one that worked.
+    forceOutcome only steers where the tape is heading; a chart aimed at the
+    target can still clip the stop on the way, and a teaching card that says
+    "buy the first pullback and hold" over a losing chart teaches the opposite
+    of what it says. Walk the seed until the setup actually resolves. Drills
+    are untouched by this — they draw unbiased seeds and must show losses. */
 function learnChart(ctxKey) {
-  return Mkt.gen({ seed: fnv1a(ctxKey + "|learn"), ctx: ctxKey, forceOutcome: "win" });
+  var seed = fnv1a(ctxKey + "|learn"), first = null;
+  for (var i = 0; i < 60; i++) {
+    var ch = Mkt.gen({ seed: (seed + i * 2654435761) >>> 0, ctx: ctxKey, forceOutcome: "win" });
+    if (first === null) first = ch;
+    if (!ch.gt.tradeable || ch.gt.worked) return ch;
+  }
+  return first;
 }
 
 /* =====================================================================
@@ -4126,7 +4243,7 @@ var PROG = (function () {
     var g = ch.gt, steps = (Mkt.CTX[key] && Mkt.CTX[key].howTo) || [];
     var parts = [g.name + ".", Speech.strip(g.brooks), "How to find it."];
     steps.forEach(function (st, i) { parts.push("Step " + (i + 1) + ". " + Speech.strip(st)); });
-    if (g.tradeable) parts.push(Speech.strip(entryHow(g)));
+    if (g.tradeable) parts.push(Speech.strip(entryHow(g, ch)));
     return parts.join(" ");
   }
   function paintLearnPanel(ch, key) {
@@ -4145,7 +4262,7 @@ var PROG = (function () {
         '<div class="tf"><div class="k">Stop</div><div class="v dn">' + fmtN(g.invalid, ch.dec) + '</div></div>' +
         '<div class="tf"><div class="k">Target</div><div class="v up">' + fmtN(g.target, ch.dec) + '</div></div>' +
         '<div class="tf"><div class="k">R : R</div><div class="v">' + g.refRR.toFixed(2) + 'R</div></div>' +
-        '</div><div class="hint" style="margin-top:8px">' + entryHow(g) + '</div></div>');
+        '</div><div class="hint" style="margin-top:8px">' + entryHow(g, ch) + '</div></div>');
     }
     $("drillPanel").innerHTML = out.join("");
     wireRead("learnRead", function () { return learnSpeech(ch, key); });
@@ -4178,7 +4295,7 @@ var PROG = (function () {
       L.push("THIS EXAMPLE");
       L.push("  entry " + fmtN(g.entry, ch.dec) + " / stop " + fmtN(g.invalid, ch.dec) +
         " / target " + fmtN(g.target, ch.dec) + " = " + g.refRR.toFixed(2) + "R");
-      L.push("  " + sp(entryHow(g)));
+      L.push("  " + sp(entryHow(g, ch)));
     }
     return L.join("\n");
   }
