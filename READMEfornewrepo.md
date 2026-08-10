@@ -28,6 +28,16 @@ The final tier hands you $25,000 with a prop-firm rule set: reach +6%, never los
 
 It is a constraint exercise, not a profit score — process is still the grade. The target is reachable because the edge is real, so blowing the drawdown is nearly always a sizing decision, and the debrief proves it by replaying *your own trades* at other risk levels: same reads, same order, different size, different outcome. It then models your realised win rate and average R into pass / blow-up / never-got-there odds against risk. On a typical edge here 1% passes about nine times in ten, 3% roughly halves that, and 5% blows up about four runs in ten — while no risk setting rescues weak reads.
 
+## The management tier
+
+A tier between Live execution and Mastery certification grades what you *pressed*, not what you named. Three rules decide it, all from Brooks:
+
+- **Breakeven is about timing.** Move the stop to your entry once the trade has moved ~1R and the structure is intact — not early in choppy tape, because a stop sitting in the noise hands the trade back. Press it at 0.2R and the drill marks you down with the reason.
+- **Trail in a trend, hold a fixed target in a range.** Trail behind the most recent higher low as a trend extends, and a trend is the one place a runner with no target makes sense. In two-sided trading a trailing stop is tapped by noise long before price reaches the other side.
+- **Scaling in is graded on planned size, not on whether you did it.** Pushing open risk past the 1R you planned is the error; adding itself is not.
+
+Every managed trade reports the blended result next to what holding untouched would have returned on the same tape — so the cost or gain of your management is a number, not an opinion.
+
 ## Managing a live trade
 
 Positions are multi-leg. Once you are filled during a live replay you can take part off, move the stop to your **average** entry, trail it behind recent bars, scale in a second leg, drop the target and hold a runner, or close out. The read-out shows open size, average price, what you have banked and what is still at risk, all in R — and scaling in visibly pushes "at risk now" above 1R, which is why the total has to be planned before the first entry.
