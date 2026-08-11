@@ -67,6 +67,16 @@ The teaching text aims to be Brooks' method rather than a paraphrase of it, and 
 - **The count belongs to one correction.** Bar counts run High/Low 1 to 4. Past a High 4 the correction has become a trading range and the count has stopped meaning anything, so it restarts at the most recent swing the market turned from. Without that reset the charts were labelling High 11.
 - **Each context declares its own rules; nothing is inferred from a family tag.** Whether Brooks takes the first attempt or waits for the second, and whether the trade is trailed or taken at a fixed target, are stated on the context and read from its own teaching. Inferring them from "this is a trend" graded a **two-legged pullback** as a first-entry setup — the one thing its own text rules out, since a two-legged pullback *is* the H2 — and graded a **broad channel** as a trend to trail when its text calls it a trading range on a tilt and says take profit at the top. A test now asserts that no context's graded answer contradicts the paragraph printed beside it.
 
+## The reward has to pay for the risk
+
+A correct read is not a trade. Brooks is arithmetic about it: *"like all trend reversals, the probability of a swing is usually only about 40%"*, and *"40% probability setups won't have a positive trader's equation unless you assess they are capable of reaching a risk/reward of 1:2."* A **swing** means a reward at least twice the risk; a **scalp** may risk more than it makes, but only while the win rate carries the equation.
+
+So every generated chart is measured against its own style, and one that fails is tagged **not a trade** rather than quietly presented as a good example. The target is never stretched to make the number — it stays the structural measured move, because inventing a target to clear a threshold is the same defect as an ATR-derived stop.
+
+**About one chart in six is deliberately one of these.** The read is right and the price is wrong, which is the situation Brooks states the arithmetic for and the one a real trader meets constantly. On those, *stand aside* is the graded answer in the take-or-pass drill, the feedback shows the equation that makes it so, and the chart header says so outright. Naming a setup and taking it are two different skills.
+
+The reversals now look the way Brooks describes them rather than the way an unambitious target made them look: **around 40% win rates at 2.2–2.6R**, which is a positive equation built out of reward rather than frequency. Before this they showed 54–60% at around 1R — flattering win rates bought by targets so close that the trade could not pay, and in the worst case a 0.36R "major trend reversal" whose own numbers came to −0.18R per trade.
+
 ## First entry, second entry, second leg
 
 "Second entry" means the second **bar-count** attempt — the High 2. "Second leg" means the second **leg** of the correction. They are different lenses on the same pullback and they usually disagree: a correction that takes fifteen bars and two legs will often read High 3 or High 4. In a two-legged pullback they land on the same bar, because the H2 that triggers you comes off the second leg — which is why Brooks treats it as the cleanest second-entry setup there is.

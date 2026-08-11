@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.18.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.19.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.18.0", build: "2026-08-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.19.0", build: "2026-08-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -366,7 +366,7 @@ var Mkt = (function () {
   /* ---- 1. spike and channel ---------------------------------------- */
   CTX.spikeChannel = {
     name: "Spike and channel", twin: "Spike and channel (bear)",
-    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.76, pWin: 0.52,
+    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.76, pWin: 0.54,
     style: "swing", mmType: "spike", entryType: "stop", sigQ: "strong", attempt: "first", exit: "trail",
     brooks: "The spike is the strongest part of the move — it is where the institutions were most eager. Measure the spike and project it from the top of the spike: that is where the channel is trying to reach. Buy pullbacks in the channel; the first pullback after a spike rarely fails.",
     mmRule: "Measure the spike (its low to its high) and project that height from the top of the spike.",
@@ -399,7 +399,7 @@ var Mkt = (function () {
   /* ---- 2. tight channel -------------------------------------------- */
   CTX.tightChannel = {
     name: "Tight bull channel", twin: "Tight bear channel",
-    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.91, pWin: 0.65,
+    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.91, pWin: 0.62,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "first", exit: "trail",
     brooks: "A tight channel is a one-sided market: the pullbacks are tiny and every reversal attempt fails. Do not look for shorts here — bears keep getting trapped. Buy the first pullback (a High 1) and hold. Countertrend trading here is the worst trade on the chart: about four out of five attempts to reverse a strong trend fail, and in a genuinely tight channel it is worse than that. Bears do not get a good entry until the channel first breaks and price then returns to test the high.",
     mmRule: "Measure the first leg of the channel and project it from the pullback low.",
@@ -461,7 +461,7 @@ var Mkt = (function () {
   /* ---- 4. two-legged pullback (H2 / L2) ---------------------------- */
   CTX.twoLegPullback = {
     name: "Two-legged pullback", twin: "Two-legged pullback",
-    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.68, pWin: 0.56,
+    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.68, pWin: 0.54,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", exit: "trail",
     brooks: "A two-legged pullback to the 20-bar moving average in a bull trend is the highest-probability buy there is. The first attempt up traps bulls in too early; when it fails, those bulls capitulate and bears press \u2014 and the second attempt up traps the bears. Buy on a stop one tick above the High 2 signal bar.",
     mmRule: "Leg 1 equals leg 2: measure the prior leg up and project the same distance from the pullback low.",
@@ -516,7 +516,7 @@ var Mkt = (function () {
   /* ---- 5. trading range, at the edge ------------------------------- */
   CTX.rangeLow = {
     name: "Trading range — price at the low", twin: "Trading range — price at the high",
-    family: "range", cycle: "trading range", dir: 1, alwaysIn: 0, prob: 0.68, pWin: 0.63,
+    family: "range", cycle: "trading range", dir: 1, alwaysIn: 0, prob: 0.68, pWin: 0.61,
     style: "scalp", mmType: "range", entryType: "limit", sigQ: "strong", attempt: "second", exit: "target",
     brooks: "In a trading range you buy low, sell high and scalp. Price is at the bottom of the range with buyers stepping in, so buy — but take profit at the middle or the top, not beyond. There is no always-in direction in a range; anyone trading it like a trend gets cut to pieces.",
     mmRule: "The range height is the measure. From the low, the realistic target is the middle; the top of the range is the stretch.",
@@ -664,7 +664,7 @@ var Mkt = (function () {
   /* ---- 9. failed breakout (the 80% rule) ---------------------------- */
   CTX.failedBo = {
     name: "Failed breakout below the range", twin: "Failed breakout above the range",
-    family: "breakout", cycle: "trading range", dir: 1, alwaysIn: 1, prob: 0.68, pWin: 0.67, tex: 1.35,
+    family: "breakout", cycle: "trading range", dir: 1, alwaysIn: 1, prob: 0.68, pWin: 0.65, tex: 1.35,
     probe: function (ax) { return [ax.b2.i + 1, ax.bo.i + 1]; },
     style: "scalp", mmType: "failedBo", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
     brooks: "About eight out of ten breakout attempts out of a trading range fail. Price broke below the range, found no sellers, and has reversed back inside — every breakout seller is now trapped and has to buy back. Buy, with a stop below the failed low, and target the other side of the range.",
@@ -699,7 +699,7 @@ var Mkt = (function () {
   /* ---- 10. successful breakout -------------------------------------- */
   CTX.successBo = {
     name: "Breakout with follow-through", twin: "Breakout with follow-through (down)",
-    family: "breakout", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.58, pWin: 0.55,
+    family: "breakout", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.58, pWin: 0.52,
     style: "swing", mmType: "range", entryType: "stop", sigQ: "strong", attempt: "first", exit: "trail",
     brooks: "Most breakouts fail, but this one has earned belief: big trend bars, closes near their highs, almost no tails and a follow-through bar. That is institutional buying, not a probe. The measured move is the height of the range projected from the breakout.",
     mmRule: "Project the height of the range from the point where it broke.",
@@ -733,7 +733,7 @@ var Mkt = (function () {
   /* ---- 11. wedge reversal (three pushes) ---------------------------- */
   CTX.wedgeBottom = {
     name: "Wedge bottom (three pushes down)", twin: "Wedge top (three pushes up)",
-    family: "reversal", cycle: "trading range", dir: 1, alwaysIn: 1, prob: 0.55, pWin: 0.54,
+    family: "reversal", cycle: "trading range", dir: 1, alwaysIn: 1, prob: 0.39, pWin: 0.40,
     style: "swing", mmType: "wedge", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
     brooks: "Three pushes down, each one weaker than the last, inside a converging wedge — the sellers are exhausted. A wedge reversal usually returns to the start of the wedge, and often gives a two-legged move up. Stop below the third push.",
     mmRule: "A wedge's first target is the level where the wedge began — usually reached in two legs. Only if price breaks beyond that does the height of the wedge get projected as the next target.",
@@ -773,7 +773,7 @@ var Mkt = (function () {
   /* ---- 12. major trend reversal ------------------------------------- */
   CTX.mtr = {
     name: "Major trend reversal (bull)", twin: "Major trend reversal (bear)",
-    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.62, pWin: 0.6,
+    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.45, pWin: 0.43,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
     brooks: "A major trend reversal needs all of it: a strong bear trend, a countertrend move strong enough to break the bear trendline (and usually the moving average), then a test of the old low that holds. The test can come as a higher low OR as a lower low that reverses — Brooks says the two happen about equally often, so do not insist on a higher low. Without the trendline break first, a reversal attempt is just a pullback, and about four out of five of those fail.",
     mmRule: "Measure the first leg up off the low and project it from the higher low.",
@@ -788,24 +788,30 @@ var Mkt = (function () {
          a peak. That is what lets the chart open at the trend's high and spend
          its bars on the downtrend, instead of spending the first third of the
          screen rallying into a high that then dominates the picture. */
-      var lowerLow = R.chance(0.88);
+      var lowerLow = R.chance(0.72);
       /* Brooks: the test comes as a higher low OR as a lower low that reverses,
          about equally often, and the lower-low version — a failed breakout of
          the trend's own low — is the stronger one. Both get shown. */
-      var test = lowerLow ? R.f(-1.54, -1.47) : R.f(-1.26, -1.16);
+      var test = lowerLow ? R.f(-2.00, -1.92) : R.f(-1.64, -1.52);
+      /* The trend runs deeper than the entry-to-test gap grows, on purpose.
+         The reward is the leg from the low to the trendline break projected
+         from the test; the risk is entry to just under the test, and its floor
+         is the signal bar's own height. A shallow trend cannot pay 2:1 against
+         that floor however the anchors are arranged, and a reversal that does
+         not pay 2:1 is not a trade Brooks takes. */
       return [
         [R.i(6, 9),  R.f(0.30, 0.40),   "start"],
-        [R.i(4, 7),  R.f(-0.44, -0.36), "d1"],
-        [R.i(7, 9),  R.f(-0.04, 0.04),  "r1"],
-        [R.i(4, 7),  R.f(-0.90, -0.82), "d2"],
-        [R.i(7, 9),  R.f(-0.50, -0.42), "r2"],
-        [R.i(6, 9),  R.f(-1.44, -1.36), "low"],
+        [R.i(4, 7),  R.f(-0.57, -0.47), "d1"],
+        [R.i(7, 9),  R.f(-0.05, 0.05),  "r1"],
+        [R.i(4, 7),  R.f(-1.17, -1.07), "d2"],
+        [R.i(7, 9),  R.f(-0.65, -0.55), "r2"],
+        [R.i(6, 9),  R.f(-1.87, -1.77), "low"],
         /* the break is a strong countertrend move — Brooks wants it strong
            enough to take out the trendline and the moving average — but it
            stays well under the high the trend began at. A bounce that reaches
            back to that high is not a trendline break, it is the other side of
            a range, and that is what this chart used to draw. */
-        [R.i(7, 10), R.f(-0.82, -0.70), "tlBreak"],
+        [R.i(7, 10), R.f(-1.07, -0.91), "tlBreak"],
         [R.i(5, 8),  test,              "test"],
         [R.i(3, 5),  test + R.f(0.10, 0.16), "sig"]
       ];
@@ -834,7 +840,16 @@ var Mkt = (function () {
       }
       var broke = brk !== null;
       if (!broke) brk = C.ref(b, ax.tlBreak.i, 1);      /* kept coherent; rejected by valid() */
-      var test = C.lo(b, brk.i, ax.sig.i);
+      /* the test comes AFTER the break — that is the sequence. Including the
+         break bar in the window let its own low be the "test", which on a big
+         break bar puts the test a dozen bars before the entry and leaves the
+         measured move projected from it already spent by the time you are in. */
+      /* and it is the pullback the signal bar forms at, not any low that
+         happens to be lower somewhere in the rally — anchored to the test leg
+         so the stop sits near the entry, which is what makes the trade payable.
+         valid() rejects the chart if anything after the break went lower. */
+      var tFrom = Math.max(brk.i + 1, Math.min(ax.test.i - 4, ax.sig.i));
+      var test = C.lo(b, Math.min(tFrom, ax.sig.i), ax.sig.i);
       /* read the test off the bars: it is only a "higher low" if it actually
          is one, and about half the time it is not */
       var kind = (test.p - low.p) * C.m > 0 ? "higher low" : "lower low test";
@@ -858,8 +873,12 @@ var Mkt = (function () {
          is not a test, it is the trend continuing, and there is no setup yet. */
       var under = low - test;
       if (under > 0 && (under > 0.8 * ch.atr || under > 0.15 * (hi - low))) return false;
+      /* nothing between the break and the test may have gone lower than the
+         test — if something did, the test is not the extreme and the stop
+         would sit above a low the market has already traded through */
+      var f = BF(ch), tIdx = g.labels[2][0].i, bIdx = g.labels[1][0].i;
+      for (var i = bIdx + 1; i < tIdx; i++) if (f.L(i) < test - 1e-9) return false;
       /* and there has to have been a trend to reverse in the first place */
-      var f = BF(ch);
       return stepsDown(f, extremes(f).hi, g.labels[0][0].i);
     }
   };
@@ -867,7 +886,7 @@ var Mkt = (function () {
   /* ---- 13. final flag ------------------------------------------------ */
   CTX.finalFlag = {
     name: "Final flag reversal (bull)", twin: "Final flag reversal (bear)",
-    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.58, pWin: 0.58,
+    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.44, pWin: 0.44,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
     brooks: "The bear trend made a small tight flag, broke out of it — and the breakout immediately failed. That flag was the final flag of the trend: the last of the sellers committed there and are now trapped. The move usually retraces to the start of the flag at least.",
     mmRule: "Measure the leg into the final flag and project it back from the failed breakout.",
@@ -906,7 +925,7 @@ var Mkt = (function () {
   /* ---- 14. climax --------------------------------------------------- */
   CTX.climax = {
     name: "Sell climax", twin: "Buy climax",
-    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: -1, prob: 0.55, pWin: 0.58,
+    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: -1, prob: 0.55, pWin: 0.62,
     style: "scalp", mmType: "none", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
     brooks: "Three or more big bear bars accelerating into a low is a sell climax — exhaustion, not strength. Expect a two-legged correction up lasting about ten bars. But this is a scalp: after a climax the odds of the trend resuming are still about even, so take the bounce and do not marry it.",
     mmRule: "Measure the last climactic leg; a correction typically retraces a good part of it, not all.",
@@ -1202,16 +1221,29 @@ var Mkt = (function () {
   function gen(opts) {
     opts = opts || {};
     var baseSeed = opts.seed === undefined ? ((Math.random() * 1e9) | 0) : opts.seed;
-    var first = null;
+    var first = null, structural = null;
+    /* About one chart in six is deliberately a setup whose reward does not pay
+       for its risk — the read is right and the price is wrong, which is the
+       situation Brooks states the arithmetic for. Drawn from the BASE seed so
+       the mix is a stable one-in-six rather than a by-product of how often
+       re-rolls happen to land thin. */
+    var wantThin = ((baseSeed >>> 5) % 6) === 0;
     for (var attempt = 0; attempt < 40; attempt++) {
       var o = {};
       for (var ok in opts) if (Object.prototype.hasOwnProperty.call(opts, ok)) o[ok] = opts[ok];
       o.seed = attempt === 0 ? baseSeed : (((baseSeed >>> 0) + attempt * 2654435761) >>> 0);
+      o.wantThin = wantThin;
       var ch = genOnce(o);
       if (first === null) first = ch;
       var vd = CTX[ch.gt.key] && CTX[ch.gt.key].valid;
-      if (!vd || vd(ch)) { ch.attempts = attempt + 1; return ch; }
+      if (vd && !vd(ch)) continue;
+      if (structural === null) structural = ch;
+      /* hold out for the payoff we asked for, but not forever: a context that
+         almost never produces a thin setup should not spin */
+      if (attempt < 30 && ch.gt.payoff !== (wantThin ? "thin" : "takeable")) continue;
+      ch.attempts = attempt + 1; return ch;
     }
+    if (structural) { structural.attempts = 40; return structural; }
     first.attempts = 40; first.unvalidated = true;
     return first;
   }
@@ -1444,8 +1476,13 @@ var Mkt = (function () {
          Brooks says one tick beyond and why in practice you eyeball a little
          air under the candle rather than sitting on it. */
       invalid = level - dir * buf;
-      /* the target must be on the right side, and worth more than the noise */
-      if (dir * (target - entry) < 1.0 * A14) target = entry + dir * Math.max(1.6 * A14, 0.8 * Math.abs(entry - invalid));
+      /* The target stays the structural measured move. There used to be a
+         guard here that invented a target whenever the structural one came out
+         close — the same defect as the ATR-derived stop: a level nobody can
+         point at, manufactured to clear a threshold. A setup whose real target
+         does not pay for its risk is not a trade, and is rejected by valid()
+         rather than dressed up. Only the side is enforced. */
+      if (dir * (target - entry) <= 0) target = entry + dir * Math.abs(entry - invalid) * 2;
     } else {
       if (Math.abs(entry - invalid) < 1.40 * A14) invalid = entry - 1.40 * A14;
       if (Math.abs(target - entry) < 1.0 * A14) target = entry + 1.6 * A14;
@@ -1453,6 +1490,22 @@ var Mkt = (function () {
     var height = Math.abs(g.measure.b.p - g.measure.a.p);
     var mmTarget = g.anchor.p + (g.measure.b.p - g.measure.a.p);
     var refRR = Math.abs(target - entry) / Math.max(1e-9, Math.abs(entry - invalid));
+
+    /* ---- does the reward pay for the risk? ----
+       Brooks' arithmetic, not a preference: a SWING means a reward at least
+       twice the risk, and he is explicit that a reversal — a ~40% setup — has
+       no positive trader's equation below 2:1. A SCALP is allowed a reward
+       smaller than its risk, but then the win rate has to carry the equation.
+
+       A chart that fails this is still the pattern it is named; it is just not
+       a trade. It is tagged rather than fixed, because stretching the target
+       to clear a threshold would invent a level nobody can point at — the same
+       defect as the ATR-derived stop. */
+    var payoff = "takeable";
+    if (dir) {
+      var eqn = def.pWin * refRR - (1 - def.pWin);
+      if ((def.style === "swing" && refRR < 2.0) || eqn < 0.10) payoff = "thin";
+    }
 
     /* ---- initial risk, structural risk, and (later) actual risk ----
        Brooks' protective stop goes one tick beyond the signal bar's far
@@ -1551,6 +1604,7 @@ var Mkt = (function () {
            two-legged pullback as a first-entry setup, which is the one thing
            its own text rules out. */
         attempt: def.attempt || "second", exit: def.exit || "target",
+        payoff: payoff, wantThin: !!opts.wantThin,
         brooks: def.brooks, mmRule: def.mmRule,
         measure: g.measure, anchor: g.anchor, labels: g.labels || [],
         height: height, entry: entry, target: target, mmTarget: mmTarget, altTarget: g.altTarget,
@@ -2532,9 +2586,20 @@ function outcomeLine(ch) {
 }
 function probLine(ch) {
   var g = ch.gt, e = equation(g.prob, g.refRR);
-  return "This context wins about <b>" + pct(g.prob) + "</b> of the time in this trainer, and offers roughly <b>" +
+  var s = "This context wins about <b>" + pct(g.prob) + "</b> of the time in this trainer, and offers roughly <b>" +
     g.refRR.toFixed(2) + "R</b>. Trader's equation: " + g.prob.toFixed(2) + " x " + g.refRR.toFixed(2) +
     " − " + (1 - g.prob).toFixed(2) + " = <b>" + (e >= 0 ? "+" : "") + e.toFixed(2) + "R</b> per trade.";
+  /* Say it wherever the chart appears, not only in the take-or-pass drill: a
+     correct read on a setup that does not pay is still not a trade, and that
+     is the half of the method a learner is most likely to skip. */
+  if (g.tradeable && g.payoff === "thin") {
+    s += " <b>Which is why this one is not a trade.</b> The pattern is real, the price is wrong — " +
+      (g.style === "swing"
+        ? "Brooks puts a reversal at roughly a 40% setup, so it has to be capable of two to one before it is worth taking."
+        : "a scalp can risk more than it makes only while the win rate carries it, and here it does not.") +
+      " Name it, and pass.";
+  }
+  return s;
 }
 
 /* =====================================================================
@@ -2684,7 +2749,10 @@ KIND.signalBar = {
 /* --- 5. take it, and which way ------------------------------------ */
 KIND.takeSide = {
   skill: "trend", skill2: "discipline",
-  right: function (p) { return String(p.ch.gt.dir); },
+  /* A correct read is not a trade. Where the structural target does not pay
+     for the risk the answer is stand aside, whatever the pattern is called —
+     which is the whole reason Brooks states the arithmetic. */
+  right: function (p) { return p.ch.gt.payoff === "thin" ? "0" : String(p.ch.gt.dir); },
   prepare: function (sp, seed) {
     var ch = Mkt.gen({ seed: seed, ctx: pickPool(sp.pool || POOL.all, seed) });
     return {
@@ -2700,19 +2768,29 @@ KIND.takeSide = {
     };
   },
   grade: function (p, ans) {
-    var g = p.ch.gt, right = String(g.dir), ok = ans === right;
+    var g = p.ch.gt, thin = g.payoff === "thin";
+    var right = thin ? "0" : String(g.dir), ok = ans === right;
     var e = equation(g.prob, g.refRR);
+    var lines = ["<b>" + g.name + "</b>. " + g.brooks];
+    if (g.dir === 0) {
+      lines.push("Trading this loses money: about " + pct(g.prob) + " win rate at " + g.refRR.toFixed(2) +
+        "R gives <b>" + e.toFixed(2) + "R</b> per trade. Standing aside is a position.");
+    } else if (thin) {
+      lines.push("<b>The read is right and the price is wrong.</b> This is the pattern — but from " +
+        "this entry the structural target is only <b>" + g.refRR.toFixed(2) + "R</b>, and at about " +
+        pct(g.prob) + " that is <b>" + e.toFixed(2) + "R</b> per trade. " +
+        (g.style === "swing"
+          ? "Brooks is specific about this: a reversal is roughly a 40% setup, so it needs to be capable of <b>two to one</b> before it is worth taking. Below that the equation is negative no matter how good the pattern looks."
+          : "A scalp can have a reward smaller than its risk, but only if the win rate carries it — here it does not.") +
+        " Naming it correctly and taking it are two different skills; this is the one where you name it and pass.");
+    } else {
+      lines.push(probLine(p.ch));
+    }
+    lines.push(outcomeLine(p.ch));
     return {
       score: ok ? 1 : 0, reveal: true,
-      verdict: ok ? "Correct" : (g.dir === 0 ? "There was no edge here" : "Wrong side"),
-      lines: [
-        "<b>" + g.name + "</b>. " + g.brooks,
-        g.dir === 0
-          ? "Trading this loses money: about " + pct(g.prob) + " win rate at " + g.refRR.toFixed(2) +
-            "R gives <b>" + e.toFixed(2) + "R</b> per trade. Standing aside is a position."
-          : probLine(p.ch),
-        outcomeLine(p.ch)
-      ].filter(Boolean)
+      verdict: ok ? "Correct" : (thin ? "Right pattern, but the reward is not there" : (g.dir === 0 ? "There was no edge here" : "Wrong side")),
+      lines: lines.filter(Boolean)
     };
   }
 };
@@ -4248,7 +4326,8 @@ var PROG = (function () {
     if (seen) {
       L.push("Context: " + g.name + (g.tradeable
         ? " — " + (g.dir > 0 ? "long" : "short") + " bias, " + Math.round(g.prob * 100) + "% win rate, " +
-          g.refRR.toFixed(2) + "R reference"
+          g.refRR.toFixed(2) + "R reference" +
+          (g.payoff === "thin" ? " (NOT A TRADE — the reward does not pay for the risk here)" : "")
         : " — not tradeable"));
       if (g.tradeable) {
         L.push("App's levels: entry " + fmtN(g.entry, ch.dec) +
