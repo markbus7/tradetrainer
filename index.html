@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.16.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.17.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.16.0", build: "2026-08-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.17.0", build: "2026-08-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -391,7 +391,9 @@ var Mkt = (function () {
         target: hi.p + h, invalid: pb.p,
         labels: [[lo, "spike low"], [hi, "spike high"], [pb, "last pullback low"]]
       };
-    }
+    },
+    /* a spike is one leg by definition; what has to be present is the pullback */
+    valid: function (ch) { return ch.gt.pbFrom < ch.gt.sigIdx - 2 && ch.gt.barCount >= 1; }
   };
 
   /* ---- 2. tight channel -------------------------------------------- */
@@ -422,7 +424,8 @@ var Mkt = (function () {
         target: pb.p + (bb.p - a.p), invalid: pb.p,
         labels: [[bb, "first leg high"], [pb, "pullback low"]]
       };
-    }
+    },
+    valid: function (ch) { return hasTrend(BF(ch), Math.max(6, ch.gt.pbFrom)); }
   };
 
   /* ---- 3. broad channel -------------------------------------------- */
@@ -451,7 +454,8 @@ var Mkt = (function () {
         target: hi.p, altTarget: pb.p + (hi.p - lo.p), invalid: pb.p,
         labels: [[hi, "channel high"], [pb, "channel low"]]
       };
-    }
+    },
+    valid: function (ch) { return hasTrend(BF(ch), Math.max(6, ch.gt.pbFrom)); }
   };
 
   /* ---- 4. two-legged pullback (H2 / L2) ---------------------------- */
@@ -495,6 +499,17 @@ var Mkt = (function () {
         target: pb.p + (bb.p - a.p), invalid: pb.p,
         labels: [[a, "last higher low"], [bb, "trend high"], [pb, "second leg low"]]
       };
+    },
+    /* "an established bull trend makes its first pullback" — and the pullback
+       itself has to show two legs: down, a visible bounce that traps bulls,
+       then down again. */
+    valid: function (ch) {
+      var f = BF(ch), g = ch.gt, a = g.pbFrom, S = g.sigIdx;
+      if (!hasTrend(f, Math.max(6, a)) || S <= a + 8) return false;
+      var w = (S - a) / 3;
+      var l1 = minIn(f, a, a + w), mid = maxIn(f, a + w, a + 2 * w), l2 = minIn(f, a + 2 * w, S);
+      var dep = f.H(a) - Math.min(l1, l2);
+      return mid - l1 > 0.2 * dep && mid - l2 > 0.2 * dep;
     }
   };
 
@@ -527,7 +542,8 @@ var Mkt = (function () {
         target: top.p, altTarget: C.mid(top.p, bot.p), invalid: bot.p,
         labels: [[top, "range high"], [bot, "range low"]]
       };
-    }
+    },
+    valid: function (ch) { return twoSided(ch); }
   };
 
   /* ---- 6. trading range, mid ---------------------------------------- */
@@ -559,7 +575,8 @@ var Mkt = (function () {
         target: top.p, invalid: bot.p,
         labels: [[top, "range high"], [bot, "range low"]]
       };
-    }
+    },
+    valid: function (ch) { return twoSided(ch); }
   };
 
   /* ---- 7. barbwire -------------------------------------------------- */
@@ -585,6 +602,17 @@ var Mkt = (function () {
         rangeTop: top.p, rangeBot: bot.p,
         target: top.p, invalid: bot.p, labels: []
       };
+    },
+    /* "overlapping bars, prominent tails, at least one doji" */
+    valid: function (ch) {
+      var B = ch.bars, S = ch.gt.sigIdx, ov = 0, tail = 0, doji = 0, n = 0;
+      for (var i = Math.max(1, S - 12); i <= S; i++) {
+        var rg = B[i].h - B[i].l || 1e-9; n++;
+        ov += Math.max(0, Math.min(B[i].h, B[i - 1].h) - Math.max(B[i].l, B[i - 1].l)) / rg;
+        tail += (rg - Math.abs(B[i].c - B[i].o)) / rg;
+        if (Math.abs(B[i].c - B[i].o) / rg < 0.25) doji++;
+      }
+      return n > 0 && ov / n > 0.6 && tail / n > 0.5 && doji >= 1;
     }
   };
 
@@ -621,6 +649,15 @@ var Mkt = (function () {
         target: top.p, invalid: bot.p,
         labels: [[nt, "coil high"], [nb, "coil low"]]
       };
+    },
+    /* "lower highs AND higher lows converging toward a point" */
+    valid: function (ch) {
+      var f = BF(ch), S = f.S, mx = maxIn(f, 0, S), mn = minIn(f, 0, S), st = 0;
+      while (st < S && f.H(st) < mn + 0.95 * (mx - mn)) st++;
+      if (S - st < 9) return false;
+      var w = (S - st) / 3;
+      return twoSided(ch) &&
+        maxIn(f, st + 2 * w, S) < maxIn(f, st, st + w) && minIn(f, st + 2 * w, S) > minIn(f, st, st + w);
     }
   };
 
@@ -655,7 +692,8 @@ var Mkt = (function () {
         target: top.p, altTarget: fail.p + (top.p - bot.p), invalid: fail.p,
         labels: [[top, "range high"], [bot, "range low"], [fail, "failed breakout low"]]
       };
-    }
+    },
+    valid: function (ch) { return twoSided(ch); }
   };
 
   /* ---- 10. successful breakout -------------------------------------- */
@@ -688,7 +726,8 @@ var Mkt = (function () {
         target: top.p + (top.p - bot.p), invalid: pb.p,
         labels: [[top, "range high"], [bot, "range low"], [pb, "breakout pullback low"]]
       };
-    }
+    },
+    valid: function (ch) { return twoSided(ch); }
   };
 
   /* ---- 11. wedge reversal (three pushes) ---------------------------- */
@@ -722,6 +761,12 @@ var Mkt = (function () {
         target: org.p, invalid: p3.p,
         labels: [[org, "wedge origin = target"], [p1, "push 1"], [p2, "push 2"], [p3, "push 3 low"]]
       };
+    },
+    /* three pushes down, each making a lower low than the last */
+    valid: function (ch) {
+      var f = BF(ch), g = ch.gt, e = extremes(f), m = f.m;
+      var p1 = g.labels[1][0].p * m, p2 = g.labels[2][0].p * m, p3 = g.labels[3][0].p * m;
+      return p2 < p1 && p3 < p2 && stepsDown(f, e.hi, e.lo);
     }
   };
 
@@ -743,11 +788,11 @@ var Mkt = (function () {
          a peak. That is what lets the chart open at the trend's high and spend
          its bars on the downtrend, instead of spending the first third of the
          screen rallying into a high that then dominates the picture. */
-      var lowerLow = R.chance(0.5);
+      var lowerLow = R.chance(0.88);
       /* Brooks: the test comes as a higher low OR as a lower low that reverses,
          about equally often, and the lower-low version — a failed breakout of
          the trend's own low — is the stronger one. Both get shown. */
-      var test = lowerLow ? R.f(-1.62, -1.54) : R.f(-1.26, -1.16);
+      var test = lowerLow ? R.f(-1.54, -1.47) : R.f(-1.26, -1.16);
       return [
         [R.i(6, 9),  R.f(0.30, 0.40),   "start"],
         [R.i(4, 7),  R.f(-0.44, -0.36), "d1"],
@@ -767,16 +812,55 @@ var Mkt = (function () {
     },
     hU: function () { return 0.55; },
     gt: function (b, ax, C) {
-      var low = C.lo(b, ax.start.i, ax.tlBreak.i), brk = C.ref(b, ax.tlBreak.i, 1);
-      var test = C.lo(b, ax.tlBreak.i, ax.sig.i);
+      var low = C.lo(b, ax.start.i, ax.tlBreak.i);
+      /* THE TRENDLINE BREAK IS FOUND ON THE BARS, NOT ASSUMED.
+         Brooks' trendline is drawn along the trend's own lower highs, so the
+         break is whatever first clears that line — it cannot be nominated by
+         an anchor and hoped for. Take the last two swing highs before the low,
+         extend the line through them, and walk forward until a bar's high is
+         above it. If nothing clears it there was no trendline break, the
+         setup is not a major trend reversal, and the chart is rejected. */
+      var swings = pivots(b, 3, low.i).filter(function (q) { return q.d === C.m; });
+      var brk = null, tline = null;
+      if (swings.length >= 2) {
+        var p1 = swings[swings.length - 2], p2 = swings[swings.length - 1];
+        var slope = (p2.p - p1.p) / Math.max(1, p2.i - p1.i);
+        tline = { a: p1, b: p2, slope: slope };
+        for (var i = low.i + 1; i <= ax.sig.i; i++) {
+          var lineY = p2.p + slope * (i - p2.i);
+          var px = C.m > 0 ? b[i].h : b[i].l;
+          if ((px - lineY) * C.m > 0) { brk = { i: i, p: px }; tline.thru = i; break; }
+        }
+      }
+      var broke = brk !== null;
+      if (!broke) brk = C.ref(b, ax.tlBreak.i, 1);      /* kept coherent; rejected by valid() */
+      var test = C.lo(b, brk.i, ax.sig.i);
       /* read the test off the bars: it is only a "higher low" if it actually
          is one, and about half the time it is not */
       var kind = (test.p - low.p) * C.m > 0 ? "higher low" : "lower low test";
       return {
         sigIdx: ax.sig.i, measure: { a: low, b: brk }, anchor: test,
         target: test.p + (brk.p - low.p), invalid: test.p,
+        trendline: broke ? tline : null, broke: broke,
         labels: [[low, "trend low"], [brk, "trendline break"], [test, kind]]
       };
+    },
+    /* Every requirement in this context's own howTo, checked on the bars.
+       Nothing here looks at the outcome. */
+    valid: function (ch) {
+      var g = ch.gt, m = CTX[g.key].flip, B = ch.bars, S = g.sigIdx;
+      if (!g.broke) return false;                      /* no trendline break => no reversal */
+      var low = g.labels[0][0].p * m, test = g.labels[2][0].p * m;
+      var hi = -Infinity;
+      for (var i = 0; i <= S; i++) hi = Math.max(hi, (m > 0 ? B[i].h : -B[i].l));
+      /* A lower-low test is a FAILED attempt to resume the trend — bears
+         trapped a little below the old low. Half the trend's height below it
+         is not a test, it is the trend continuing, and there is no setup yet. */
+      var under = low - test;
+      if (under > 0 && (under > 0.8 * ch.atr || under > 0.15 * (hi - low))) return false;
+      /* and there has to have been a trend to reverse in the first place */
+      var f = BF(ch);
+      return stepsDown(f, extremes(f).hi, g.labels[0][0].i);
     }
   };
 
@@ -814,7 +898,9 @@ var Mkt = (function () {
         target: flagTop.p + (flagTop.p - fail.p), altTarget: st.p, invalid: fail.p,
         labels: [[flagTop, "final flag"], [fail, "failed breakout low"]]
       };
-    }
+    },
+    /* "an ordinary small flag late in a trend" — so a trend has to precede it */
+    valid: function (ch) { var f = BF(ch), e = extremes(f); return stepsDown(f, e.hi, e.lo); }
   };
 
   /* ---- 14. climax --------------------------------------------------- */
@@ -847,6 +933,17 @@ var Mkt = (function () {
         target: C.lerp(low.p, top.p, 0.62), altTarget: C.lerp(low.p, top.p, 0.42), invalid: low.p,
         labels: [[top, "climax start"], [low, "climax low"]]
       };
+    },
+    /* "bars stop looking orderly and start getting bigger and steeper" — the
+       move into the low has to actually accelerate. Lower highs are NOT part
+       of what a climax claims: it is one accelerating leg, and its own text
+       says so. */
+    valid: function (ch) {
+      var f = BF(ch), e = extremes(f);
+      if (e.lo <= e.hi + 8) return false;
+      var w = (e.lo - e.hi) / 3, at = function (i) { return f.B[Math.round(i)].c * f.m; };
+      if (!stepsDownThirds(f, e.hi, e.lo)) return false;
+      return (at(e.hi + 2 * w) - at(e.lo)) / w > (at(e.hi) - at(e.hi + w)) / w;
     }
   };
 
@@ -863,7 +960,7 @@ var Mkt = (function () {
       tex: s.tex,
       brooks: flipWords(s.brooks), mmRule: flipWords(s.mmRule),
       howTo: s.howTo.map(flipWords),
-      segs: s.segs, hU: s.hU, gt: s.gt
+      segs: s.segs, hU: s.hU, gt: s.gt, valid: s.valid
     };
   });
   var KEYS = Object.keys(CTX);
@@ -979,6 +1076,89 @@ var Mkt = (function () {
     return { n: idx.length, idx: idx };
   }
 
+  /** The count belongs to ONE correction.
+
+      Brooks' counts run High/Low 1 to 4. Past a High 4 the correction has
+      become a trading range and the count has stopped meaning anything — and
+      this context's own teaching says so: "once the trend resumes and a fresh
+      pullback starts, you begin again at High 1." Counting straight through to
+      the signal bar with no reset produced charts labelled High 11.
+
+      So when the raw count runs past four, restart it at the most recent swing
+      the market actually turned from, which is what a trader would do. */
+  function correctionCount(bars, from, to, d) {
+    var c = brooksCount(bars, from, to, d);
+    if (c.n <= 4) return { from: from, n: c.n, idx: c.idx };
+    var swings = pivots(bars, 3, to).filter(function (p) {
+      return p.i > from && p.i < to && (d > 0 ? p.d < 0 : p.d > 0);
+    });
+    for (var k = 0; k < swings.length; k++) {
+      var c2 = brooksCount(bars, swings[k].i, to, d);
+      if (c2.n <= 4 && c2.n >= 1) return { from: swings[k].i, n: c2.n, idx: c2.idx };
+    }
+    /* no swing restarts it cleanly: keep the last four attempts only */
+    var idx = c.idx.slice(-4);
+    return { from: Math.max(from, idx[0] - 1), n: idx.length, idx: idx };
+  }
+
+  /* ---- structural predicates ----------------------------------------
+     Each context's valid() is written from its own teaching text; these are
+     the shared measurements those predicates are built from. Everything works
+     in the "bull frame" — prices multiplied by the mirror factor — so a single
+     rule covers a pattern and its bearish twin. Note that a mirrored bar's
+     bull-frame high is its negated LOW, not its negated high. */
+  function BF(ch) {
+    var m = CTX[ch.gt.key].flip, B = ch.bars;
+    return {
+      m: m, B: B, S: ch.gt.sigIdx,
+      H: function (i) { return m > 0 ? B[i].h : -B[i].l; },
+      L: function (i) { return m > 0 ? B[i].l : -B[i].h; },
+      hiP: function (a, z) { return pivots(B, 3, z).filter(function (q) { return q.d === m && q.i >= a; }); },
+      loP: function (a, z) { return pivots(B, 3, z).filter(function (q) { return q.d === -m && q.i >= a; }); }
+    };
+  }
+  function maxIn(f, a, z) { var v = -Infinity; for (var i = Math.max(0, Math.ceil(a)); i <= Math.min(f.S, Math.floor(z)); i++) v = Math.max(v, f.H(i)); return v; }
+  function minIn(f, a, z) { var v = Infinity; for (var i = Math.max(0, Math.ceil(a)); i <= Math.min(f.S, Math.floor(z)); i++) v = Math.min(v, f.L(i)); return v; }
+  function extremes(f) {
+    var hi = 0, lo = 0;
+    for (var i = 0; i <= f.S; i++) { if (f.H(i) > f.H(hi)) hi = i; if (f.L(i) < f.L(lo)) lo = i; }
+    return { hi: hi, lo: lo };
+  }
+  /** an established trend before `to`: rising highs AND rising lows */
+  function hasTrend(f, to) {
+    var hh = 0, hl = 0, a = -Infinity, b = -Infinity;
+    f.hiP(0, to).forEach(function (q) { var v = q.p * f.m; if (v > a) hh++; a = Math.max(a, v); });
+    f.loP(0, to).forEach(function (q) { var v = q.p * f.m; if (v > b) hl++; b = Math.max(b, v); });
+    return hh >= 2 && hl >= 2;
+  }
+  /** the coarse read: highs step down across the move from its high to its low */
+  function stepsDownThirds(f, hi, lo) {
+    if (lo <= hi + 8) return false;
+    var w = (lo - hi) / 3;
+    return maxIn(f, hi + w, hi + 2 * w) < maxIn(f, hi, hi + w) &&
+      maxIn(f, hi + 2 * w, lo) < maxIn(f, hi + w, hi + 2 * w);
+  }
+  /** the strict read: the same, plus two actual swing highs each below the last.
+      A single leg down passes the coarse test but has no lower highs in it at
+      all — which is the whole difference between a trend and one big bar. */
+  function stepsDown(f, hi, lo) {
+    if (!stepsDownThirds(f, hi, lo)) return false;
+    var c = 0, prev = maxIn(f, 0, f.S);
+    f.hiP(hi + 2, lo - 2).forEach(function (q) { var v = q.p * f.m; if (v < prev) { c++; prev = v; } });
+    return c >= 2;
+  }
+  /** two clear touches of each edge — what makes a range a range */
+  function twoSided(ch) {
+    var g = ch.gt;
+    if (g.rangeTop === undefined || g.rangeBot === undefined) return true;
+    var t = Math.max(g.rangeTop, g.rangeBot), b = Math.min(g.rangeTop, g.rangeBot), h = t - b, tt = 0, bb = 0;
+    pivots(ch.bars, 3, g.sigIdx).forEach(function (q) {
+      if (q.d === 1 && q.p >= t - 0.20 * h) tt++;
+      if (q.d === -1 && q.p <= b + 0.20 * h) bb++;
+    });
+    return tt >= 2 && bb >= 2;
+  }
+
   /** how far the path may wander off the skeleton between anchors */
   var BRIDGE = 0.62;
 
@@ -1005,7 +1185,37 @@ var Mkt = (function () {
      gen(opts) -> chart
      opts: {seed, ctx, sym, tf, forceOutcome:'win'|'loss', sigQ}
      ===================================================================== */
+  /** Generate a chart that actually IS the pattern it is named.
+
+      Shaping the skeleton makes the pattern usually appear; it does not make
+      it appear every time, and the learner sees one chart at a time. So each
+      context may declare valid(ch) — a predicate written from its own teaching
+      text — and a chart that fails it is thrown away and re-rolled from a
+      derived seed. The same seed still produces the same final chart, so
+      everything downstream stays reproducible.
+
+      The predicate may only look at structure the trader can see BEFORE the
+      decision bar. It must never reference the outcome: selecting on whether
+      the trade won would fit the tape to the stop, which is exactly the
+      property the honest-stops work established. */
   function gen(opts) {
+    opts = opts || {};
+    var baseSeed = opts.seed === undefined ? ((Math.random() * 1e9) | 0) : opts.seed;
+    var first = null;
+    for (var attempt = 0; attempt < 40; attempt++) {
+      var o = {};
+      for (var ok in opts) if (Object.prototype.hasOwnProperty.call(opts, ok)) o[ok] = opts[ok];
+      o.seed = attempt === 0 ? baseSeed : (((baseSeed >>> 0) + attempt * 2654435761) >>> 0);
+      var ch = genOnce(o);
+      if (first === null) first = ch;
+      var vd = CTX[ch.gt.key] && CTX[ch.gt.key].valid;
+      if (!vd || vd(ch)) { ch.attempts = attempt + 1; return ch; }
+    }
+    first.attempts = 40; first.unvalidated = true;
+    return first;
+  }
+
+  function genOnce(opts) {
     opts = opts || {};
     var seed = opts.seed || ((Math.random() * 1e9) | 0);
     var R = mkR(seed);
@@ -1275,7 +1485,8 @@ var Mkt = (function () {
     if (dir) {
       var win = Math.max(0, sigIdx - 30);
       pbFrom = (dir > 0 ? hiIn(bars, win, sigIdx) : loIn(bars, win, sigIdx)).i;
-      count = brooksCount(bars, pbFrom, sigIdx, dir);
+      var cc = correctionCount(bars, pbFrom, sigIdx, dir);
+      pbFrom = cc.from; count = { n: cc.n, idx: cc.idx };
     }
 
     /* ---- what the tape actually did ---- */
@@ -1347,6 +1558,7 @@ var Mkt = (function () {
         firstEntry: count.idx.length > 0 ? bars[count.idx[0]] : null,
         secondEntry: count.idx.length > 1 ? bars[count.idx[1]] : null,
         rangeTop: g.rangeTop, rangeBot: g.rangeBot,
+        trendline: g.trendline || null, broke: g.broke,
         sigIdx: sigIdx, decision: sigIdx, sigQuality: sigQuality, sigKind: quality,
         worked: hitT >= 0 && (hitI < 0 || hitT < hitI),
         filled: fillAt >= 0, fillAt: fillAt,
@@ -1389,7 +1601,7 @@ var Mkt = (function () {
 
   return {
     gen: gen, CTX: CTX, KEYS: KEYS, BASE: BASE, INSTR: INSTR, TFS: TFS,
-    atr: atr, ema: ema, pivots: pivots, brooksCount: brooksCount, hiIn: hiIn, loIn: loIn, mkR: mkR, rng: rng,
+    atr: atr, ema: ema, pivots: pivots, brooksCount: brooksCount, correctionCount: correctionCount, hiIn: hiIn, loIn: loIn, mkR: mkR, rng: rng,
     flipWords: flipWords
   };
 })();
@@ -1928,6 +2140,28 @@ Chart.prototype._gtOverlay = function (c, b) {
     [a, bb].forEach(function (pt) {
       c.beginPath(); c.arc(this.x(pt.i), this.y(pt.p), 3.5, 0, 6.284); c.fill();
     }, this);
+  }
+  /* The trendline the break has to clear.
+     Labelling a bar "trendline break" without drawing the line asks the
+     learner to take it on trust — and there is no way to check a claim about
+     a line that is not on the chart. It is drawn along the trend's own swing
+     highs and extended through the bar that broke it, and it fades with the
+     rest of the scaffolding. */
+  if (g.trendline && (lv >= 2 || keep.trendline)) {
+    var t = g.trendline;
+    var endI = (t.thru === undefined ? t.b.i : t.thru) + 3;
+    var endP = t.b.p + t.slope * (endI - t.b.i);
+    c.strokeStyle = "rgba(232,166,116,.85)"; c.lineWidth = 1.4; c.setLineDash([6, 4]);
+    c.beginPath(); c.moveTo(this.x(t.a.i), this.y(t.a.p)); c.lineTo(this.x(endI), this.y(endP)); c.stroke();
+    c.setLineDash([]);
+    c.fillStyle = "rgba(232,166,116,.85)";
+    [t.a, t.b].forEach(function (pt) {
+      c.beginPath(); c.arc(this.x(pt.i), this.y(pt.p), 2.8, 0, 6.284); c.fill();
+    }, this);
+    if (lv >= 3) {
+      c.font = "10px 'IBM Plex Mono',monospace"; c.textAlign = "left"; c.textBaseline = "top";
+      c.fillText("TRENDLINE", this.x(t.a.i) + 5, this.y(t.a.p) + 4);
+    }
   }
   if (lv < 3) return;                      /* the naming labels are the first help to go */
   (g.labels || []).forEach(function (L) {
@@ -4758,6 +4992,10 @@ var PROG = (function () {
     }
     if (lv < 2 && t.rangeTop !== undefined) {
       out.push("range <b>" + fmtN(t.rangeBot, ch.dec) + "</b> to <b>" + fmtN(t.rangeTop, ch.dec) + "</b>");
+    }
+    if (lv < 2 && t.trendline) {
+      out.push("the trendline runs from <b>" + fmtN(t.trendline.a.p, ch.dec) + "</b> through <b>" +
+        fmtN(t.trendline.b.p, ch.dec) + "</b>, and bar " + t.trendline.thru + " is the one that cleared it");
     }
     if (!out.length) return;
     g.lines = (g.lines || []).concat(
