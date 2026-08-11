@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.15.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.16.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.15.0", build: "2026-08-10", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.16.0", build: "2026-08-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -457,29 +457,43 @@ var Mkt = (function () {
   /* ---- 4. two-legged pullback (H2 / L2) ---------------------------- */
   CTX.twoLegPullback = {
     name: "Two-legged pullback", twin: "Two-legged pullback",
-    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.80, pWin: 0.56,
+    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.68, pWin: 0.56,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong",
     brooks: "A two-legged pullback to the 20-bar moving average in a bull trend is the highest-probability buy there is. The first attempt up traps bulls in too early; when it fails, those bulls capitulate and bears press \u2014 and the second attempt up traps the bears. Buy on a stop one tick above the High 2 signal bar.",
     mmRule: "Leg 1 equals leg 2: measure the prior leg up and project the same distance from the pullback low.",
     howTo: ["It starts when an established bull trend makes its first pullback against itself. From that moment you are counting BARS, not eyeballing legs.", "The <b>High 1</b> is the first bar whose high trades above the high of the bar before it \u2014 the first attempt to resume the trend.", "Then wait for one bar with a <b>lower high</b>. It can come one bar later or several. That single bar is all it takes to arm the next count \u2014 the correction does not have to make a new low, and it does not have to complete a leg.", "The <b>High 2</b> is the next bar after that whose high trades above the prior bar's high \u2014 the second attempt. That bar is the setup. Note what is NOT required: leg two does not have to trade below leg one's low. Brooks takes High 2s whose second leg ends above the first one; it is the count that defines it, not the depth. Demand a lower low and you will sit out valid High 2s.", "Third and fourth occurrences are a High 3 and a High 4, and on a long or choppy correction that is exactly what you will count \u2014 the two LEGS and the bar COUNT are different lenses on the same pullback, and they do not have to agree. A two-legged pullback that took fifteen bars to form will usually read High 3 or High 4 by the time it is done, and Brooks' point is that the higher the count runs, the weaker the trend's grip. Read the count off the bars in front of you, not off the name of the pattern.",
       "The count belongs to this correction \u2014 once the trend resumes and a fresh pullback starts, you begin again at High 1.", "The protective stop goes one tick below the SIGNAL BAR's low. That distance from your entry is your initial risk — the number you size from. Below the second leg's low is a defensible wider alternative, but it is just a bigger stop: smaller size, different equation. Either way, what the market actually takes out of you before the trade works — the actual risk — is usually far less, and you only learn it afterwards."],
     segs: function (R) {
+      /* "an established bull trend makes its first pullback against itself" —
+         so the trend has to be established on the chart before the pullback
+         starts: three higher highs with two higher lows between them. A flat
+         base and a single leg up is not a trend, and a pullback from it is
+         not a two-legged pullback in one. */
       return [
-        [R.i(16, 22), R.f(-0.05, 0.05), "A"],
-        [R.i(8, 12),  R.f(0.80, 0.92), "B"],
-        [R.i(4, 6),   R.f(0.54, 0.62), "d1"],
-        [R.i(3, 5),   R.f(0.68, 0.75), "h1fail"],
-        [R.i(4, 6),   R.f(0.46, 0.55), "sig"]
+        [R.i(6, 9),  R.f(-0.05, 0.05), "A"],
+        [R.i(5, 8),  R.f(0.44, 0.52),  "u1"],
+        [R.i(4, 6),  R.f(0.24, 0.32),  "p1"],
+        [R.i(5, 8),  R.f(0.82, 0.90),  "u2"],
+        [R.i(4, 6),  R.f(0.62, 0.70),  "p2"],
+        [R.i(6, 9),  R.f(1.18, 1.26),  "B"],
+        [R.i(5, 8),  R.f(0.78, 0.86),  "d1"],
+        /* the first attempt up has to be a visible leg, not a wobble — it is
+           the bulls who get trapped, and the learner has to see them get in */
+        [R.i(6, 8),  R.f(1.04, 1.12),  "h1fail"],
+        [R.i(5, 8),  R.f(0.78, 0.88),  "sig"]
       ];
     },
     hU: function () { return 0.85; },
     gt: function (b, ax, C) {
-      var a = C.ref(b, ax.A.i, -1), bb = C.ref(b, ax.B.i, 1);
-      var pb = C.lo(b, ax.h1fail.i, ax.sig.i + 2);
+      /* the measured move is the LAST leg up projected from the pullback low,
+         which is what mmRule says. Taking it from the base of a multi-leg
+         trend would measure the whole trend and call it "leg 1". */
+      var a = C.ref(b, ax.p2.i, -1), bb = C.ref(b, ax.B.i, 1);
+      var pb = C.lo(b, ax.h1fail.i, ax.sig.i);
       return {
         sigIdx: ax.sig.i, measure: { a: a, b: bb }, anchor: pb,
         target: pb.p + (bb.p - a.p), invalid: pb.p,
-        labels: [[a, "leg 1 start"], [bb, "leg 1 end"], [pb, "second leg low"]]
+        labels: [[a, "last higher low"], [bb, "trend high"], [pb, "second leg low"]]
       };
     }
   };
@@ -584,13 +598,17 @@ var Mkt = (function () {
     howTo: ["It starts once a trading range's swings begin narrowing \u2014 lower highs AND higher lows converging toward a point, like a wedge lying on its side.", "It is still coiling as long as each new high is lower than the last one and each new low is higher than the last one.", "There is no valid break of structure while it is still coiling \u2014 genuinely nobody knows which way it resolves yet, which is exactly why guessing the direction here is a coin flip by design.", "The only correct move is to wait for the real breakout bar (not a probe \u2014 see the failed-breakout structure) and trade that, with a stop back inside the coil."],
     segs: function (R) {
       return [
-        [R.i(14, 20), R.f(-0.08, 0.08), "pre"],
-        [R.i(7, 10),  R.f(0.90, 1.00), "h1"],
+        /* the coil has to be big enough at the start for the narrowing to be
+           visible at all: this family carries a 1.85x wick multiplier, so a
+           swing smaller than a bar reads as noise rather than as a coil */
+        [R.i(10, 14), R.f(-0.08, 0.08), "pre"],
+        [R.i(7, 10),  R.f(1.24, 1.36), "h1"],
         [R.i(6, 9),   R.f(0.02, 0.12), "l1"],
-        [R.i(6, 9),   R.f(0.70, 0.78), "h2"],
-        [R.i(5, 8),   R.f(0.24, 0.32), "l2"],
-        [R.i(4, 7),   R.f(0.58, 0.64), "h3"],
-        [R.i(4, 6),   R.f(0.40, 0.48), "sig"]
+        [R.i(6, 9),   R.f(0.96, 1.06), "h2"],
+        [R.i(5, 8),   R.f(0.30, 0.40), "l2"],
+        [R.i(5, 8),   R.f(0.76, 0.84), "h3"],
+        [R.i(4, 7),   R.f(0.50, 0.58), "l3"],
+        [R.i(4, 6),   R.f(0.62, 0.70), "sig"]
       ];
     },
     hU: function () { return 0.5; },
@@ -682,14 +700,17 @@ var Mkt = (function () {
     mmRule: "A wedge's first target is the level where the wedge began — usually reached in two legs. Only if price breaks beyond that does the height of the wedge get projected as the next target.",
     howTo: ["It starts at the first of three pushes down \u2014 you cannot call a wedge until you can already see at least two clear lower lows forming inside converging trendlines.", "It is still developing through push two and push three, and each one should be weaker (smaller, slower) than the last \u2014 that weakening momentum is the actual signal, not just the converging shape.", "It completes at push three's low, and breaks (invalidates) if price makes a new low below push three \u2014 that would mean the sellers were not actually exhausted after all.", "The stop sits just below push three's low, since that is the exact point that would prove the exhaustion read wrong."],
     segs: function (R) {
+      /* written downward from the open so the wedge fills the chart instead of
+         a rally into its origin. Each push is smaller than the one before it
+         (0.77, 0.64, 0.56) — that weakening is the signal, not the shape. */
       return [
-        [R.i(12, 18), R.f(1.16, 1.26), "origin"],
-        [R.i(7, 10),  R.f(0.40, 0.50), "p1"],
-        [R.i(5, 8),   R.f(0.84, 0.92), "b1"],
-        [R.i(6, 9),   R.f(0.22, 0.32), "p2"],
-        [R.i(5, 8),   R.f(0.60, 0.68), "b2"],
-        [R.i(5, 8),   R.f(0.06, 0.16), "p3"],
-        [R.i(3, 5),   R.f(0.26, 0.34), "sig"]
+        [R.i(5, 8),  R.f(0.10, 0.18),   "origin"],
+        [R.i(7, 10), R.f(-0.68, -0.58), "p1"],
+        [R.i(6, 9),  R.f(-0.36, -0.28), "b1"],
+        [R.i(6, 9),  R.f(-1.06, -0.96), "p2"],
+        [R.i(6, 9),  R.f(-0.76, -0.68), "b2"],
+        [R.i(5, 8),  R.f(-1.34, -1.26), "p3"],
+        [R.i(3, 5),  R.f(-1.10, -1.02), "sig"]
       ];
     },
     hU: function () { return 0.9; },
@@ -713,22 +734,48 @@ var Mkt = (function () {
     mmRule: "Measure the first leg up off the low and project it from the higher low.",
     howTo: ["It starts with a real trend already in place \u2014 a clear sequence of lower highs and lower lows, not just one big bar. This is the whole difference from a failed breakout: a failed breakout happens inside a TRADING RANGE, where the market was already two-sided and there is no trend to reverse. Here there is a trend, so it has to be broken before anything else counts.", "First requirement: a countertrend move strong enough to BREAK THE TRENDLINE drawn along the recent lower highs, and usually the moving average with it. Brooks is blunt that you should not even think about trading against a trend until a significant trendline has broken. Without it, what you are looking at is a pullback, and about four out of five of those fail.", "Second requirement: a test of the old low that holds. The test can be a HIGHER LOW or a LOWER LOW that reverses \u2014 Brooks says the two occur about equally often, so do not throw away the setup because price traded through the old low. A lower-low test that reverses hard IS the failed breakout of the trend's low, and that is one of the strongest versions of this pattern.", "So the sequence is: trend, then trendline break, then a test that holds. The trendline break alone is not enough, and the test alone is not enough \u2014 it is the pair, in that order.", "The stop sits just beyond the extreme of that test, since that is the one point that, if it fails, means the 'reversal' was just a pause inside the same downtrend."],
     segs: function (R) {
+      /* A reversal needs something to reverse. This skeleton is a real bear
+         trend — three lower lows with two lower highs between them — so a
+         trendline exists along those lower highs and can actually be broken,
+         and so the chart cannot be read as a trading range.
+
+         The offsets run downward from the opening level rather than upward to
+         a peak. That is what lets the chart open at the trend's high and spend
+         its bars on the downtrend, instead of spending the first third of the
+         screen rallying into a high that then dominates the picture. */
+      var lowerLow = R.chance(0.5);
+      /* Brooks: the test comes as a higher low OR as a lower low that reverses,
+         about equally often, and the lower-low version — a failed breakout of
+         the trend's own low — is the stronger one. Both get shown. */
+      var test = lowerLow ? R.f(-1.62, -1.54) : R.f(-1.26, -1.16);
       return [
-        [R.i(14, 20), R.f(1.20, 1.34), "start"],
-        [R.i(10, 14), R.f(0.00, 0.06), "low"],
-        [R.i(7, 10),  R.f(0.72, 0.84), "tlBreak"],
-        [R.i(6, 9),   R.f(0.12, 0.20), "hl"],
-        [R.i(3, 5),   R.f(0.24, 0.32), "sig"]
+        [R.i(6, 9),  R.f(0.30, 0.40),   "start"],
+        [R.i(4, 7),  R.f(-0.44, -0.36), "d1"],
+        [R.i(7, 9),  R.f(-0.04, 0.04),  "r1"],
+        [R.i(4, 7),  R.f(-0.90, -0.82), "d2"],
+        [R.i(7, 9),  R.f(-0.50, -0.42), "r2"],
+        [R.i(6, 9),  R.f(-1.44, -1.36), "low"],
+        /* the break is a strong countertrend move — Brooks wants it strong
+           enough to take out the trendline and the moving average — but it
+           stays well under the high the trend began at. A bounce that reaches
+           back to that high is not a trendline break, it is the other side of
+           a range, and that is what this chart used to draw. */
+        [R.i(7, 10), R.f(-0.82, -0.70), "tlBreak"],
+        [R.i(5, 8),  test,              "test"],
+        [R.i(3, 5),  test + R.f(0.10, 0.16), "sig"]
       ];
     },
     hU: function () { return 0.55; },
     gt: function (b, ax, C) {
       var low = C.lo(b, ax.start.i, ax.tlBreak.i), brk = C.ref(b, ax.tlBreak.i, 1);
-      var hl = C.lo(b, ax.tlBreak.i, ax.sig.i + 2);
+      var test = C.lo(b, ax.tlBreak.i, ax.sig.i);
+      /* read the test off the bars: it is only a "higher low" if it actually
+         is one, and about half the time it is not */
+      var kind = (test.p - low.p) * C.m > 0 ? "higher low" : "lower low test";
       return {
-        sigIdx: ax.sig.i, measure: { a: low, b: brk }, anchor: hl,
-        target: hl.p + (brk.p - low.p), invalid: hl.p,
-        labels: [[low, "trend low"], [brk, "trendline break"], [hl, "higher low"]]
+        sigIdx: ax.sig.i, measure: { a: low, b: brk }, anchor: test,
+        target: test.p + (brk.p - low.p), invalid: test.p,
+        labels: [[low, "trend low"], [brk, "trendline break"], [test, kind]]
       };
     }
   };
@@ -742,18 +789,24 @@ var Mkt = (function () {
     mmRule: "Measure the leg into the final flag and project it back from the failed breakout.",
     howTo: ["It starts as an ordinary small flag or pullback late in a trend \u2014 nothing unusual about it yet.", "It is still just a normal continuation flag as long as its breakout in the trend's own direction actually works.", "It becomes a final-flag reversal signal specifically when that breakout FAILS immediately \u2014 the flag's own breakout reverses hard, trapping the last of the trend-followers who had just entered.", "The stop sits just beyond that failed breakout's own extreme, since that exact price is what would mean the trend-followers were right after all."],
     segs: function (R) {
+      /* "an ordinary small flag late in a trend" — so there has to be a trend
+         for it to be late in. Two legs down with a lower high between them,
+         then the flag, then the breakout that fails. Written downward from the
+         open so the trend fills the chart rather than a rally into it. */
       return [
-        [R.i(12, 18), R.f(1.18, 1.30), "start"],
-        [R.i(8, 12),  R.f(0.34, 0.44), "leg"],
-        [R.i(4, 6),   R.f(0.46, 0.54), "flag1"],
-        [R.i(4, 6),   R.f(0.36, 0.44), "flag2"],
-        [R.i(4, 6),   R.f(0.02, 0.10), "bo"],
-        [R.i(3, 5),   R.f(0.34, 0.44), "sig"]
+        [R.i(5, 8),  R.f(0.10, 0.18),   "start"],
+        [R.i(5, 8),  R.f(-0.42, -0.34), "d1"],
+        [R.i(5, 7),  R.f(-0.16, -0.08), "r1"],
+        [R.i(6, 9),  R.f(-0.80, -0.72), "leg"],
+        [R.i(4, 6),  R.f(-0.70, -0.62), "flag1"],
+        [R.i(4, 6),  R.f(-0.80, -0.72), "flag2"],
+        [R.i(4, 6),  R.f(-1.02, -0.94), "bo"],
+        [R.i(3, 5),  R.f(-0.74, -0.66), "sig"]
       ];
     },
     hU: function () { return 0.55; },
     gt: function (b, ax, C) {
-      var flagTop = C.hi(b, ax.leg.i, ax.flag2.i + 2);
+      var flagTop = C.hi(b, ax.leg.i, Math.min(ax.flag2.i + 2, ax.sig.i));
       var fail = C.lo(b, ax.bo.i - 2, ax.sig.i);
       var st = C.hi(b, 0, ax.start.i + 3);
       return {
@@ -773,12 +826,17 @@ var Mkt = (function () {
     mmRule: "Measure the last climactic leg; a correction typically retraces a good part of it, not all.",
     howTo: ["It starts when a trend's bars stop looking orderly and start getting bigger and steeper instead \u2014 three or more increasingly large bars in the same direction is the tell.", "It is still just a strong trend leg until the bars stop expanding and price prints a small, weak bar or reverses off the extreme \u2014 that deceleration is the actual exhaustion signal.", "There is no trendline-style break of structure here \u2014 the climactic leg itself IS the structure, and its low or high is the level everything else is measured from.", "The stop sits just beyond the climax extreme itself, since a genuine climax should not be revisited immediately if the exhaustion read is correct."],
     segs: function (R) {
+      /* an orderly trend leg first, so there is something for the bars to stop
+         looking orderly against, then three legs that get both bigger and
+         steeper into the low — that acceleration is the climax itself. */
       return [
-        [R.i(14, 20), R.f(1.05, 1.20), "start"],
-        [R.i(5, 8),   R.f(0.60, 0.70), "d1"],
-        [R.i(4, 6),   R.f(0.28, 0.36), "d2"],
-        [R.i(4, 6),   R.f(-0.05, 0.04), "low"],
-        [R.i(3, 4),   R.f(0.10, 0.18), "sig"]
+        [R.i(5, 8),  R.f(0.08, 0.16),   "start"],
+        [R.i(6, 9),  R.f(-0.28, -0.20), "t1"],
+        [R.i(5, 7),  R.f(-0.08, 0.00),  "t2"],
+        [R.i(5, 8),  R.f(-0.48, -0.40), "d1"],
+        [R.i(4, 6),  R.f(-0.90, -0.82), "d2"],
+        [R.i(3, 5),  R.f(-1.40, -1.32), "low"],
+        [R.i(3, 4),  R.f(-1.06, -0.98), "sig"]
       ];
     },
     hU: function () { return 0.55; },
