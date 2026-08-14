@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.20.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.21.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.20.0", build: "2026-08-12", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.21.0", build: "2026-08-14", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -734,7 +734,7 @@ var Mkt = (function () {
   CTX.wedgeBottom = {
     name: "Wedge bottom (three pushes down)", twin: "Wedge top (three pushes up)",
     family: "reversal", cycle: "trading range", dir: 1, alwaysIn: 1, prob: 0.39, pWin: 0.40,
-    style: "swing", mmType: "wedge", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
+    style: "swing", mmType: "wedge", entryType: "stop", sigQ: "strong", countAs: "wedge", attempt: "second", exit: "target",
     brooks: "Three pushes down, each one weaker than the last, inside a converging wedge — the sellers are exhausted. A wedge reversal usually returns to the start of the wedge, and often gives a two-legged move up. Stop below the third push.",
     mmRule: "A wedge's first target is the level where the wedge began — usually reached in two legs. Only if price breaks beyond that does the height of the wedge get projected as the next target.",
     howTo: ["It starts at the first of three pushes down \u2014 you cannot call a wedge until you can already see at least two clear lower lows forming inside converging trendlines.", "It is still developing through push two and push three, and each one should be weaker (smaller, slower) than the last \u2014 that weakening momentum is the actual signal, not just the converging shape.", "It completes at push three's low, and breaks (invalidates) if price makes a new low below push three \u2014 that would mean the sellers were not actually exhausted after all.", "The stop sits just below push three's low, since that is the exact point that would prove the exhaustion read wrong."],
@@ -1083,17 +1083,47 @@ var Mkt = (function () {
     from = Math.max(0, from | 0);
     to = Math.min(bars.length - 1, to | 0);
     if (to <= from) return { n: 0, idx: [] };
-    var armed = true, idx = [];
-    for (var i = from + 1; i <= to; i++) {
-      var attempt = d > 0 ? bars[i].h > bars[i - 1].h : bars[i].l < bars[i - 1].l;
-      if (attempt) {
-        if (armed) { idx.push(i); armed = false; }
-      } else if (d > 0 ? bars[i].h < bars[i - 1].h : bars[i].l > bars[i - 1].l) {
-        /* a bar with a lower high (bull) / higher low (bear) re-arms the count */
-        armed = true;
+    /* A strong trend bar in the trade's own direction ends the correction.
+       Brooks on a breakout like that: "the count goes to zero" — the flag is
+       over, and whatever pullback comes next starts again at one. Counting
+       straight through a breakout bar is how a correction that has already
+       resolved keeps accumulating a High 3, High 4, High 5.
+
+       The decision bar is exempt: it is the setup bar, not a breakout that
+       ends anything, and on most contexts it is deliberately a strong bar. */
+    function scan(reset) {
+      var armed = true, idx = [];
+      for (var i = from + 1; i <= to; i++) {
+        if (reset && i < to && strongTrendBar(bars, i, d)) { idx = []; armed = true; continue; }
+        var attempt = d > 0 ? bars[i].h > bars[i - 1].h : bars[i].l < bars[i - 1].l;
+        if (attempt) {
+          if (armed) { idx.push(i); armed = false; }
+        } else if (d > 0 ? bars[i].h < bars[i - 1].h : bars[i].l > bars[i - 1].l) {
+          /* a bar with a lower high (bull) / higher low (bear) re-arms the count */
+          armed = true;
+        }
       }
+      return idx;
     }
+    /* if the last breakout wiped everything and nothing has been attempted
+       since, the plain count is the only honest thing left to report */
+    var idx = scan(true);
+    if (!idx.length) idx = scan(false);
     return { n: idx.length, idx: idx };
+  }
+
+  /** Brooks' strong trend bar: mostly body, closing at its extreme, in the
+      trend's direction, and big for the tape around it. */
+  function strongTrendBar(bars, i, d) {
+    var bar = bars[i], rg = bar.h - bar.l;
+    if (!(rg > 0)) return false;
+    if (d > 0 ? bar.c <= bar.o : bar.c >= bar.o) return false;
+    if (Math.abs(bar.c - bar.o) / rg < 0.65) return false;
+    var cp = (bar.c - bar.l) / rg;
+    if (d > 0 ? cp < 0.75 : cp > 0.25) return false;
+    var ref = 0, n = 0;
+    for (var k = Math.max(0, i - 10); k < i; k++) { ref += bars[k].h - bars[k].l; n++; }
+    return n > 0 && rg >= 1.25 * (ref / n);
   }
 
   /** The count belongs to ONE correction.
@@ -1541,6 +1571,14 @@ var Mkt = (function () {
       pbFrom = (dir > 0 ? hiIn(bars, win, sigIdx) : loIn(bars, win, sigIdx)).i;
       var cc = correctionCount(bars, pbFrom, sigIdx, dir);
       pbFrom = cc.from; count = { n: cc.n, idx: cc.idx };
+      /* "All wedge bottoms and wedge bull flags are High 3 buy set-ups; all
+         wedge tops and wedge bear flags are Low 3 sell set-ups." The three
+         pushes ARE the count in a wedge, so counting bar-by-bar through it and
+         reporting something else is simply the wrong count for this pattern. */
+      if (def.countAs === "wedge" && g.labels && g.labels.length >= 4) {
+        count = { n: 3, idx: [g.labels[1][0].i, g.labels[2][0].i, g.labels[3][0].i] };
+        pbFrom = g.labels[1][0].i;
+      }
     }
 
     /* ---- what the tape actually did ---- */
@@ -1740,9 +1778,11 @@ Chart.prototype.box = function () {
   return { l: 0, t: padT, w: pw, h: ph - volH, volT: padT + ph - volH, volH: volH, r: pw, b: padT + ph };
 };
 Chart.prototype.fit = function (pad) {
+  /* room to the right of the last bar, because the trade is drawn forward from
+     the decision bar and there is nothing behind it to hang on */
   var n = this.vis + 1, span = Math.min(n, 120);
-  this.i1 = this.vis + Math.max(6, Math.round(span * 0.14));
-  this.i0 = this.i1 - span - Math.max(6, Math.round(span * 0.14));
+  this.i1 = this.vis + Math.max(9, Math.round(span * 0.22));
+  this.i0 = this.i1 - span - Math.max(9, Math.round(span * 0.22));
   if (this.i0 < -4) this.i0 = -4;
   this.render();
 };
@@ -2183,13 +2223,20 @@ Chart.prototype._gtOverlay = function (c, b) {
      lose the lines that tell you whether you were right. */
   var lv = this.gtLevel === undefined ? 3 : this.gtLevel;
   var keep = this.gtKeep || {};
-  function lvl(self, p, col, txt, dash) {
+  /* `fromX` starts the line where the level begins to mean something. A trade
+     level running off to the left edge reads as support that was always there;
+     an entry, a stop and a target only exist from the bar you take them on. */
+  function lvl(self, p, col, txt, dash, fromX, atEnd) {
     if (p === undefined || p === null || !isFinite(p)) return;
-    var y = Math.round(self.y(p)) + 0.5;
+    var y = Math.round(self.y(p)) + 0.5, x0 = fromX === undefined ? 0 : fromX;
     c.strokeStyle = col; c.lineWidth = 1.2; c.setLineDash(dash || [5, 4]);
-    c.beginPath(); c.moveTo(0, y); c.lineTo(b.r, y); c.stroke(); c.setLineDash([]);
-    c.font = "10px 'IBM Plex Mono',monospace"; c.textAlign = "left"; c.textBaseline = "bottom";
-    c.fillStyle = col; c.fillText(txt + "  " + self.fmt(p), 6, y - 2);
+    c.beginPath(); c.moveTo(x0, y); c.lineTo(b.r, y); c.stroke(); c.setLineDash([]);
+    c.font = "10px 'IBM Plex Mono',monospace"; c.textBaseline = "bottom";
+    c.fillStyle = col;
+    /* the trade's own levels label at the right edge, clear of the structure
+       names that crowd around the decision bar */
+    if (atEnd) { c.textAlign = "right"; c.fillText(txt + "  " + self.fmt(p), b.r - 6, y - 3); }
+    else { c.textAlign = "left"; c.fillText(txt + "  " + self.fmt(p), x0 + 4, y - 2); }
   }
   /* the range the context lives in, shaded */
   if (lv >= 2 && g.rangeTop !== undefined && g.rangeBot !== undefined) {
@@ -2200,9 +2247,31 @@ Chart.prototype._gtOverlay = function (c, b) {
     lvl(this, g.rangeBot, "rgba(91,155,213,.85)", "RANGE LOW", [2, 4]);
   }
   if (g.tradeable) {
-    if (lv >= 1 || keep.entry)   lvl(this, g.entry, COL.amber, "ENTRY");
-    if (lv >= 1 || keep.target)  lvl(this, g.target, COL.ok, "TARGET");
-    if (lv >= 1 || keep.invalid) lvl(this, g.invalid, COL.bad, "STOP");
+    var sx = this.x(Math.max(this.i0, g.sigIdx === undefined ? this.i0 : g.sigIdx));
+    var showE = lv >= 1 || keep.entry, showT = lv >= 1 || keep.target, showS = lv >= 1 || keep.invalid;
+    /* the trade as two blocks: what you stand to lose under the entry, what you
+       stand to make above it, both starting at the bar you get in on */
+    if (showE && showT && isFinite(g.target)) {
+      c.fillStyle = "rgba(63,191,127,.09)";
+      c.fillRect(sx, Math.min(this.y(g.entry), this.y(g.target)), b.r - sx, Math.abs(this.y(g.target) - this.y(g.entry)));
+    }
+    if (showE && showS && isFinite(g.invalid)) {
+      c.fillStyle = "rgba(229,99,77,.11)";
+      c.fillRect(sx, Math.min(this.y(g.entry), this.y(g.invalid)), b.r - sx, Math.abs(this.y(g.invalid) - this.y(g.entry)));
+    }
+    if (showE) lvl(this, g.entry, COL.amber, "ENTRY", null, sx, true);
+    if (showT) lvl(this, g.target, COL.ok, "TARGET", null, sx, true);
+    if (showS) lvl(this, g.invalid, COL.bad, "STOP", null, sx, true);
+    /* and the reward-to-risk written across the blocks, since that is the whole
+       question the two of them are there to answer */
+    if (showE && showT && showS && isFinite(g.refRR)) {
+      var mx = (sx + b.r) / 2;
+      c.font = "700 11px Archivo,sans-serif"; c.textAlign = "center"; c.textBaseline = "middle";
+      c.fillStyle = "rgba(63,191,127,.9)";
+      c.fillText("reward  " + g.refRR.toFixed(2) + "R", mx, (this.y(g.entry) + this.y(g.target)) / 2);
+      c.fillStyle = "rgba(229,99,77,.9)";
+      c.fillText("risk  1R", mx, (this.y(g.entry) + this.y(g.invalid)) / 2);
+    }
   }
   /* the measured leg */
   if (this.gtMeasure && g.measure && g.measure.a && g.measure.b) {
@@ -2234,6 +2303,39 @@ Chart.prototype._gtOverlay = function (c, b) {
     if (lv >= 3) {
       c.font = "10px 'IBM Plex Mono',monospace"; c.textAlign = "left"; c.textBaseline = "top";
       c.fillText("TRENDLINE", this.x(t.a.i) + 5, this.y(t.a.p) + 4);
+    }
+  }
+  /* WHERE THE TARGET CAME FROM.
+     A target beyond every high and low on the screen is unreadable — you can
+     see the level but not what put it there. When the target is a measured
+     move, draw the measurement: the leg that was measured, and that same
+     height stood up again from the point it is projected off. */
+  if (g.tradeable && !this.gtMeasure && g.measure && g.measure.a && g.measure.b && g.anchor &&
+      isFinite(g.mmTarget) && Math.abs(g.target - g.mmTarget) < 1e-6 && (lv >= 2 || keep.target)) {
+    var ma = g.measure.a, mb = g.measure.b, an = g.anchor;
+    var vx = "rgba(169,139,232,.95)";
+    c.strokeStyle = vx; c.fillStyle = vx; c.lineWidth = 1.6; c.setLineDash([]);
+    /* the leg that was measured */
+    var lax = this.x(ma.i), lbx = this.x(mb.i);
+    c.beginPath(); c.moveTo(lax, this.y(ma.p)); c.lineTo(lbx, this.y(mb.p)); c.stroke();
+    [ma, mb].forEach(function (pt) {
+      c.beginPath(); c.arc(this.x(pt.i), this.y(pt.p), 3.4, 0, 6.284); c.fill();
+    }, this);
+    /* its height, stood up again at the point it is projected from */
+    var px = this.x(an.i), y1 = this.y(an.p), y2 = this.y(g.mmTarget);
+    c.setLineDash([3, 3]); c.lineWidth = 1.3;
+    c.beginPath(); c.moveTo(px, y1); c.lineTo(px, y2); c.stroke();
+    c.setLineDash([]);
+    [y1, y2].forEach(function (yy) {
+      c.beginPath(); c.moveTo(px - 5, yy); c.lineTo(px + 5, yy); c.stroke();
+    });
+    c.font = "9px 'IBM Plex Mono',monospace"; c.textBaseline = "middle";
+    var toRight = px < b.r - 230;
+    c.textAlign = toRight ? "left" : "right";
+    c.fillText("measured move", px + (toRight ? 8 : -8), (y1 + y2) / 2);
+    if (lv >= 3) {
+      c.textBaseline = "bottom"; c.textAlign = "center";
+      c.fillText("this leg", (lax + lbx) / 2, Math.min(this.y(ma.p), this.y(mb.p)) - 5);
     }
   }
   /* The counted attempts, numbered on the bars they happened on.
@@ -2639,6 +2741,45 @@ function outcomeLine(ch) {
     ? "On this tape it did work — the target came before the stop."
     : "On this tape it failed: the stop came first. About " + pct(1 - g.prob) + " of these do.";
 }
+/** Where the target came from, in words — the numbers that were measured and
+    the point they were stood up from. A level far beyond every high and low on
+    the screen is unreadable without this; you can see it but not justify it. */
+function targetBasis(ch) {
+  var g = ch.gt;
+  if (!g.tradeable || !isFinite(g.target)) return "";
+  var named = null;
+  (g.labels || []).forEach(function (L) {
+    if (named === null && Math.abs(L[0].p - g.target) < 1e-9) named = L[1];
+  });
+  if (named) return "The target is the <b>" + named.replace(/\s*=\s*target$/, "") + "</b> at <b>" + fmtN(g.target, ch.dec) + "</b> — a level already on the chart, not a projection.";
+  if (g.rangeTop !== undefined && Math.abs(g.target - g.rangeTop) < 1e-9)
+    return "The target is the <b>top of the range</b> at <b>" + fmtN(g.target, ch.dec) + "</b>.";
+  if (g.rangeBot !== undefined && Math.abs(g.target - g.rangeBot) < 1e-9)
+    return "The target is the <b>bottom of the range</b> at <b>" + fmtN(g.target, ch.dec) + "</b>.";
+  if (g.measure && g.measure.a && g.measure.b && isFinite(g.mmTarget) && Math.abs(g.target - g.mmTarget) < 1e-6) {
+    var h = Math.abs(g.measure.b.p - g.measure.a.p);
+    return "The target is a <b>measured move</b>, and it is drawn on the chart: the leg from <b>" +
+      fmtN(g.measure.a.p, ch.dec) + "</b> to <b>" + fmtN(g.measure.b.p, ch.dec) + "</b> is <b>" +
+      fmtN(h, ch.dec) + "</b> tall, and that same height stood up from <b>" + fmtN(g.anchor.p, ch.dec) +
+      "</b> gives <b>" + fmtN(g.target, ch.dec) + "</b>. " + g.mmRule;
+  }
+  /* not a projection and not a named level: say what fraction of the measured
+     leg it is, which is what a partial-retrace target actually is */
+  if (g.measure && g.measure.a && g.measure.b && g.anchor) {
+    var span = g.measure.b.p - g.measure.a.p;
+    if (Math.abs(span) > 1e-9) {
+      var f = (g.target - g.anchor.p) / span;
+      if (f > 0.05 && f < 1.5) {
+        return "The target is <b>" + Math.round(f * 100) + "%</b> of the leg from <b>" +
+          fmtN(g.measure.a.p, ch.dec) + "</b> to <b>" + fmtN(g.measure.b.p, ch.dec) +
+          "</b>, measured from <b>" + fmtN(g.anchor.p, ch.dec) + "</b> — <b>" + fmtN(g.target, ch.dec) +
+          "</b>. " + (g.mmRule || "");
+      }
+    }
+  }
+  return "The target sits at <b>" + fmtN(g.target, ch.dec) + "</b>. " + (g.mmRule || "");
+}
+
 function probLine(ch) {
   var g = ch.gt, e = equation(g.prob, g.refRR);
   var s = "This context wins about <b>" + pct(g.prob) + "</b> of the time in this trainer, and offers roughly <b>" +
@@ -3100,7 +3241,8 @@ KIND.target = {
       verdict: s >= 1 ? "On target" : s >= 0.6 ? "Close" : "Off",
       lines: ["<b>" + g.name + "</b>. " + g.mmRule,
         "Target <b>" + fmtN(g.target, ch.dec) + "</b>; you placed " + fmtN(ans, ch.dec) + ".",
-        outcomeLine(ch)]
+        targetBasis(ch),
+        outcomeLine(ch)].filter(Boolean)
     };
   }
 };
@@ -4736,7 +4878,8 @@ var PROG = (function () {
         '<div class="tf"><div class="k">Stop</div><div class="v dn">' + fmtN(g.invalid, ch.dec) + '</div></div>' +
         '<div class="tf"><div class="k">Target</div><div class="v up">' + fmtN(g.target, ch.dec) + '</div></div>' +
         '<div class="tf"><div class="k">R : R</div><div class="v">' + g.refRR.toFixed(2) + 'R</div></div>' +
-        '</div><div class="hint" style="margin-top:8px">' + entryHow(g, ch) + '</div></div>');
+        '</div><div class="hint" style="margin-top:8px">' + entryHow(g, ch) +
+        '</div><div class="hint" style="margin-top:6px">' + targetBasis(ch) + '</div></div>');
     }
     $("drillPanel").innerHTML = out.join("");
     wireRead("learnRead", function () { return learnSpeech(ch, key); });
