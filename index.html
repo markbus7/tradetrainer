@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.19.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.20.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.19.0", build: "2026-08-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.20.0", build: "2026-08-12", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2160,7 +2160,19 @@ Chart.prototype._sigMark = function (c, b) {
   c.moveTo(x - w, y + 5); c.lineTo(x - w, y); c.lineTo(x + w, y); c.lineTo(x + w, y + 5);
   c.stroke();
   c.font = "700 9px Archivo,sans-serif"; c.textAlign = "center"; c.textBaseline = "top";
-  c.fillStyle = COL.amber; c.fillText("SIGNAL BAR", x, y + 7);
+  c.fillStyle = COL.amber;
+  /* name which attempt it is, so "second entry" can be checked rather than
+     taken on trust — on a long correction this often reads H3 or H4 */
+  var g0 = this.gt, ni = (g0 && g0.countIdx) ? g0.countIdx.indexOf(i) : -1;
+  c.fillText("SIGNAL BAR" + (ni >= 0 ? "  ·  " + (g0.dir > 0 ? "H" : "L") + (ni + 1) : ""), x, y + 7);
+  /* and where the order actually fills, on this bar */
+  if (g0 && g0.tradeable && isFinite(g0.entry)) {
+    var ey = Math.round(this.y(g0.entry)) + 0.5, aw = Math.max(5, this.bw * 0.55);
+    c.fillStyle = COL.amber;
+    c.beginPath();
+    c.moveTo(x - w - aw - 2, ey); c.lineTo(x - w - 2, ey - 3.4); c.lineTo(x - w - 2, ey + 3.4);
+    c.closePath(); c.fill();
+  }
 };
 
 /* ---------- ground-truth overlay (feedback) ---------- */
@@ -2223,6 +2235,49 @@ Chart.prototype._gtOverlay = function (c, b) {
       c.font = "10px 'IBM Plex Mono',monospace"; c.textAlign = "left"; c.textBaseline = "top";
       c.fillText("TRENDLINE", this.x(t.a.i) + 5, this.y(t.a.p) + 4);
     }
+  }
+  /* The counted attempts, numbered on the bars they happened on.
+     "Is this really the second entry?" is not answerable from a chart that
+     never shows which attempt each bar is — the counts existed only in the
+     text snapshot. The first two also get their trigger drawn, bare: no stop,
+     no target, because they are not the trade, they are what the trade is
+     being compared against. */
+  if (g.countIdx && g.countIdx.length && (lv >= 2 || keep.counts)) {
+    var up = g.dir > 0, tag = up ? "H" : "L";
+    g.countIdx.forEach(function (bi, k) {
+      var bar = this.bars[bi];
+      if (!bar || bi < this.i0 || bi > this.i1) return;
+      var bx = this.x(bi), px = up ? bar.h : bar.l;
+      var by = this.y(px) + (up ? -14 : 14);
+      var isTrig = bi === this.sigBar;
+      /* the signal bar already carries its own bracket naming the count, so a
+         disc there would just sit on top of it */
+      if (!isTrig) {
+        c.fillStyle = COL.bg;
+        c.beginPath(); c.arc(bx, by, 8.4, 0, 6.284); c.fill();
+        c.fillStyle = "rgba(176,184,200,.95)";
+        c.beginPath(); c.arc(bx, by, 7.4, 0, 6.284); c.fill();
+        c.font = "700 11px Archivo,sans-serif"; c.textAlign = "center"; c.textBaseline = "middle";
+        c.fillStyle = COL.bg; c.fillText(String(k + 1), bx, by + 0.5);
+      }
+      /* the first two attempts get a bare trigger line so you can see where
+         each one would have got you in */
+      if (k < 2 && (lv >= 3 || keep.counts)) {
+        var ty = Math.round(this.y(px)) + 0.5, w2 = Math.max(10, this.bw * 2.2);
+        c.strokeStyle = isTrig ? COL.amber : "rgba(138,146,162,.65)";
+        c.lineWidth = 1.2; c.setLineDash([3, 3]);
+        c.beginPath(); c.moveTo(bx - w2, ty); c.lineTo(bx + w2, ty); c.stroke();
+        c.setLineDash([]);
+        c.font = "9px 'IBM Plex Mono',monospace";
+        c.textBaseline = up ? "bottom" : "top";
+        /* keep the label on the chart when the attempt sits near the edge */
+        var right = bx + w2 + 60 < b.r;
+        c.textAlign = right ? "left" : "right";
+        c.fillStyle = isTrig ? COL.amber : "rgba(160,168,184,.9)";
+        c.fillText(tag + (k + 1) + " — " + (k === 0 ? "1st" : "2nd") + " entry " + this.fmt(px),
+          right ? bx + w2 + 4 : bx - w2 - 4, ty + (up ? -2 : 2));
+      }
+    }, this);
   }
   if (lv < 3) return;                      /* the naming labels are the first help to go */
   (g.labels || []).forEach(function (L) {
@@ -3695,15 +3750,27 @@ KIND.secondEntry = {
     /* "second entry" and "second leg" get confused constantly, and in this one
        setup they land on the same bar — which is worth saying rather than
        leaving the learner to wonder whether they mean the same thing. */
-    if (g.key.indexOf("twoLegPullback") === 0) {
+    if (g.key.indexOf("twoLegPullback") === 0) {   /* the one setup where both senses land on the same bar */
       lines.push("Worth being precise here, because two things called \u201csecond\u201d meet on the same bar. A <b>second entry</b> is the second <i>bar count</i> attempt — the <b>High 2</b>. A <b>second leg</b> is the second <i>leg</i> of the correction. They are different lenses and they usually disagree; in a two-legged pullback they agree, because the H2 that triggers you is the one that comes off the second leg. That is exactly why Brooks calls this the cleanest second-entry setup there is.");
     }
     if (ans === "quality") {
       lines.push("Judging it on the signal bar is the trap. <b>Bad entry bars are normal wherever the market is two-sided</b> — if you hold out for a clean one you will take almost nothing. Counting attempts is what replaces waiting for a pretty bar.");
     }
     if (g.firstEntry && g.secondEntry) {
-      lines.push("On this tape the first attempt came at <b>" + fmtN(g.dir > 0 ? g.firstEntry.h : g.firstEntry.l, ch.dec) +
-        "</b> and the second at <b>" + fmtN(g.dir > 0 ? g.secondEntry.h : g.secondEntry.l, ch.dec) + "</b>.");
+      var tg = g.dir > 0 ? "H" : "L";
+      var at = (g.countIdx || []).indexOf(g.sigIdx);
+      lines.push("Both attempts are marked on the chart: the first at <b>" +
+        fmtN(g.dir > 0 ? g.firstEntry.h : g.firstEntry.l, ch.dec) + "</b> and the second at <b>" +
+        fmtN(g.dir > 0 ? g.secondEntry.h : g.secondEntry.l, ch.dec) +
+        "</b>, each with the trigger it would have given you and no stop or target, because they are not the trade — they are what the trade is being measured against." +
+        (at >= 0
+          ? " The bar you are actually entering on is bracketed, and it is the <b>" + tg + (at + 1) + "</b>."
+          : " The bar you are actually entering on is bracketed."));
+      if (at > 1) {
+        lines.push("So read this carefully, because the two numbers disagree and both are right. The <b>rule</b> is about the first two attempts: the first one fails, traps the traders who took it, and that is what fuels the next. The <b>count</b> is what the bars in front of you actually did — and this correction ground on for " +
+          (g.sigIdx - g.pbFrom) + " bars, so by the time it triggered it read <b>" + tg + (at + 1) + "</b>. " +
+          "Brooks' own point is that the higher the count runs, the weaker the trend's grip. Reading the count off the name of the pattern instead of off the bars is the mistake; a long correction is routinely an " + tg + "3 or " + tg + "4 by the time it goes.");
+      }
     } else if (g.firstEntry) {
       /* the silence is the evidence: no second attempt ever came */
       lines.push("On this tape there was <b>no second attempt</b> — the correction gave one attempt at <b>" +
@@ -4066,6 +4133,10 @@ var GT_KEEP = {
   stop:   { invalid: 1 },
   target: { target: 1 },
   plan:   { entry: 1, target: 1, invalid: 1 },
+  /* these two drills ARE the counting, so the attempt markers stay drawn
+     however faded the rest of the scaffolding is */
+  secondEntry: { counts: 1 },
+  barCount:    { counts: 1 },
   replay: { entry: 1, target: 1, invalid: 1 }
 };
 
