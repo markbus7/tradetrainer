@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.24.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.25.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.24.0", build: "2026-08-14", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.25.0", build: "2026-08-14", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -517,7 +517,19 @@ var Mkt = (function () {
       var w = (S - a) / 3;
       var l1 = minIn(f, a, a + w), mid = maxIn(f, a + w, a + 2 * w), l2 = minIn(f, a + 2 * w, S);
       var dep = f.H(a) - Math.min(l1, l2);
-      return mid - l1 > 0.2 * dep && mid - l2 > 0.2 * dep;
+      if (!(mid - l1 > 0.2 * dep && mid - l2 > 0.2 * dep)) return false;
+      /* and the correction has to stay inside the leg it is correcting. A
+         pullback that retraces the whole leg has taken out the swing the trend
+         was built on — in a bull trend that is a lower low, in a bear trend a
+         higher high — and whatever that is, it is not a pullback. It also
+         wrecks the measured move, which is projected off the correction's
+         extreme: past 100% the target barely clears the old low. */
+      if (g.measure && g.anchor) {
+        var L = (g.measure.b.p - g.measure.a.p) * g.dir;
+        var P = (g.measure.b.p - g.anchor.p) * g.dir;
+        if (Math.abs(L) > 1e-9 && P / L > 0.95) return false;
+      }
+      return true;
     }
   };
 
@@ -1279,9 +1291,14 @@ var Mkt = (function () {
       /* hold out for the payoff we asked for, but not forever: a context that
          almost never produces a thin setup should not spin */
       if (attempt < 30 && ch.gt.payoff !== (wantThin ? "thin" : "takeable")) continue;
+      /* report the seed a reader can paste back. The re-roll derives a new seed
+         per attempt, and returning that one meant the seed printed on a chart
+         did not regenerate that chart — it started the gate again from there. */
+      ch.rollSeed = ch.seed; ch.seed = baseSeed;
       ch.attempts = attempt + 1; return ch;
     }
-    if (structural) { structural.attempts = 40; return structural; }
+    if (structural) { structural.rollSeed = structural.seed; structural.seed = baseSeed; structural.attempts = 40; return structural; }
+    first.rollSeed = first.seed; first.seed = baseSeed;
     first.attempts = 40; first.unvalidated = true;
     return first;
   }
@@ -2850,7 +2867,9 @@ function probLine(ch) {
       (g.style === "swing"
         ? "Brooks puts a reversal at roughly a 40% setup, so it has to be capable of two to one before it is worth taking."
         : "a scalp can risk more than it makes only while the win rate carries it, and here it does not.") +
-      " Name it, and pass.";
+      " And the fix is not a bigger target. The objective is set by the structure — a measured move, a range edge, the level the " +
+      "pattern is trying to reach — not by what the arithmetic needs it to be. Moving it further out until the ratio looks " +
+      "acceptable does not make the market go there; it just hides a trade you should have passed on. Name it, and pass.";
   }
   return s;
 }
@@ -2945,11 +2964,11 @@ KIND.context = {
     return { ch: ch, q: "What is this?", ui: { mode: "mcq", options: opts.map(function (o) { return { k: o, t: o }; }) } };
   },
   grade: function (p, ans) {
-    var g = p.ch.gt, ok = ans === g.name;
+    var ch = p.ch, g = ch.gt, ok = ans === g.name;
     return {
       score: ok ? 1 : 0, reveal: true,
       verdict: ok ? "Correct" : "It is a " + g.name,
-      lines: ["<b>" + g.name + "</b>. " + g.brooks]
+      lines: ["<b>" + g.name + "</b>. " + g.brooks, targetBasis(ch)].filter(Boolean)
     };
   }
 };
