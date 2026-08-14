@@ -67,6 +67,12 @@ The teaching text aims to be Brooks' method rather than a paraphrase of it, and 
 - **The count belongs to one correction.** Bar counts run High/Low 1 to 4. Past a High 4 the correction has become a trading range and the count has stopped meaning anything, so it restarts at the most recent swing the market turned from. Without that reset the charts were labelling High 11.
 - **Each context declares its own rules; nothing is inferred from a family tag.** Whether Brooks takes the first attempt or waits for the second, and whether the trade is trailed or taken at a fixed target, are stated on the context and read from its own teaching. Inferring them from "this is a trend" graded a **two-legged pullback** as a first-entry setup — the one thing its own text rules out, since a two-legged pullback *is* the H2 — and graded a **broad channel** as a trend to trail when its text calls it a trading range on a tilt and says take profit at the top. A test now asserts that no context's graded answer contradicts the paragraph printed beside it.
 
+## Reading the trade off the chart
+
+The trade is drawn as a trade, not as three horizontal lines. Entry, stop and target **start at the bar you take them on** and run forward — a level stretching off to the left edge reads as support that was always there, which is the opposite of what an entry is. Between them sit two blocks: risk under the entry, reward above it, labelled `risk 1R` and `reward 2.40R`, so the question those two levels exist to answer is answered on the chart.
+
+**And the target says where it came from.** A target beyond every high and low on the screen is unreadable — you can see the level but not what put it there. When it is a measured move, the measurement is drawn: the leg that was measured, and that same height stood up again from the point it is projected off. In words too, with the arithmetic — *the leg from 23,245 to 22,204 is 1,041 tall, and that height from 23,256 gives 22,215*. When the target is instead a level already on the chart — a range edge, a wedge's origin — it says so, because that is a different kind of claim.
+
 ## The reward has to pay for the risk
 
 A correct read is not a trade. Brooks is arithmetic about it: *"like all trend reversals, the probability of a swing is usually only about 40%"*, and *"40% probability setups won't have a positive trader's equation unless you assess they are capable of reaching a risk/reward of 1:2."* A **swing** means a reward at least twice the risk; a **scalp** may risk more than it makes, but only while the win rate carries the equation.
@@ -80,6 +86,10 @@ The reversals now look the way Brooks describes them rather than the way an unam
 ## First entry, second entry, second leg
 
 "Second entry" means the second **bar-count** attempt — the High 2. "Second leg" means the second **leg** of the correction. They are different lenses on the same pullback and they usually disagree: a correction that takes fifteen bars and two legs will often read High 3 or High 4. In a two-legged pullback they land on the same bar, because the H2 that triggers you comes off the second leg — which is why Brooks treats it as the cleanest second-entry setup there is.
+
+**A strong trend bar ends the count.** Brooks on a breakout like that: *"the count goes to zero."* The flag is over, and whatever pullback comes next starts again at one. Counting straight through a breakout bar is how a correction that has already resolved keeps accumulating a High 3, High 4, High 5. The decision bar is exempt — it is the setup bar, not a breakout that ends anything.
+
+**A wedge is a High 3.** *"All wedge bottoms and wedge bull flags are High 3 buy set-ups; all wedge tops and wedge bear flags are Low 3 sell set-ups."* The three pushes **are** the count in a wedge, so the app counts them as such rather than running a bar-by-bar count through the pattern and reporting something else.
 
 **The attempts are drawn on the chart.** "Is this really the second entry?" cannot be answered from a chart that never shows which attempt each bar is — the counts existed only in the text snapshot. On reveal, every counted attempt is numbered on the bar it happened on, the first two carry the trigger they would have given you with **no stop and no target** (they are not the trade, they are what the trade is measured against), and the bar you actually enter on is bracketed and named — `SIGNAL BAR · H2`, or `L4` when that is what the bars say.
 
