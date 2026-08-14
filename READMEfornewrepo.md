@@ -85,7 +85,11 @@ Every structural point the chart draws or measures from is capped at the decisio
 | tight channel | −23% (price had already advanced) | **1.23×** the leg |
 | range fade, failed breakout, wedge | 100% | **none** — the target is where the leg began |
 
-The reward is about a full leg either way; what changes is how much fresh ground the market has to break to pay it, because a deep pullback got you in that much further back. In words too, with the arithmetic — *the leg from 23,245 to 22,204 is 1,041 tall, and that height from 23,256 gives 22,215*. When the target is instead a level already on the chart — a range edge, a wedge's origin — it says so, because that is a different kind of claim.
+The reward is about a full leg either way; what changes is how much fresh ground the market has to break to pay it, because a deep pullback got you in that much further back.
+
+A correction is also required to stay **inside** the leg it is correcting. One that retraces the whole thing has taken out the swing the trend was built on — a lower low in a bull trend, a higher high in a bear one — and whatever that is, it is not a pullback. It also wrecks the measured move, which is projected off the correction's extreme: past 100% the target barely clears the prior low, which is how a "highest-probability" setup ended up quoting 0.73R.
+
+And when a target does not pay, **the fix is never a bigger target**. The objective is set by the structure — a measured move, a range edge, the level the pattern is trying to reach — not by what the arithmetic needs it to be. Moving it out until the ratio looks acceptable does not make the market go there. In words too, with the arithmetic — *the leg from 23,245 to 22,204 is 1,041 tall, and that height from 23,256 gives 22,215*. When the target is instead a level already on the chart — a range edge, a wedge's origin — it says so, because that is a different kind of claim.
 
 ## The reward has to pay for the risk
 
