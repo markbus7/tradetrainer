@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.21.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.22.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.21.0", build: "2026-08-14", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.22.0", build: "2026-08-14", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -340,15 +340,23 @@ var Mkt = (function () {
   }
   /** direction-aware helper pack. m=+1 normal, m=-1 mirrored (bearish twin).
       Everything inside a gt() is written as if the market were bullish. */
-  function ctxFor(m) {
+  /** `sigI` is the decision bar. Every structural lookup is capped there,
+      because a point taken from a bar that has not printed yet is a point the
+      learner cannot see — and the contexts reach a couple of bars past the
+      signal on purpose, to catch a wick. That is fine for shaping and fatal
+      for anything the chart then draws or measures from: it put the origin of
+      a measured move one bar off the right-hand edge. */
+  function ctxFor(m, sigI) {
+    var cap = function (z) { return sigI === undefined ? z : Math.min(z, sigI); };
     return {
       m: m,
-      hi: function (b, a, z) { return m > 0 ? hiIn(b, a, z) : loIn(b, a, z); },
-      lo: function (b, a, z) { return m > 0 ? loIn(b, a, z) : hiIn(b, a, z); },
+      hi: function (b, a, z) { z = cap(z); return m > 0 ? hiIn(b, a, z) : loIn(b, a, z); },
+      lo: function (b, a, z) { z = cap(z); return m > 0 ? loIn(b, a, z) : hiIn(b, a, z); },
       /** snap anchor i to its local extreme; s=+1 means "high" in the bull frame */
       ref: function (b, i, s, w) {
         w = w || 3;
-        return (s * m) > 0 ? hiIn(b, i - w, i + w) : loIn(b, i - w, i + w);
+        var z = cap(i + w);
+        return (s * m) > 0 ? hiIn(b, i - w, z) : loIn(b, i - w, z);
       },
       mid: function (x, y) { return (x + y) / 2; },
       /** a price `f` of the way from x toward y */
@@ -1428,8 +1436,6 @@ var Mkt = (function () {
     /* ---- ground truth from the bars actually drawn ---- */
     var ax = {};
     anchors.forEach(function (a) { ax[a.tag] = a; });
-    var C = ctxFor(m);
-
     /* ---- the signal bar: shape it deliberately, it is the decision ----
        This happens BEFORE the ground truth is read. shapeSignal rewrites the
        signal bar's open/high/low/close, and every context's gt() looks back
@@ -1442,6 +1448,7 @@ var Mkt = (function () {
     var sigQuality = shapeSignal(bars, sigIdx, dir || (m > 0 ? 1 : -1), quality, A14, R);
     A14 = atr(bars, 14, sigIdx);
 
+    var C = ctxFor(m, sigIdx);
     var g = def.gt(bars, ax, C);
     if (m < 0 && g.labels) g.labels = g.labels.map(function (L) { return [L[0], flipWords(L[1])]; });
     /* the gt is written in the bull frame, so a mirrored range comes back upside down */
@@ -2329,14 +2336,16 @@ Chart.prototype._gtOverlay = function (c, b) {
     [y1, y2].forEach(function (yy) {
       c.beginPath(); c.moveTo(px - 5, yy); c.lineTo(px + 5, yy); c.stroke();
     });
+    /* the same number on both ends is what ties them together — the leg is
+       drawn tens of bars from where it is projected, and "measured move" on
+       its own does not say measured off what */
+    var hgt = this.fmt(Math.abs(mb.p - ma.p));
     c.font = "9px 'IBM Plex Mono',monospace"; c.textBaseline = "middle";
     var toRight = px < b.r - 230;
     c.textAlign = toRight ? "left" : "right";
-    c.fillText("measured move", px + (toRight ? 8 : -8), (y1 + y2) / 2);
-    if (lv >= 3) {
-      c.textBaseline = "bottom"; c.textAlign = "center";
-      c.fillText("this leg", (lax + lbx) / 2, Math.min(this.y(ma.p), this.y(mb.p)) - 5);
-    }
+    c.fillText("same " + hgt + " from here", px + (toRight ? 8 : -8), (y1 + y2) / 2);
+    c.textBaseline = "bottom"; c.textAlign = "center";
+    c.fillText("measured leg  " + hgt, (lax + lbx) / 2, Math.min(this.y(ma.p), this.y(mb.p)) - 5);
   }
   /* The counted attempts, numbered on the bars they happened on.
      "Is this really the second entry?" is not answerable from a chart that
