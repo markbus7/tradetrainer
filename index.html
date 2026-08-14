@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.22.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.23.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.22.0", build: "2026-08-14", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.23.0", build: "2026-08-14", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2313,39 +2313,49 @@ Chart.prototype._gtOverlay = function (c, b) {
     }
   }
   /* WHERE THE TARGET CAME FROM.
-     A target beyond every high and low on the screen is unreadable — you can
-     see the level but not what put it there. When the target is a measured
-     move, draw the measurement: the leg that was measured, and that same
-     height stood up again from the point it is projected off. */
+     A measured move is a HEIGHT taken from one place and stood up somewhere
+     else. Drawing the leg as a diagonal shows a trendline, not a height, and
+     "the same distance from here" is meaningless when "here" is buried under
+     the trade box. So both halves are drawn as the same shape — a capped
+     vertical bar with the height written on it — one over the leg that was
+     measured, one standing on the point it is projected from, out in the free
+     space to the right where a projection actually belongs. */
   if (g.tradeable && !this.gtMeasure && g.measure && g.measure.a && g.measure.b && g.anchor &&
       isFinite(g.mmTarget) && Math.abs(g.target - g.mmTarget) < 1e-6 && (lv >= 2 || keep.target)) {
     var ma = g.measure.a, mb = g.measure.b, an = g.anchor;
-    var vx = "rgba(169,139,232,.95)";
-    c.strokeStyle = vx; c.fillStyle = vx; c.lineWidth = 1.6; c.setLineDash([]);
-    /* the leg that was measured */
-    var lax = this.x(ma.i), lbx = this.x(mb.i);
-    c.beginPath(); c.moveTo(lax, this.y(ma.p)); c.lineTo(lbx, this.y(mb.p)); c.stroke();
-    [ma, mb].forEach(function (pt) {
-      c.beginPath(); c.arc(this.x(pt.i), this.y(pt.p), 3.4, 0, 6.284); c.fill();
-    }, this);
-    /* its height, stood up again at the point it is projected from */
-    var px = this.x(an.i), y1 = this.y(an.p), y2 = this.y(g.mmTarget);
-    c.setLineDash([3, 3]); c.lineWidth = 1.3;
-    c.beginPath(); c.moveTo(px, y1); c.lineTo(px, y2); c.stroke();
+    var vc = "rgba(169,139,232,.95)", hgt = this.fmt(Math.abs(mb.p - ma.p));
+    var yA1 = this.y(ma.p), yA2 = this.y(mb.p), xA = this.x(mb.i);
+    var cap = function (x, y, w) { c.beginPath(); c.moveTo(x - w, y); c.lineTo(x + w, y); c.stroke(); };
+
+    c.strokeStyle = vc; c.fillStyle = vc; c.lineWidth = 1.4;
+    /* WHAT WAS MEASURED: run the start price across to the end bar, then drop
+       to the end price. That right angle is the height, and it is unmistakable. */
+    c.setLineDash([3, 3]);
+    c.beginPath(); c.moveTo(this.x(ma.i), yA1); c.lineTo(xA, yA1); c.stroke();
     c.setLineDash([]);
-    [y1, y2].forEach(function (yy) {
-      c.beginPath(); c.moveTo(px - 5, yy); c.lineTo(px + 5, yy); c.stroke();
-    });
-    /* the same number on both ends is what ties them together — the leg is
-       drawn tens of bars from where it is projected, and "measured move" on
-       its own does not say measured off what */
-    var hgt = this.fmt(Math.abs(mb.p - ma.p));
-    c.font = "9px 'IBM Plex Mono',monospace"; c.textBaseline = "middle";
-    var toRight = px < b.r - 230;
-    c.textAlign = toRight ? "left" : "right";
-    c.fillText("same " + hgt + " from here", px + (toRight ? 8 : -8), (y1 + y2) / 2);
-    c.textBaseline = "bottom"; c.textAlign = "center";
-    c.fillText("measured leg  " + hgt, (lax + lbx) / 2, Math.min(this.y(ma.p), this.y(mb.p)) - 5);
+    c.beginPath(); c.moveTo(xA, yA1); c.lineTo(xA, yA2); c.stroke();
+    cap(xA, yA1, 5); cap(xA, yA2, 5);
+    c.beginPath(); c.arc(this.x(ma.i), yA1, 3.2, 0, 6.284); c.fill();
+    c.beginPath(); c.arc(this.x(mb.i), yA2, 3.2, 0, 6.284); c.fill();
+    c.font = "9px 'IBM Plex Mono',monospace"; c.textAlign = "right"; c.textBaseline = "middle";
+    c.fillText("measured  " + hgt, xA - 8, (yA1 + yA2) / 2);
+
+    /* AND WHERE IT IS STOOD UP: out past the last bar, so it is not fighting
+       the trade box, with a dashed run back to the exact point it starts from
+       — which is the "here" that a label on its own cannot point at. */
+    var xB = Math.min(b.r - 52, (this.x(this.vis) + b.r) / 2 + 10);
+    var yB1 = this.y(an.p), yB2 = this.y(g.mmTarget);
+    c.setLineDash([3, 3]);
+    c.beginPath(); c.moveTo(this.x(an.i), yB1); c.lineTo(xB, yB1); c.stroke();
+    c.setLineDash([]);
+    c.beginPath(); c.moveTo(xB, yB1); c.lineTo(xB, yB2); c.stroke();
+    cap(xB, yB1, 5); cap(xB, yB2, 5);
+    c.beginPath(); c.arc(this.x(an.i), yB1, 3.2, 0, 6.284); c.fill();
+    c.textAlign = "left";
+    c.fillText("same  " + hgt, xB + 8, (yB1 + yB2) / 2);
+    /* the dashed run and the dot are what say where it stands; naming it on the
+       chart as well just piles text into the busiest corner, so the name goes
+       in the feedback instead */
   }
   /* The counted attempts, numbered on the bars they happened on.
      "Is this really the second entry?" is not answerable from a chart that
@@ -2766,11 +2776,16 @@ function targetBasis(ch) {
   if (g.rangeBot !== undefined && Math.abs(g.target - g.rangeBot) < 1e-9)
     return "The target is the <b>bottom of the range</b> at <b>" + fmtN(g.target, ch.dec) + "</b>.";
   if (g.measure && g.measure.a && g.measure.b && isFinite(g.mmTarget) && Math.abs(g.target - g.mmTarget) < 1e-6) {
-    var h = Math.abs(g.measure.b.p - g.measure.a.p);
-    return "The target is a <b>measured move</b>, and it is drawn on the chart: the leg from <b>" +
-      fmtN(g.measure.a.p, ch.dec) + "</b> to <b>" + fmtN(g.measure.b.p, ch.dec) + "</b> is <b>" +
-      fmtN(h, ch.dec) + "</b> tall, and that same height stood up from <b>" + fmtN(g.anchor.p, ch.dec) +
-      "</b> gives <b>" + fmtN(g.target, ch.dec) + "</b>. " + g.mmRule;
+    var h = Math.abs(g.measure.b.p - g.measure.a.p), anName = null;
+    (g.labels || []).forEach(function (L) {
+      if (anName === null && L[0].i === g.anchor.i && Math.abs(L[0].p - g.anchor.p) < 1e-9) anName = L[1];
+    });
+    return "The target is a <b>measured move</b>, and both halves of it are drawn on the chart as two bars " +
+      "of the same length. <b>What was measured:</b> the leg from <b>" + fmtN(g.measure.a.p, ch.dec) +
+      "</b> down to <b>" + fmtN(g.measure.b.p, ch.dec) + "</b> — <b>" + fmtN(h, ch.dec) + "</b> tall. " +
+      "<b>Where it is stood up:</b> from the " + (anName ? "<b>" + anName + "</b>" : "entry structure") +
+      " at <b>" + fmtN(g.anchor.p, ch.dec) + "</b>, which gives <b>" + fmtN(g.target, ch.dec) +
+      "</b>. It is not a multiple of anything — the same distance, moved. " + g.mmRule;
   }
   /* not a projection and not a named level: say what fraction of the measured
      leg it is, which is what a partial-retrace target actually is */
