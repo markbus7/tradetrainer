@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.23.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.24.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.23.0", build: "2026-08-14", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.24.0", build: "2026-08-14", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2760,6 +2760,37 @@ function outcomeLine(ch) {
     ? "On this tape it did work — the target came before the stop."
     : "On this tape it failed: the stop came first. About " + pct(1 - g.prob) + " of these do.";
 }
+/** How much of the target is ground the market has not covered yet.
+
+    Projecting a leg from the end of a correction has an arithmetic
+    consequence that is easy to miss and worth stating: the ground demanded
+    beyond the leg's own end is exactly the leg minus whatever the correction
+    gave back. It holds on every projected chart in the app, and it is why a
+    deep pullback and a shallow one produce very different-looking targets out
+    of the same measurement. */
+function newGroundLine(g, ch) {
+  if (!g.measure || !g.anchor || !isFinite(g.target)) return "";
+  var d = g.dir;
+  var L = (g.measure.b.p - g.measure.a.p) * d;      /* the leg, toward the trade */
+  var P = (g.measure.b.p - g.anchor.p) * d;         /* how far it came back off the leg's end */
+  var NG = (g.target - g.measure.b.p) * d;          /* ground asked for past the leg's end */
+  if (!(Math.abs(L) > 1e-9)) return "";
+  var endP = fmtN(g.measure.b.p, ch.dec), ngP = fmtN(Math.abs(NG), ch.dec);
+  if (Math.abs(NG) < 0.05 * Math.abs(L))
+    return "Note what that asks for: the target is the far end of the very leg you measured, so it is a repeat of that move from where it began — <b>no new ground at all</b>.";
+  if (P > 0.05 * Math.abs(L))
+    return "Note what that asks for: the correction gave back <b>" + Math.round(100 * P / L) +
+      "%</b> of the leg, so past <b>" + endP + "</b> the target only needs <b>" + ngP +
+      "</b> of ground the market has not already covered — <b>the leg minus the pullback</b>. " +
+      "The reward is still about a full leg, because you got in that much further back.";
+  if (P < -0.05 * Math.abs(L))
+    return "Note what that asks for: price had already carried <b>" + fmtN(Math.abs(P), ch.dec) +
+      "</b> past the leg's end before you got in, so the target sits <b>" + ngP +
+      "</b> beyond it — the leg <i>plus</i> that advance.";
+  return "Note what that asks for: the projection starts at the leg's own end, so the target needs <b>" +
+    ngP + "</b> of ground the market has not covered yet — a full leg beyond <b>" + endP + "</b>.";
+}
+
 /** Where the target came from, in words — the numbers that were measured and
     the point they were stood up from. A level far beyond every high and low on
     the screen is unreadable without this; you can see it but not justify it. */
@@ -2780,12 +2811,14 @@ function targetBasis(ch) {
     (g.labels || []).forEach(function (L) {
       if (anName === null && L[0].i === g.anchor.i && Math.abs(L[0].p - g.anchor.p) < 1e-9) anName = L[1];
     });
+    var way = g.measure.b.p > g.measure.a.p ? "up to" : "down to";
     return "The target is a <b>measured move</b>, and both halves of it are drawn on the chart as two bars " +
       "of the same length. <b>What was measured:</b> the leg from <b>" + fmtN(g.measure.a.p, ch.dec) +
-      "</b> down to <b>" + fmtN(g.measure.b.p, ch.dec) + "</b> — <b>" + fmtN(h, ch.dec) + "</b> tall. " +
+      "</b> " + way + " <b>" + fmtN(g.measure.b.p, ch.dec) + "</b> — <b>" + fmtN(h, ch.dec) + "</b> tall. " +
       "<b>Where it is stood up:</b> from the " + (anName ? "<b>" + anName + "</b>" : "entry structure") +
       " at <b>" + fmtN(g.anchor.p, ch.dec) + "</b>, which gives <b>" + fmtN(g.target, ch.dec) +
-      "</b>. It is not a multiple of anything — the same distance, moved. " + g.mmRule;
+      "</b>. It is not a multiple of anything — the same distance, moved. " + g.mmRule +
+      " " + newGroundLine(g, ch);
   }
   /* not a projection and not a named level: say what fraction of the measured
      leg it is, which is what a partial-retrace target actually is */

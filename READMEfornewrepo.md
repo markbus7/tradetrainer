@@ -73,7 +73,19 @@ The trade is drawn as a trade, not as three horizontal lines. Entry, stop and ta
 
 Every structural point the chart draws or measures from is capped at the decision bar. The contexts deliberately look a couple of bars past the signal to catch a wick, which is fine for shaping the tape and fatal for anything drawn from it: it was putting the origin of a measured move one bar off the right-hand edge, so the projection was invisible and the target looked arbitrary. That affected about one chart in eight.
 
-**And the target says where it came from.** A target beyond every high and low on the screen is unreadable — you can see the level but not what put it there. When it is a measured move, the measurement is drawn: the leg that was measured, and that same height stood up again from the point it is projected off. A measured move is a **height** taken from one place and stood up somewhere else, so both halves are drawn as the same shape: a capped vertical bar with the height on it. One over the leg that was measured — the start price run across to the end bar, then dropped to the end price, so the right angle *is* the height. One standing on the point it projects from, out in the free space past the last bar where a projection belongs, with a dashed run back to the exact point it starts from. Two bars of visibly equal length, which is the claim. In words too, with the arithmetic — *the leg from 23,245 to 22,204 is 1,041 tall, and that height from 23,256 gives 22,215*. When the target is instead a level already on the chart — a range edge, a wedge's origin — it says so, because that is a different kind of claim.
+**And the target says where it came from.** A target beyond every high and low on the screen is unreadable — you can see the level but not what put it there. When it is a measured move, the measurement is drawn: the leg that was measured, and that same height stood up again from the point it is projected off. A measured move is a **height** taken from one place and stood up somewhere else, so both halves are drawn as the same shape: a capped vertical bar with the height on it. One over the leg that was measured — the start price run across to the end bar, then dropped to the end price, so the right angle *is* the height. One standing on the point it projects from, out in the free space past the last bar where a projection belongs, with a dashed run back to the exact point it starts from. Two bars of visibly equal length, which is the claim.
+
+**And it says how much of that is new ground.** Projecting a leg from the end of a correction has an arithmetic consequence that is easy to miss: the ground demanded beyond the leg's own end is exactly *the leg minus whatever the correction gave back*. It holds on every projected chart here, and it is why the same measurement produces very different-looking targets:
+
+| setup | the correction gave back | new ground the target asks for |
+|---|---|---|
+| spike-and-channel, successful breakout, final flag | 0% | a **full leg** beyond the leg's end |
+| two-legged pullback | ~73% | **0.28×** the leg |
+| major trend reversal | ~77% | **0.24×** the leg |
+| tight channel | −23% (price had already advanced) | **1.23×** the leg |
+| range fade, failed breakout, wedge | 100% | **none** — the target is where the leg began |
+
+The reward is about a full leg either way; what changes is how much fresh ground the market has to break to pay it, because a deep pullback got you in that much further back. In words too, with the arithmetic — *the leg from 23,245 to 22,204 is 1,041 tall, and that height from 23,256 gives 22,215*. When the target is instead a level already on the chart — a range edge, a wedge's origin — it says so, because that is a different kind of claim.
 
 ## The reward has to pay for the risk
 
