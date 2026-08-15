@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.26.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.27.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.26.0", build: "2026-08-14", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.27.0", build: "2026-08-15", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -358,6 +358,27 @@ var Mkt = (function () {
         var z = cap(i + w);
         return (s * m) > 0 ? hiIn(b, i - w, z) : loIn(b, i - w, z);
       },
+      /** THE HONEST ENDS OF A LEG.
+          i0..i1 bracket the leg in time; s=+1 when the leg ENDS at a high in
+          the bull frame, -1 when it ends at a low. The end is the extreme the
+          leg actually reached inside that window, and the start is the
+          opposite extreme found on the way to it.
+
+          Why this exists: `ref` snaps to a local extreme within a few bars of
+          a skeleton anchor, which is right for naming a swing and wrong for
+          measuring one. If a bar inside the leg printed further than the bar
+          the anchor landed on, the anchor is not where the leg began, and a
+          measured move taken from it is short by exactly the amount the leg
+          was allowed to skip. A leg is measured from the extreme it came off,
+          full stop — so the two ends are read off the bars every time. */
+      leg: function (b, i0, i1, s) {
+        var a = Math.max(0, Math.min(i0, i1)), z = cap(Math.max(i0, i1));
+        if (z < a) z = a;
+        var realHi = (s * m) > 0;                    /* the leg ends at a real HIGH */
+        var end = realHi ? hiIn(b, a, z) : loIn(b, a, z);
+        var beg = realHi ? loIn(b, a, end.i) : hiIn(b, a, end.i);
+        return s > 0 ? { hi: end, lo: beg } : { lo: end, hi: beg };
+      },
       mid: function (x, y) { return (x + y) / 2; },
       /** a price `f` of the way from x toward y */
       lerp: function (x, y, f) { return x + (y - x) * f; }
@@ -391,7 +412,8 @@ var Mkt = (function () {
     },
     hU: function () { return 1.15; },
     gt: function (b, ax, C) {
-      var lo = C.ref(b, ax.base.i, -1), hi = C.ref(b, ax.spike.i, 1);
+      var sp = C.leg(b, ax.base.i - 3, ax.spike.i + 3, 1);
+      var lo = sp.lo, hi = sp.hi;
       var pb = C.lo(b, ax.hh1.i, ax.sig.i + 2);
       var h = hi.p - lo.p;
       return {
@@ -425,12 +447,12 @@ var Mkt = (function () {
     },
     hU: function () { return 0.45; },
     gt: function (b, ax, C) {
-      var a = C.lo(b, 0, ax.pre.i + 2), bb = C.ref(b, ax.l1.i, 1);
+      var l1 = C.leg(b, 0, ax.l1.i + 3, 1), a = l1.lo, bb = l1.hi;
       var pb = C.lo(b, ax.l3.i, ax.sig.i + 2);
       return {
         sigIdx: ax.sig.i, measure: { a: a, b: bb }, anchor: pb,
         target: pb.p + (bb.p - a.p), invalid: pb.p,
-        labels: [[bb, "first leg high"], [pb, "pullback low"]]
+        labels: [[a, "first leg low"], [bb, "first leg high"], [pb, "pullback low"]]
       };
     },
     valid: function (ch) { return hasTrend(BF(ch), Math.max(6, ch.gt.pbFrom)); }
@@ -455,12 +477,12 @@ var Mkt = (function () {
     },
     hU: function () { return 0.6; },
     gt: function (b, ax, C) {
-      var lo = C.ref(b, ax.l1.i, -1), hi = C.ref(b, ax.h2.i, 1);
+      var lg = C.leg(b, ax.l1.i - 3, ax.h2.i + 3, 1), lo = lg.lo, hi = lg.hi;
       var pb = C.lo(b, ax.h2.i, ax.sig.i + 2);
       return {
         sigIdx: ax.sig.i, measure: { a: lo, b: hi }, anchor: pb,
         target: hi.p, altTarget: pb.p + (hi.p - lo.p), invalid: pb.p,
-        labels: [[hi, "channel high"], [pb, "channel low"]]
+        labels: [[lo, "prior leg low"], [hi, "channel high"], [pb, "channel low"]]
       };
     },
     valid: function (ch) { return hasTrend(BF(ch), Math.max(6, ch.gt.pbFrom)); }
@@ -500,7 +522,7 @@ var Mkt = (function () {
       /* the measured move is the LAST leg up projected from the pullback low,
          which is what mmRule says. Taking it from the base of a multi-leg
          trend would measure the whole trend and call it "leg 1". */
-      var a = C.ref(b, ax.p2.i, -1), bb = C.ref(b, ax.B.i, 1);
+      var lg = C.leg(b, ax.p2.i - 3, ax.B.i + 3, 1), a = lg.lo, bb = lg.hi;
       var pb = C.lo(b, ax.h1fail.i, ax.sig.i);
       return {
         sigIdx: ax.sig.i, measure: { a: a, b: bb }, anchor: pb,
@@ -555,7 +577,11 @@ var Mkt = (function () {
     },
     hU: function () { return 1.0; },
     gt: function (b, ax, C) {
-      var top = C.hi(b, ax.t1.i - 2, ax.t3.i + 2), bot = C.lo(b, ax.b1.i - 2, ax.sig.i + 2);
+      /* both edges are read off the SAME window — the range itself. Reading
+         the high over one span and the low over another lets a bar inside the
+         range print past an edge the range claims to have, and the height that
+         everything here is measured from is then not the range's height. */
+      var top = C.hi(b, ax.t1.i - 2, ax.sig.i + 2), bot = C.lo(b, ax.t1.i - 2, ax.sig.i + 2);
       return {
         sigIdx: ax.sig.i, measure: { a: bot, b: top }, anchor: bot,
         rangeTop: top.p, rangeBot: bot.p,
@@ -588,7 +614,7 @@ var Mkt = (function () {
     },
     hU: function () { return 0.5; },
     gt: function (b, ax, C) {
-      var top = C.hi(b, ax.t1.i - 2, ax.t3.i + 2), bot = C.lo(b, ax.b1.i - 2, ax.b2.i + 2);
+      var top = C.hi(b, ax.t1.i - 2, ax.t3.i + 2), bot = C.lo(b, ax.t1.i - 2, ax.t3.i + 2);
       return {
         sigIdx: ax.sig.i, measure: { a: bot, b: top }, anchor: { i: ax.sig.i, p: b[ax.sig.i].c },
         rangeTop: top.p, rangeBot: bot.p,
@@ -661,7 +687,7 @@ var Mkt = (function () {
     },
     hU: function () { return 0.5; },
     gt: function (b, ax, C) {
-      var top = C.hi(b, ax.h1.i - 2, ax.h1.i + 2), bot = C.lo(b, ax.l1.i - 2, ax.l1.i + 2);
+      var o = C.leg(b, ax.h1.i - 2, ax.l1.i + 2, -1), top = o.hi, bot = o.lo;
       var nt = C.hi(b, ax.h3.i - 2, ax.sig.i), nb = C.lo(b, ax.l2.i - 2, ax.sig.i);
       return {
         sigIdx: ax.sig.i, measure: { a: bot, b: top }, anchor: { i: ax.sig.i, p: b[ax.sig.i].c },
@@ -704,7 +730,9 @@ var Mkt = (function () {
     },
     hU: function () { return 0.85; },
     gt: function (b, ax, C) {
-      var top = C.hi(b, ax.t1.i - 2, ax.t2.i + 2), bot = C.lo(b, ax.b1.i - 2, ax.b2.i + 2);
+      /* the range's own window — it stops before the breakout bar, because the
+         failed breakout's low is a separate level, not the range's floor */
+      var top = C.hi(b, ax.t1.i - 2, ax.b2.i + 2), bot = C.lo(b, ax.t1.i - 2, ax.b2.i + 2);
       var fail = C.lo(b, ax.bo.i - 2, ax.sig.i);
       return {
         sigIdx: ax.sig.i, measure: { a: bot, b: top }, anchor: bot,
@@ -738,7 +766,7 @@ var Mkt = (function () {
     },
     hU: function () { return 0.8; },
     gt: function (b, ax, C) {
-      var top = C.hi(b, ax.t1.i - 2, ax.b2.i + 2), bot = C.lo(b, ax.b1.i - 2, ax.b2.i + 2);
+      var top = C.hi(b, ax.t1.i - 2, ax.b2.i + 2), bot = C.lo(b, ax.t1.i - 2, ax.b2.i + 2);
       var pb = C.lo(b, ax.bo.i, ax.sig.i + 2);
       return {
         sigIdx: ax.sig.i, measure: { a: bot, b: top }, anchor: top,
@@ -774,7 +802,10 @@ var Mkt = (function () {
     },
     hU: function () { return 0.9; },
     gt: function (b, ax, C) {
-      var org = C.hi(b, 0, ax.origin.i + 3), p3 = C.lo(b, ax.p3.i - 3, ax.sig.i);
+      /* the wedge runs from the highest point before the third push down to
+         that push's low — both read off the bars, so the origin cannot sit
+         below a bar the wedge itself printed above */
+      var w = C.leg(b, 0, ax.sig.i, -1), org = w.hi, p3 = w.lo;
       var p1 = C.ref(b, ax.p1.i, -1), p2 = C.ref(b, ax.p2.i, -1);
       return {
         sigIdx: ax.sig.i, measure: { a: p3, b: org }, anchor: p3,
@@ -793,11 +824,11 @@ var Mkt = (function () {
   /* ---- 12. major trend reversal ------------------------------------- */
   CTX.mtr = {
     name: "Major trend reversal (bull)", twin: "Major trend reversal (bear)",
-    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.45, pWin: 0.43,
+    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.45, pWin: 0.42,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
     brooks: "A major trend reversal needs all of it: a strong bear trend, a countertrend move strong enough to break the bear trendline (and usually the moving average), then a test of the old low that holds. The test can come as a higher low OR as a lower low that reverses — Brooks says the two happen about equally often, so do not insist on a higher low. Without the trendline break first, a reversal attempt is just a pullback, and about four out of five of those fail.",
     mmRule: "Measure the first leg up off the low and project it from the higher low.",
-    howTo: ["It starts with a real trend already in place \u2014 a clear sequence of lower highs and lower lows, not just one big bar. This is the whole difference from a failed breakout: a failed breakout happens inside a TRADING RANGE, where the market was already two-sided and there is no trend to reverse. Here there is a trend, so it has to be broken before anything else counts.", "First requirement: a countertrend move strong enough to BREAK THE TRENDLINE drawn along the recent lower highs, and usually the moving average with it. Brooks is blunt that you should not even think about trading against a trend until a significant trendline has broken. Without it, what you are looking at is a pullback, and about four out of five of those fail.", "Second requirement: a test of the old low that holds. The test can be a HIGHER LOW or a LOWER LOW that reverses \u2014 Brooks says the two occur about equally often, so do not throw away the setup because price traded through the old low. A lower-low test that reverses hard IS the failed breakout of the trend's low, and that is one of the strongest versions of this pattern.", "So the sequence is: trend, then trendline break, then a test that holds. The trendline break alone is not enough, and the test alone is not enough \u2014 it is the pair, in that order.", "The stop sits just beyond the extreme of that test, since that is the one point that, if it fails, means the 'reversal' was just a pause inside the same downtrend."],
+    howTo: ["It starts with a real trend already in place \u2014 a clear sequence of lower highs and lower lows, not just one big bar. This is the whole difference from a failed breakout: a failed breakout happens inside a TRADING RANGE, where the market was already two-sided and there is no trend to reverse. Here there is a trend, so it has to be broken before anything else counts.", "First requirement: a countertrend move strong enough to BREAK THE TRENDLINE drawn along the recent lower highs, and usually the moving average with it. Brooks is blunt that you should not even think about trading against a trend until a significant trendline has broken. Without it, what you are looking at is a pullback, and about four out of five of those fail. Note where that break sits: it is a bar INSIDE the countertrend rally, usually well below its top. It is the requirement, not the measurement — what gets measured is the whole first leg, from the trend's low to the highest point that rally reached.", "Second requirement: a test of the old low that holds. The test can be a HIGHER LOW or a LOWER LOW that reverses \u2014 Brooks says the two occur about equally often, so do not throw away the setup because price traded through the old low. A lower-low test that reverses hard IS the failed breakout of the trend's low, and that is one of the strongest versions of this pattern.", "So the sequence is: trend, then trendline break, then a test that holds. The trendline break alone is not enough, and the test alone is not enough \u2014 it is the pair, in that order.", "The stop sits just beyond the extreme of that test, since that is the one point that, if it fails, means the 'reversal' was just a pause inside the same downtrend."],
     segs: function (R) {
       /* A reversal needs something to reverse. This skeleton is a real bear
          trend — three lower lows with two lower highs between them — so a
@@ -868,16 +899,25 @@ var Mkt = (function () {
          happens to be lower somewhere in the rally — anchored to the test leg
          so the stop sits near the entry, which is what makes the trade payable.
          valid() rejects the chart if anything after the break went lower. */
-      var tFrom = Math.max(brk.i + 1, Math.min(ax.test.i - 4, ax.sig.i));
+      /* THE LEG IS MEASURED TO ITS OWN HIGH, NOT TO THE BAR THAT CROSSED THE
+         LINE. mmRule says "measure the first leg up off the low": the leg ends
+         where the rally ends, and the trendline break is a bar somewhere
+         inside it — often well below its top. Measuring low-to-break called a
+         part of the leg the whole leg and projected a target that was short by
+         whatever was left above the breaking bar. The break keeps its own
+         label because it is the requirement; it is just not the measurement. */
+      var hiTo = Math.max(brk.i, Math.min(ax.test.i - 3, ax.sig.i - 3));
+      var legHi = C.hi(b, low.i, hiTo);
+      var tFrom = Math.max(legHi.i + 1, Math.min(ax.test.i - 4, ax.sig.i));
       var test = C.lo(b, Math.min(tFrom, ax.sig.i), ax.sig.i);
       /* read the test off the bars: it is only a "higher low" if it actually
          is one, and about half the time it is not */
       var kind = (test.p - low.p) * C.m > 0 ? "higher low" : "lower low test";
       return {
-        sigIdx: ax.sig.i, measure: { a: low, b: brk }, anchor: test,
-        target: test.p + (brk.p - low.p), invalid: test.p,
+        sigIdx: ax.sig.i, measure: { a: low, b: legHi }, anchor: test,
+        target: test.p + (legHi.p - low.p), invalid: test.p,
         trendline: broke ? tline : null, broke: broke,
-        labels: [[low, "trend low"], [brk, "trendline break"], [test, kind]]
+        labels: [[low, "trend low"], [brk, "trendline break"], [test, kind], [legHi, "first leg high"]]
       };
     },
     /* Every requirement in this context's own howTo, checked on the bars.
@@ -898,6 +938,13 @@ var Mkt = (function () {
          would sit above a low the market has already traded through */
       var f = BF(ch), tIdx = g.labels[2][0].i, bIdx = g.labels[1][0].i;
       for (var i = bIdx + 1; i < tIdx; i++) if (f.L(i) < test - 1e-9) return false;
+      /* and nothing after the first leg's high may have traded above it: the
+         test is a pullback FROM that high, so if price went past it the leg is
+         still running, its high is not its high, and the measured move
+         projected off it is measuring a leg that has not finished */
+      var lhIdx = g.labels[3][0].i, lh = g.labels[3][0].p * m;
+      if (lhIdx >= tIdx) return false;
+      for (var j = lhIdx + 1; j <= S; j++) if (f.H(j) > lh + 1e-9) return false;
       /* and there has to have been a trend to reverse in the first place */
       return stepsDown(f, extremes(f).hi, g.labels[0][0].i);
     }
@@ -929,8 +976,11 @@ var Mkt = (function () {
     },
     hU: function () { return 0.55; },
     gt: function (b, ax, C) {
-      var flagTop = C.hi(b, ax.leg.i, Math.min(ax.flag2.i + 2, ax.sig.i));
       var fail = C.lo(b, ax.bo.i - 2, ax.sig.i);
+      /* the flag's top is the highest bar between the leg and that failed
+         breakout — measured to where the leg actually ended, not to where the
+         flag's anchor happened to land */
+      var flagTop = C.hi(b, ax.leg.i, fail.i);
       var st = C.hi(b, 0, ax.start.i + 3);
       return {
         sigIdx: ax.sig.i, measure: { a: fail, b: flagTop }, anchor: flagTop,
@@ -939,7 +989,17 @@ var Mkt = (function () {
       };
     },
     /* "an ordinary small flag late in a trend" — so a trend has to precede it */
-    valid: function (ch) { var f = BF(ch), e = extremes(f); return stepsDown(f, e.hi, e.lo); }
+    valid: function (ch) {
+      var f = BF(ch), e = extremes(f), g = ch.gt;
+      if (!stepsDown(f, e.hi, e.lo)) return false;
+      /* and the flag's breakout has to have actually broken out: its low is
+         the lowest point from the flag's top onward. If a bar before it was
+         lower, nothing was broken, there are no trapped sellers, and the leg
+         being measured would start above a low it traded straight through. */
+      var topI = g.labels[0][0].i, lo = g.labels[1][0].p * f.m;
+      for (var i = topI; i <= g.sigIdx; i++) if (f.L(i) < lo - 1e-9) return false;
+      return true;
+    }
   };
 
   /* ---- 14. climax --------------------------------------------------- */
@@ -966,7 +1026,7 @@ var Mkt = (function () {
     },
     hU: function () { return 0.55; },
     gt: function (b, ax, C) {
-      var top = C.hi(b, ax.start.i - 2, ax.d1.i), low = C.lo(b, ax.low.i - 3, ax.sig.i);
+      var cx = C.leg(b, ax.start.i - 2, ax.sig.i, -1), top = cx.hi, low = cx.lo;
       return {
         sigIdx: ax.sig.i, measure: { a: low, b: top }, anchor: low,
         target: C.lerp(low.p, top.p, 0.62), altTarget: C.lerp(low.p, top.p, 0.42), invalid: low.p,
@@ -2848,6 +2908,34 @@ function signalBarWhy(ch) {
   return s;
 }
 
+/** the chart's own name for a marked point, if it has one */
+function ptName(g, pt) {
+  var n = null;
+  if (!pt) return null;
+  (g.labels || []).forEach(function (L) {
+    if (n === null && L[0].i === pt.i && Math.abs(L[0].p - pt.p) < 1e-9) n = L[1];
+  });
+  return n ? n.replace(/\s*=\s*target$/, "") : null;
+}
+
+/** WHY THOSE TWO POINTS AND NOT SOME OTHER PAIR.
+    The one question a measured move always raises: the chart is full of highs,
+    so why that high? The answer is a rule, not a preference — a leg is measured
+    between the extremes it actually reached, so no bar inside it printed past
+    either end. Say it with the numbers so it can be checked rather than
+    believed. */
+function legEndsLine(g, ch) {
+  if (!g.measure || !g.measure.a || !g.measure.b) return "";
+  var lo = Math.min(g.measure.a.i, g.measure.b.i), hi = Math.max(g.measure.a.i, g.measure.b.i);
+  var up = g.measure.b.p > g.measure.a.p;
+  var topP = up ? g.measure.b.p : g.measure.a.p, botP = up ? g.measure.a.p : g.measure.b.p;
+  return "<b>Why those two points:</b> between bar " + lo + " and bar " + hi +
+    " no bar traded above <b>" + fmtN(topP, ch.dec) + "</b> or below <b>" + fmtN(botP, ch.dec) +
+    "</b> — they are the extremes the leg actually reached, which is what makes it that leg's height. " +
+    "If a bar inside had printed further, that bar would be the end of the leg and the height would be " +
+    "measured to it instead. A leg is never measured from the bar a swing happens to be named at.";
+}
+
 /** Where the target came from, in words — the numbers that were measured and
     the point they were stood up from. A level far beyond every high and low on
     the screen is unreadable without this; you can see it but not justify it. */
@@ -2864,18 +2952,17 @@ function targetBasis(ch) {
   if (g.rangeBot !== undefined && Math.abs(g.target - g.rangeBot) < 1e-9)
     return "The target is the <b>bottom of the range</b> at <b>" + fmtN(g.target, ch.dec) + "</b>.";
   if (g.measure && g.measure.a && g.measure.b && isFinite(g.mmTarget) && Math.abs(g.target - g.mmTarget) < 1e-6) {
-    var h = Math.abs(g.measure.b.p - g.measure.a.p), anName = null;
-    (g.labels || []).forEach(function (L) {
-      if (anName === null && L[0].i === g.anchor.i && Math.abs(L[0].p - g.anchor.p) < 1e-9) anName = L[1];
-    });
+    var h = Math.abs(g.measure.b.p - g.measure.a.p);
+    var anName = ptName(g, g.anchor), aName = ptName(g, g.measure.a), bName = ptName(g, g.measure.b);
     var way = g.measure.b.p > g.measure.a.p ? "up to" : "down to";
     return "The target is a <b>measured move</b>, and both halves of it are drawn on the chart as two bars " +
-      "of the same length. <b>What was measured:</b> the leg from <b>" + fmtN(g.measure.a.p, ch.dec) +
-      "</b> " + way + " <b>" + fmtN(g.measure.b.p, ch.dec) + "</b> — <b>" + fmtN(h, ch.dec) + "</b> tall. " +
+      "of the same length. <b>What was measured:</b> the leg from " + (aName ? "the <b>" + aName + "</b> at " : "") +
+      "<b>" + fmtN(g.measure.a.p, ch.dec) + "</b> " + way + " " + (bName ? "the <b>" + bName + "</b> at " : "") +
+      "<b>" + fmtN(g.measure.b.p, ch.dec) + "</b> — <b>" + fmtN(h, ch.dec) + "</b> tall. " +
       "<b>Where it is stood up:</b> from the " + (anName ? "<b>" + anName + "</b>" : "entry structure") +
       " at <b>" + fmtN(g.anchor.p, ch.dec) + "</b>, which gives <b>" + fmtN(g.target, ch.dec) +
       "</b>. It is not a multiple of anything — the same distance, moved. " + g.mmRule +
-      " " + newGroundLine(g, ch);
+      " " + legEndsLine(g, ch) + " " + newGroundLine(g, ch);
   }
   /* not a projection and not a named level: say what fraction of the measured
      leg it is, which is what a partial-retrace target actually is */
@@ -2887,7 +2974,7 @@ function targetBasis(ch) {
         return "The target is <b>" + Math.round(f * 100) + "%</b> of the leg from <b>" +
           fmtN(g.measure.a.p, ch.dec) + "</b> to <b>" + fmtN(g.measure.b.p, ch.dec) +
           "</b>, measured from <b>" + fmtN(g.anchor.p, ch.dec) + "</b> — <b>" + fmtN(g.target, ch.dec) +
-          "</b>. " + (g.mmRule || "");
+          "</b>. " + (g.mmRule || "") + " " + legEndsLine(g, ch);
       }
     }
   }
@@ -6416,6 +6503,12 @@ var PROG = (function () {
       'are drawn as two bars of the same length — the leg that was measured, and that height stood up again from the ' +
       'point it is projected off — and the words give the arithmetic. If it is a level already on the chart (a range ' +
       'edge, a wedge\'s origin) it says that instead, because that is a different kind of claim.</p>' +
+      '<p><b>Why that high (or that low) and not another one?</b> A leg is measured between the extremes it actually ' +
+      'reached, so between its two ends no bar traded past either of them. That is the whole rule, and every measured ' +
+      'move states the two prices so you can check it against the bars. A swing gets its NAME at the bar the ' +
+      'structure turns on, but it gets MEASURED to the furthest point the leg went — if a bar inside the leg printed ' +
+      'past the end, that bar is the end. Measuring to a lesser high would quietly shorten the leg, and the target ' +
+      'projected from it would be short by exactly what was skipped.</p>' +
       '<p><b>Why is the target so close sometimes?</b> Because the projection starts at the end of the correction, ' +
       'not at the end of the leg. The ground the market still has to break is the leg minus whatever the correction ' +
       'gave back. The reward is about a full leg either way — a deep pullback got you in that much further back.</p>' +
