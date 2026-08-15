@@ -50,6 +50,16 @@ Brooks uses "scalp" in two senses and the app now separates them. The **strict**
 
 **Scaling in** is a planned technique, not the same thing as adding because you are losing. Add once or twice rather than five times, add on a signal rather than at a price, and decide the total risk *before* the first entry so the first one is sized smaller. A scaled position is **one position at an average price**: breakeven means the average entry, not your first fill — which is exactly how a netting platform such as cTrader treats it.
 
+## Why that bar
+
+The chart brackets one bar and calls it the decision. Three things about that now get said on every revealed trade, because all three are checkable and none of them was obvious:
+
+- **Which push it belongs to.** On 59% of charts the entry bar is not itself one of the numbered attempts — it is a continuation of the last counted push, because a push only counts again once a bar closes back the other way first.
+- **What makes it the signal bar inside that push** — where it closes in its own range, which is Brooks' test. A bar closing 3% off its low is the one to sell below; the one two bars earlier closing 25% up from its low is weaker.
+- **That the earlier bars were tradeable too.** Brooks does not hand out one blessed bar per correction. Entering sooner buys a better price against a bar that has proved less — a real trade-off, not a mistake. The drill asks at one bar because it has to ask somewhere.
+
+The Help panel carries a short list of the questions this file should answer before they are asked — why that bar, why the count says H4 when the rule says second entry, where the target came from, why a textbook pattern is marked *not a trade*, which stop the grade uses, and how to reproduce a chart from its seed.
+
 ## Passing standard
 
 A node is passed only when a **single session** clears both the pass mark (85% by default) and a required run of consecutive clean answers. An average alone can hide a skill you only half have, so the streak is what removes the doubt. Mastery certification requires 92% with an 8-answer streak.
