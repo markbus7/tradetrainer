@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.25.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.26.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,7 +241,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.25.0", build: "2026-08-14", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.26.0", build: "2026-08-14", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2808,6 +2808,46 @@ function newGroundLine(g, ch) {
     ngP + "</b> of ground the market has not covered yet — a full leg beyond <b>" + endP + "</b>.";
 }
 
+/** WHY THIS BAR.
+
+    The chart brackets one bar and calls it the decision, and never says why
+    that one rather than the two before it — which look tradeable, because they
+    usually are. Three things need saying, and all three are checkable on the
+    bars: which push the bar belongs to, what makes it the signal bar inside
+    that push, and that the earlier bars in the same push were also entries. */
+function signalBarWhy(ch) {
+  var g = ch.gt, B = ch.bars, i = g.sigIdx, d = g.dir;
+  if (!g.tradeable || !B[i]) return "";
+  var bar = B[i], rg = bar.h - bar.l;
+  if (!(rg > 0)) return "";
+  /* how far the close sits from the bar's own extreme, in the trade's direction */
+  var frac = d > 0 ? (bar.h - bar.c) / rg : (bar.c - bar.l) / rg;
+  var at = (g.countIdx || []).indexOf(i), tag = d > 0 ? "H" : "L";
+  var s = "<b>Why this bar and not the one before it.</b> ";
+
+  if (at >= 0) {
+    s += "It is the <b>" + tag + (at + 1) + "</b> itself — the bar that made the attempt. ";
+  } else {
+    /* find the last counted attempt before it: this bar continues that push */
+    var last = -1;
+    (g.countIdx || []).forEach(function (x) { if (x < i) last = x; });
+    s += last >= 0
+      ? "It is <b>not a later attempt</b> — the count stopped at the <b>" + tag +
+        ((g.countIdx || []).indexOf(last) + 1) + "</b> on bar " + last + " and nothing re-armed it, so bar " + i +
+        " is still that same push. A push only counts again once a bar closes back the other way first. "
+      : "";
+  }
+  s += "Inside that push it is the bar Brooks would use, because of <b>where it closes</b>: " +
+    (frac <= 0.15 ? "right at its own " + (d > 0 ? "high" : "low") + " (" + Math.round(100 * frac) + "% off it)"
+      : frac <= 0.35 ? "in the last third toward its " + (d > 0 ? "high" : "low") + " (" + Math.round(100 * frac) + "% off it)"
+        : "only " + Math.round(100 * frac) + "% of the way from its " + (d > 0 ? "high" : "low") + ", which is why it is graded a weak one") +
+    ". ";
+  s += "<b>And the bars before it were tradeable too.</b> Brooks does not hand out one blessed bar per correction — " +
+    "entering earlier in the same push gets you a better price against a bar that has proved less. That is a real " +
+    "trade-off, not a mistake: this drill asks the question at one bar because it has to ask it somewhere.";
+  return s;
+}
+
 /** Where the target came from, in words — the numbers that were measured and
     the point they were stood up from. A level far beyond every high and low on
     the screen is unreadable without this; you can see it but not justify it. */
@@ -3708,7 +3748,7 @@ KIND.entry = {
     }
     return {
       score: clamp(s, 0, 1), reveal: true, verdict: verdict,
-      lines: [note, "<b>" + g.name + "</b>. " + entryHow(g, ch)]
+      lines: [note, "<b>" + g.name + "</b>. " + entryHow(g, ch), signalBarWhy(ch)].filter(Boolean)
     };
   }
 };
@@ -3997,6 +4037,7 @@ KIND.secondEntry = {
           ? "That is the whole argument for taking the first one here: waiting would have meant no trade at all."
           : "It happens, and it is the cost of the rule — you will miss some. The first attempt failing often enough to pay for those misses is what makes waiting correct on average."));
     }
+    lines.push(signalBarWhy(ch));
     lines.push(probLine(ch));
     return {
       score: ok ? 1 : (ans === "quality" ? 0.2 : 0), reveal: true,
@@ -6361,6 +6402,34 @@ var PROG = (function () {
       '<p>When the chart stops naming something you were asked to find, the feedback states it in words instead, so ' +
       'nothing is ever simply withheld from you.</p>' +
 
+      '<h3>Questions this file should have answered before you asked</h3>' +
+      '<p><b>Why is the decision bar that one and not the two before it?</b> Usually because those two are the same ' +
+      'push, not earlier attempts — a push only counts again once a bar closes back the other way first — and because ' +
+      'of where the chosen bar closes inside its own range, which is Brooks\' signal-bar test. The earlier bars in ' +
+      'that push were tradeable too: entering sooner buys a better price against a bar that has proved less. Every ' +
+      'answer that reveals a trade now says which of these applies.</p>' +
+      '<p><b>The rule says second entry, so why does the chart say H4?</b> Both are right and they are different ' +
+      'lenses. The rule is about the first two attempts to turn the market; the count is what the bars actually did. ' +
+      'A correction that grinds on for twenty bars routinely reads H3 or H4 by the time it triggers, and Brooks\' ' +
+      'point is that the higher the count runs, the weaker the trend\'s grip.</p>' +
+      '<p><b>Where did the target come from?</b> It is stated on every chart. If it is a measured move, both halves ' +
+      'are drawn as two bars of the same length — the leg that was measured, and that height stood up again from the ' +
+      'point it is projected off — and the words give the arithmetic. If it is a level already on the chart (a range ' +
+      'edge, a wedge\'s origin) it says that instead, because that is a different kind of claim.</p>' +
+      '<p><b>Why is the target so close sometimes?</b> Because the projection starts at the end of the correction, ' +
+      'not at the end of the leg. The ground the market still has to break is the leg minus whatever the correction ' +
+      'gave back. The reward is about a full leg either way — a deep pullback got you in that much further back.</p>' +
+      '<p><b>Why does it say NOT A TRADE on a textbook pattern?</b> Because a correct read is not a trade. A swing ' +
+      'needs reward at least twice risk; a scalp needs the win rate to carry the equation. About one chart in six is ' +
+      'deliberately one where the read is right and the price is wrong, and passing is the graded answer. <b>The fix ' +
+      'is never a bigger target</b> — the objective is set by the structure, and moving it out until the ratio looks ' +
+      'acceptable does not make the market go there.</p>' +
+      '<p><b>Which stop am I being graded on?</b> The one drawn on the chart is the structural stop, a real price ' +
+      'with a few ticks of air under it. The <i>initial risk</i> quoted beside it is entry to one tick beyond the ' +
+      'signal bar — Brooks\' number, the one you size from. The <i>actual risk</i> is what the market really took ' +
+      'out of you before the trade worked, knowable only afterwards, and usually far smaller than both.</p>' +
+      '<p><b>Can I reproduce a chart I want to ask about?</b> Yes. The seed printed in the Copy snapshot regenerates ' +
+      'that exact chart.</p>' +
       '<h3>Scoring</h3>' +
       '<p>Each node is a set of reps. A node is passed only when a <b>single session</b> clears both the pass mark ' +
       '(85% by default) <b>and</b> the required run of consecutive clean answers — an average on its own can hide a ' +
