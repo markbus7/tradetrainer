@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.28.0 (build 2026-08-01) — Al Brooks price action -->
+<!-- Trade Trainer v3.29.0 (build 2026-08-01) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.28.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.29.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -293,7 +293,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.28.0", build: "2026-08-15", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.29.0", build: "2026-08-15", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -6582,13 +6582,20 @@ var PROG = (function () {
       'an account. Set your starting capital, step or play the bars, and trade it the way you actually ' +
       'trade. The point is the sample — after enough trades the Results box tells you whether the ' +
       'approach makes money, and if not, which half of it is broken.</p>' +
-      '<li><b>Sizing follows risk.</b> Set Risk % and the size is worked out from your stop distance, ' +
-      'so every trade risks the same share of the account no matter how wide the stop. Override the ' +
-      'units directly if you want.</li>' +
-      '<li><b>Every level is draggable.</b> Stops, targets, partial targets and pending-order prices ' +
-      'are all dragged straight on the chart.</li>' +
-      '<li><b>Market, limit and stop orders</b>, several positions at once, and partial take-profits ' +
-      '(add one and it lands at 1R, then drag it and tap the % to change the share).</li>' +
+      '<li><b>Size is in lots.</b> Each instrument carries a real contract size, so a lot means what ' +
+      'it means on a platform: 100,000 units on FX ($10 a pip on EURUSD, $6.67 on GBPJPY), 100oz of ' +
+      'gold, one contract on ES ($50 a point) or NQ ($20), one coin on BTC, 100 shares on stock. ' +
+      'Set Risk % and the lots are worked out from your stop distance, or type the lots and read the ' +
+      'risk back.</li>' +
+      '<li><b>Work orders straight off the chart.</b> Pick Buy or Sell, hit the <b>⊕</b> tool and ' +
+      'click the price you want. Limit or stop is inferred from where you clicked — behind the ' +
+      'current price is a limit, beyond it is a stop — and the order appears with a stop and target ' +
+      'you then drag wherever you like. Size it afterwards in the order row, by lots or by risk %.</li>' +
+      '<li><b>Every level is draggable</b>: entries on working orders, stops, targets and partial ' +
+      'targets. Dragging a working order across the current price flips it between limit and stop on ' +
+      'its own.</li>' +
+      '<li><b>Several positions at once</b>, and partial take-profits (add one and it lands at 1R, ' +
+      'then drag it and tap the % to change the share).</li>' +
       '<li><b>Fills are honest.</b> Orders fill bar by bar as the tape advances; a bar that gaps ' +
       'through a stop order fills at the open, not the order price. When one bar covers both your stop ' +
       'and your target, the <i>stop</i> is taken — the path inside a bar is unknown, and assuming the ' +
@@ -6658,6 +6665,7 @@ var PROG = (function () {
     PROG: PROG, Mkt: Mkt, setView: setView, APP: APP,
     chB: chB, get BT() { return BT; }, btNew: btNew, btStep: btStep, btOpen: btOpen, btClose: btClose,
     btFills: btFills, btSeries: btSeries, equity: equity, openPL: openPL,
+    lotUnits: lotUnits, toLots: toLots, fmtLots: fmtLots, perPoint: perPoint, pipName: pipName,
     unitsFor: unitsFor, btStats: btStats, btReport: btReport, paintBT: paintBT,
     get session() { return S; }
   };
@@ -6713,6 +6721,40 @@ var PROG = (function () {
       atr: Mkt.atr(bars, 14, Math.min(60, bars.length - 1)), gt: null };
   }
 
+  /* Units per lot, the way a broker would quote the instrument. Size is entered
+     in lots because that is what you actually type into a platform; units are
+     what the P/L maths needs, so everything converts through here. */
+  var LOT = { EURUSD: 100000, GBPJPY: 100000, XAUUSD: 100, BTCUSD: 1,
+              ES: 50, NQ: 20, CL: 1000 };
+  var LOT_KIND = { fx: 100000, crypto: 1, fut: 1, eq: 100 };
+  function lotUnits(ch) {
+    ch = ch || BT.ch;
+    if (!ch) return 1;
+    return LOT[ch.sym] || LOT_KIND[ch.kind] || 1;
+  }
+  /* P/L accrues in the instrument's QUOTE currency. Everything here is quoted in
+     USD except the JPY cross, so without this a 1.00 move on GBPJPY would be
+     booked as $100,000 a lot instead of about $667, and risk-based lot sizes
+     would come out ~150x too small. */
+  var QUOTE = { GBPJPY: 1 / 150 };
+  function qRate(ch) { return QUOTE[(ch || BT.ch || {}).sym] || 1; }
+  /** money per 1.00 of price movement, for the given number of units */
+  function pointValue(units) { return units * qRate(); }
+  /** the instrument's tick: a pip on FX, one point elsewhere */
+  function pipSize(ch) {
+    ch = ch || BT.ch;
+    return ch && ch.kind === "fx" ? Math.pow(10, -(ch.dec - 1)) : 1;
+  }
+  function pipName(ch) { ch = ch || BT.ch; return ch && ch.kind === "fx" ? "pip" : "point"; }
+  function toLots(units) { return units / lotUnits(); }
+  function toUnits(lots) { return lots * lotUnits(); }
+  function fmtLots(units) {
+    var l = toLots(units);
+    return (l >= 100 ? l.toFixed(0) : l >= 1 ? l.toFixed(2) : l.toFixed(3)) + " lot" + (Math.abs(l) === 1 ? "" : "s");
+  }
+  /** what one pip (FX) or one point (everything else) is worth on a single lot */
+  function perPoint() { return lotUnits() * qRate() * pipSize(); }
+
   function btPrice() { var b = BT.ch.bars[chB.vis]; return b ? b.c : 0; }
   function btATR() { return Mkt.atr(BT.ch.bars, 14, Math.min(chB.vis, BT.ch.bars.length - 1)) || 1; }
   function money(v) {
@@ -6723,7 +6765,7 @@ var PROG = (function () {
   function px(v) { return fmtN(v, BT.ch ? BT.ch.dec : 2); }
 
   /** open P/L of one position at a price */
-  function posPL(p, at) { return (at - p.entry) * p.dir * p.units; }
+  function posPL(p, at) { return (at - p.entry) * p.dir * p.units * qRate(); }
   function openPL() {
     var at = btPrice(), t = 0;
     BT.pos.forEach(function (p) { t += posPL(p, at); });
@@ -6733,7 +6775,7 @@ var PROG = (function () {
 
   /** units implied by the risk model — the whole point of sizing by risk */
   function unitsFor(entry, stop) {
-    var d = Math.abs(entry - stop);
+    var d = Math.abs(entry - stop) * qRate();
     if (!(d > 0)) return 0;
     return (equity() * (BT.riskPct / 100)) / d;
   }
@@ -6742,7 +6784,7 @@ var PROG = (function () {
   function btOpen(dir, entry, units, sl, tp, atIdx) {
     var p = { id: BT.nextId++, dir: dir, entry: entry, units: units, units0: units,
       sl: sl, tp: tp, openIdx: atIdx,
-      rpu: Math.abs(entry - sl),          /* risk per unit, fixed at entry */
+      rpu: Math.abs(entry - sl) * qRate(),   /* money risked per unit, fixed at entry */
       partials: [], };
     BT.pos.push(p); syncDraw(); return p;
   }
@@ -6751,7 +6793,7 @@ var PROG = (function () {
     pct = Math.min(1, Math.max(0, pct == null ? 1 : pct));
     var unitsOut = Math.min(p.units, p.units0 * pct);
     if (unitsOut <= 1e-12) return;
-    var pl = (price - p.entry) * p.dir * unitsOut;
+    var pl = (price - p.entry) * p.dir * unitsOut * qRate();
     BT.balance += pl;
     p.units -= unitsOut;
     BT.log.push({ id: p.id, dir: p.dir, entry: p.entry, exit: price, units: unitsOut,
@@ -6782,7 +6824,7 @@ var PROG = (function () {
       if (hit) {
         BT.ord.splice(k, 1);
         btOpen(o.dir, fill, o.units, o.sl, o.tp, i);
-        toast((o.dir > 0 ? "Buy" : "Sell") + " " + o.kind + " filled at " + px(fill));
+        toast((o.dir > 0 ? "Buy" : "Sell") + " " + o.kind + " filled — " + fmtLots(o.units) + " at " + px(fill));
       }
     }
 
@@ -6824,8 +6866,10 @@ var PROG = (function () {
       });
     });
     BT.ord.forEach(function (o) {
-      chB.drawings.push({ type: "hline", _bt: "ord", _id: o.id, p: o.price });
-      if (o.sl != null) chB.drawings.push({ type: "hline", _bt: "ordsl", _id: o.id, p: o.sl });
+      /* a working order gets the same three draggable lines as a live position */
+      chB.drawings.push({ type: "pos", _bt: "ord", _id: o.id, i: Math.max(0, chB.vis - 18),
+        dir: o.dir, entry: o.price, stop: o.sl,
+        target: o.tp == null ? o.price + o.dir * btATR() * 2 : o.tp });
     });
   }
   /** A drag moved a line — write it back to the account object it belongs to.
@@ -6844,8 +6888,11 @@ var PROG = (function () {
         p.sl = d.stop; p.tp = d.target;
       }
       if (d._bt === "part" && p && p.partials[d._n]) p.partials[d._n].price = d.p;
-      if (d._bt === "ord" && o) o.price = d.p;
-      if (d._bt === "ordsl" && o) o.sl = d.p;
+      if (d._bt === "ord" && o) {
+        o.price = d.entry; o.sl = d.stop; o.tp = d.target;
+        /* dragging the entry across the current price flips limit <-> stop */
+        o.kind = (o.price - btPrice()) * o.dir > 0 ? "stop" : "limit";
+      }
     });
   }
 
@@ -6863,8 +6910,35 @@ var PROG = (function () {
     chB.gt = null; chB.sigBar = null;
     chB.setSpan(150, 110);
     chB.onChange = function () { readDraw(); paintBT(); };
+    if (!chB._btPoint) {
+      /* the stock 'pos' tool clears every pos drawing on the chart, which would
+         wipe the open positions — so the desk gets its own placement tool */
+      var proto = Chart.prototype.addPoint;
+      chB.addPoint = function (pt) {
+        if (this.tool === "btorder") {
+          orderAt(this.pAt(pt.y));
+          this.setTool("cursor");
+          return;
+        }
+        return proto.call(this, pt);
+      };
+      chB._btPoint = true;
+    }
     buildBTTools();
     paintBT();
+  }
+  /** Click a price on the chart to work an order there. The order type follows
+      from where you clicked — behind the current price is a limit, beyond it is
+      a stop — so the only decision is buy or sell and the level itself. */
+  function orderAt(price) {
+    var at = btPrice(), A = btATR(), d = BT.dir;
+    if (Math.abs(price - at) < A * 0.15) { toast("Too close to the current price — that is a market order"); return; }
+    var kind = (price - at) * d > 0 ? "stop" : "limit";
+    var sl = price - d * A * 1.5, tp = price + d * A * 3;
+    var u = BT.tUnits != null && BT.tUnits > 0 ? BT.tUnits : unitsFor(price, sl);
+    BT.ord.push({ id: BT.nextId++, kind: kind, dir: d, price: price, units: u, sl: sl, tp: tp });
+    syncDraw(); chB.render(); paintBT();
+    toast((d > 0 ? "Buy" : "Sell") + " " + kind + " working at " + px(price) + " — drag the lines, set the lots");
   }
   function btResetAccount(stake) {
     BT.start = stake; BT.balance = stake; BT.peak = stake; BT.maxDD = 0;
@@ -6890,8 +6964,12 @@ var PROG = (function () {
   function buildBTTools() {
     var wrap = $("btTools");
     var html = '<div class="sym"><b>' + BT.ch.sym + '</b>' + BT.ch.tfLbl + '</div><div class="tsep"></div>';
-    TOOLBTN.forEach(function (t) { html += '<button class="tool" data-tool="' + t[0] + '" title="' + t[2] + '">' + t[1] + '</button>'; });
-    html += '<div class="tsep"></div>' +
+    TOOLBTN.forEach(function (t) {
+      if (t[0] === "pos") return;                 /* replaced by the order tool below */
+      html += '<button class="tool" data-tool="' + t[0] + '" title="' + t[2] + '">' + t[1] + '</button>';
+    });
+    html += '<button class="tool" data-tool="btorder" title="Work an order at a price you click">⊕</button>' +
+      '<div class="tsep"></div>' +
       '<button class="tool" data-act="undo" title="Undo drawing">↺</button>' +
       '<button class="tool" data-act="clear" title="Clear drawings">✕</button>' +
       '<button class="tool" data-act="fit" title="Fit">⤢</button>' +
@@ -7006,7 +7084,7 @@ var PROG = (function () {
     var tpDef = +(at + BT.dir * A * 3).toFixed(BT.ch.dec);
     var entryFld = BT.otype === "market" ? at : (BT.tPrice != null ? BT.tPrice : +(at + BT.dir * A).toFixed(BT.ch.dec));
     var sl = BT.tSL != null ? BT.tSL : slDef, tp = BT.tTP != null ? BT.tTP : tpDef;
-    var u = unitsFor(entryFld, sl), riskMoney = Math.abs(entryFld - sl) * u;
+    var u = unitsFor(entryFld, sl), riskMoney = Math.abs(entryFld - sl) * u * qRate();
     out.push('<div class="btsec"><h5>Order ticket</h5>' +
       '<div class="btseg" style="margin-bottom:7px">' +
       '<button class="buy' + (BT.dir > 0 ? " on" : "") + '" data-bt="dir" data-v="1">Buy</button>' +
@@ -7022,10 +7100,12 @@ var PROG = (function () {
       '<div><label class="btlab">Stop loss</label><input class="btin" id="btSL" type="number" step="any" value="' + sl + '"></div>' +
       '<div><label class="btlab">Take profit</label><input class="btin" id="btTP" type="number" step="any" value="' + tp + '"></div>' +
       '<div><label class="btlab">Risk %</label><input class="btin" id="btRisk" type="number" step="0.1" value="' + BT.riskPct + '"></div>' +
-      '<div><label class="btlab">Size (units)</label><input class="btin" id="btUnits" type="number" step="any" value="' + (+u.toFixed(4)) + '"></div>' +
+      '<div><label class="btlab">Lots</label><input class="btin" id="btLots" type="number" step="0.01" value="' + (+toLots(u).toFixed(3)) + '"></div>' +
       '</div>' +
       '<div class="btkv" style="margin-top:7px"><span>Risk on this trade</span><b>' + money(riskMoney) +
       '  (' + (eq > 0 ? (riskMoney / eq * 100).toFixed(2) : "0") + '%)</b></div>' +
+      '<div class="btkv"><span>1 lot</span><b>' + lotUnits().toLocaleString("en-US") + ' units · ' +
+      money(perPoint()) + ' per ' + pipName() + '</b></div>' +
       '<div class="btkv"><span>Reward : risk</span><b>' +
       (Math.abs(entryFld - sl) > 0 ? (Math.abs(tp - entryFld) / Math.abs(entryFld - sl)).toFixed(2) + "R" : "—") + '</b></div>' +
       '<div class="btbtns">' +
@@ -7044,8 +7124,8 @@ var PROG = (function () {
         (p.dir > 0 ? "LONG" : "SHORT") + ' #' + p.id + '</b>' +
         '<span class="btpl" style="color:' + (pl >= 0 ? "var(--up)" : "var(--dn)") + '">' +
         money(pl) + '  ' + (r >= 0 ? "+" : "") + r.toFixed(2) + 'R</span></div>' +
-        '<div class="mono">entry ' + px(p.entry) + ' · size ' + (+p.units.toFixed(4)) +
-        (p.units < p.units0 - 1e-9 ? ' of ' + (+p.units0.toFixed(4)) : '') +
+        '<div class="mono">entry ' + px(p.entry) + ' · ' + fmtLots(p.units) +
+        (p.units < p.units0 - 1e-9 ? ' of ' + fmtLots(p.units0) : '') +
         ' · SL ' + (p.sl == null ? "—" : px(p.sl)) + ' · TP ' + (p.tp == null ? "—" : px(p.tp)) + '</div>' +
         (p.partials.length ? '<div class="acts" style="margin-top:4px">' + p.partials.map(function (x, n) {
           return x.done
@@ -7068,12 +7148,25 @@ var PROG = (function () {
     if (BT.ord.length) {
       out.push('<div class="btsec"><h5>Pending orders <span class="mono">' + BT.ord.length + '</span></h5>');
       BT.ord.forEach(function (o) {
+        var oRisk = Math.abs(o.price - o.sl) * o.units * qRate();
+        var oRR = Math.abs(o.price - o.sl) > 0 ? Math.abs(o.tp - o.price) / Math.abs(o.price - o.sl) : 0;
         out.push('<div class="btrow"><div class="top"><b style="color:' +
           (o.dir > 0 ? "var(--up)" : "var(--dn)") + '">' + (o.dir > 0 ? "BUY" : "SELL") + ' ' +
-          o.kind.toUpperCase() + ' #' + o.id + '</b></div>' +
-          '<div class="mono">at ' + px(o.price) + ' · size ' + (+o.units.toFixed(4)) +
+          o.kind.toUpperCase() + ' #' + o.id + '</b>' +
+          '<span class="mono">' + oRR.toFixed(2) + 'R</span></div>' +
+          '<div class="mono">at ' + px(o.price) +
           ' · SL ' + (o.sl == null ? "—" : px(o.sl)) + ' · TP ' + (o.tp == null ? "—" : px(o.tp)) + '</div>' +
-          '<div class="acts"><button data-bt="cancel" data-id="' + o.id + '">Cancel</button></div></div>');
+          '<div class="btgrid" style="margin-top:5px">' +
+          '<div><label class="btlab">Lots</label>' +
+          '<input class="btin" data-olot="' + o.id + '" type="number" step="0.01" value="' +
+          (+toLots(o.units).toFixed(3)) + '"></div>' +
+          '<div><label class="btlab">Risk %</label>' +
+          '<input class="btin" data-orisk="' + o.id + '" type="number" step="0.1"' +
+          ' title="Set the risk % and the lots follow"' +
+          ' value="' + (equity() > 0 ? (oRisk / equity() * 100).toFixed(2) : "0") + '"></div>' +
+          '</div>' +
+          '<div class="btkv" style="margin-top:4px"><span>Risking</span><b>' + money(oRisk) + '</b></div>' +
+          '<div class="acts"><button data-bt="cancel" data-id="' + o.id + '">Cancel order</button></div></div>');
       });
       out.push('</div>');
     }
@@ -7153,7 +7246,7 @@ var PROG = (function () {
     num("btSL", function (v) { BT.tSL = v; });
     num("btTP", function (v) { BT.tTP = v; });
     num("btRisk", function (v) { BT.riskPct = Math.min(20, Math.max(0.05, v)); BT.tUnits = null; });
-    num("btUnits", function (v) { BT.tUnits = Math.max(0, v); });
+    num("btLots", function (v) { BT.tUnits = Math.max(0, toUnits(v)); });
     var stEl = $("btStart");
     if (stEl) stEl.onchange = function () {
       var v = +this.value;
@@ -7164,6 +7257,23 @@ var PROG = (function () {
         money(BT.start) + ", so the run resets.")) { paintBT(); return; }
       btResetAccount(v);
     };
+
+    [].forEach.call(P.querySelectorAll("[data-olot]"), function (el) {
+      el.onchange = function () {
+        var o = BT.ord.filter(function (x) { return x.id === +el.dataset.olot; })[0];
+        var v = +this.value;
+        if (o && v > 0) o.units = toUnits(v);
+        chB.render(); paintBT();
+      };
+    });
+    [].forEach.call(P.querySelectorAll("[data-orisk]"), function (el) {
+      el.onchange = function () {
+        var o = BT.ord.filter(function (x) { return x.id === +el.dataset.orisk; })[0];
+        var v = +this.value, d = o ? Math.abs(o.price - o.sl) * qRate() : 0;
+        if (o && v > 0 && d > 0) o.units = (equity() * (v / 100)) / d;
+        chB.render(); paintBT();
+      };
+    });
 
     var pl = $("btPlace");
     if (pl) pl.onclick = function () {
@@ -7177,7 +7287,7 @@ var PROG = (function () {
       if (!(u > 0)) { toast("Size works out to zero — check the stop distance"); return; }
       if (BT.otype === "market") {
         btOpen(BT.dir, at, u, sl, tp, chB.vis);
-        toast((BT.dir > 0 ? "Bought" : "Sold") + " " + (+u.toFixed(4)) + " at " + px(at));
+        toast((BT.dir > 0 ? "Bought" : "Sold") + " " + fmtLots(u) + " at " + px(at));
       } else {
         /* a stop order must sit beyond the price, a limit order behind it */
         var beyond = (entry - at) * BT.dir > 0;
@@ -7206,6 +7316,8 @@ var PROG = (function () {
     L.push("TRADE TRAINER v" + APP.version + " — desk run");
     L.push("Tape: " + BT.ch.sym + " " + BT.ch.tfLbl + "   seed=" + BT.ch.seed +
       "   bar " + (chB.vis + 1) + " of " + BT.ch.bars.length);
+    L.push("Instrument: 1 lot = " + lotUnits().toLocaleString("en-US") + " units, " +
+      money(perPoint()) + " per " + pipName());
     L.push("Start " + money(BT.start) + "   balance " + money(BT.balance) +
       "   equity " + money(equity()) + "   max drawdown " + (BT.maxDD * 100).toFixed(1) + "%");
     L.push("Risk per trade: " + BT.riskPct + "%");
@@ -7219,8 +7331,9 @@ var PROG = (function () {
     L.push("");
     L.push("TRADES (entry -> exit, why, R)");
     BT.log.forEach(function (t, i) {
-      L.push("  " + (i + 1) + ". " + (t.dir > 0 ? "long " : "short") + " " + px(t.entry) +
-        " -> " + px(t.exit) + "  " + t.why + "  " + (t.r >= 0 ? "+" : "") + t.r.toFixed(2) + "R  " + money(t.pl));
+      L.push("  " + (i + 1) + ". " + (t.dir > 0 ? "long " : "short") + " " + fmtLots(t.units) +
+        "  " + px(t.entry) + " -> " + px(t.exit) + "  " + t.why + "  " +
+        (t.r >= 0 ? "+" : "") + t.r.toFixed(2) + "R  " + money(t.pl));
     });
     if (BT.pos.length) {
       L.push("");
