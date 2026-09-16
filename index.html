@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.5.0 (build 2026-08-01) — Al Brooks price action -->
+<!-- Trade Trainer v3.28.0 (build 2026-08-01) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.27.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.28.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -38,11 +38,16 @@
   nav button.on{color:var(--amber);background:var(--bg3);border-color:var(--line)}
   nav button:hover{color:var(--paper)}
   @media(max-width:620px){
-    nav button{padding:6px 8px;font-size:0}
+    /* five tabs have to fit a phone header, so the chrome gives up its room first */
+    nav{gap:2px}
+    nav button{padding:6px 5px;font-size:0}
     nav button::after{content:attr(data-ico);font-size:15px;line-height:1}
     .xptxt{display:none}
+    .xpwrap{min-width:26px}
+    header{gap:6px;padding:7px 8px}
     .logo{font-size:11px;letter-spacing:.1em}
   }
+  @media(max-width:430px){.logo{font-size:0;letter-spacing:0}.logo::after{content:'TT';font-size:12px;letter-spacing:.12em}}
 
   main{flex:1;min-height:0;position:relative}
   .view{position:absolute;inset:0;display:none;flex-direction:column;min-height:0}
@@ -174,6 +179,38 @@
   .readbtn{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:11px;
     margin-left:8px;color:var(--muted);vertical-align:middle;text-transform:none;letter-spacing:0;font-family:'Inter',sans-serif}
   .readbtn:hover{border-color:var(--amber);color:var(--paper)}
+  /* ---------- desk / backtester ---------- */
+  .panel.wide{width:380px}
+  @media(max-width:1100px){.panel.wide{width:330px}}
+  @media(max-width:860px){.panel.wide{width:auto}}
+  .btsec{border:1px solid var(--line);border-radius:10px;background:var(--bg2);padding:9px;margin-bottom:8px}
+  .btsec>h5{font-family:'Archivo';font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;display:flex;justify-content:space-between;align-items:center}
+  .btgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px 9px}
+  .btkv{display:flex;justify-content:space-between;font-size:11.5px;gap:6px}
+  .btkv span{color:var(--muted)}
+  .btkv b{font-family:'IBM Plex Mono';font-weight:600;font-variant-numeric:tabular-nums}
+  .btin{width:100%;background:var(--bg3);color:var(--paper);border:1px solid var(--line);border-radius:6px;
+    padding:5px 7px;font-family:'IBM Plex Mono',monospace;font-size:11.5px}
+  .btin:focus{outline:none;border-color:var(--amber)}
+  .btlab{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;display:block}
+  .btseg{display:flex;gap:4px}
+  .btseg button{flex:1;padding:5px 0;font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:6px;background:var(--bg3);color:var(--muted)}
+  .btseg button.on{border-color:var(--amber);background:#241a08;color:var(--amber)}
+  .btseg button.buy.on{border-color:var(--up);background:#12291d;color:var(--up)}
+  .btseg button.sell.on{border-color:var(--dn);background:#2c1512;color:var(--dn)}
+  .btrow{border:1px solid var(--line);border-radius:8px;padding:6px 7px;margin-bottom:5px;background:var(--bg3);font-size:11px}
+  .btrow .top{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px}
+  .btrow .mono{font-family:'IBM Plex Mono';font-size:10.5px;color:var(--muted)}
+  .btrow .acts{display:flex;gap:3px;margin-top:5px;flex-wrap:wrap}
+  .btrow .acts button{padding:3px 7px;font-size:10px;border:1px solid var(--line);border-radius:5px;background:var(--bg2);color:var(--muted);font-weight:600}
+  .btrow .acts button:hover{border-color:var(--amber);color:var(--paper)}
+  .btpl{font-family:'IBM Plex Mono';font-weight:600;font-size:11.5px}
+  .btbtns{display:flex;gap:6px;margin-top:7px}
+  .btbtns button{flex:1;padding:8px 0;font-size:12px;font-weight:700;border-radius:7px;border:1px solid var(--line)}
+  .btbuy{background:#12291d;border-color:#2a5a3c!important;color:var(--up)}
+  .btsell{background:#2c1512;border-color:#4a2019!important;color:var(--dn)}
+  .btbuy:hover,.btsell:hover{filter:brightness(1.25)}
+  #eqCurve{width:100%;height:46px;display:block;border-radius:6px;background:var(--bg3)}
   .prefrow{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:13px;color:#cfd4dd}
   .prefrow input[type=checkbox]{width:16px;height:16px;accent-color:var(--amber)}
   .prefrow select{background:var(--bg3);color:var(--paper);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12px}
@@ -194,6 +231,7 @@
   <nav>
     <button data-view="path" data-ico="▤" class="on">Path</button>
     <button data-view="practice" data-ico="▶">Practice</button>
+    <button data-view="desk" data-ico="▦">Desk</button>
     <button data-view="stats" data-ico="◔">Stats</button>
     <button id="helpBtn" data-ico="?">Help</button>
   </nav>
@@ -231,6 +269,20 @@
     </div>
   </section>
 
+  <!-- ============ DESK — free backtesting ============ -->
+  <section class="view" id="view-desk">
+    <div class="stage">
+      <div class="chartcol">
+        <div class="toolbar" id="btTools"></div>
+        <div class="chartwrap"><canvas id="cvBT"></canvas></div>
+      </div>
+      <aside class="panel wide">
+        <div class="pbody" id="btPanel"></div>
+        <div class="pfoot" id="btFoot"></div>
+      </aside>
+    </div>
+  </section>
+
   <!-- ============ STATS ============ -->
   <section class="view" id="view-stats"><div class="scroll" id="statsBody"></div></section>
 </main>
@@ -241,7 +293,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.27.0", build: "2026-08-15", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.28.0", build: "2026-08-15", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -4866,6 +4918,7 @@ var PROG = (function () {
   }
 
   var chD = new Chart($("cvDrill"));
+  var chB = new Chart($("cvBT"));
   var chP = new Chart($("cvPrac"));
 
   /* ---------------- chrome ---------------- */
@@ -4880,7 +4933,7 @@ var PROG = (function () {
 
   function setView(v) {
     Speech.stop();
-    ["path", "drill", "practice", "stats"].forEach(function (k) { $("view-" + k).classList.toggle("on", k === v); });
+    ["path", "drill", "practice", "desk", "stats"].forEach(function (k) { $("view-" + k).classList.toggle("on", k === v); });
     [].forEach.call(document.querySelectorAll("nav button[data-view]"), function (b) {
       b.classList.toggle("on", b.dataset.view === v);
     });
@@ -4888,6 +4941,7 @@ var PROG = (function () {
     if (v === "stats") paintStats();
     if (v === "practice") { if (!prac.ch) newPractice(); else setTimeout(function () { chP.render(); }, 30); }
     if (v === "drill") setTimeout(function () { chD.fit(); }, 30);
+    if (v === "desk") { if (!BT.ch) btNew(); else setTimeout(function () { chB.render(); }, 30); }
   }
   [].forEach.call(document.querySelectorAll("nav button[data-view]"), function (b) {
     b.addEventListener("click", function () { setView(b.dataset.view); });
@@ -6523,6 +6577,27 @@ var PROG = (function () {
       'out of you before the trade worked, knowable only afterwards, and usually far smaller than both.</p>' +
       '<p><b>Can I reproduce a chart I want to ask about?</b> Yes. The seed printed in the Copy snapshot regenerates ' +
       'that exact chart.</p>' +
+      '<h3>Desk — backtesting your own approach</h3>' +
+      '<p>The <b>Desk</b> tab is the opposite of a drill: no question, no score, just a long tape and ' +
+      'an account. Set your starting capital, step or play the bars, and trade it the way you actually ' +
+      'trade. The point is the sample — after enough trades the Results box tells you whether the ' +
+      'approach makes money, and if not, which half of it is broken.</p>' +
+      '<li><b>Sizing follows risk.</b> Set Risk % and the size is worked out from your stop distance, ' +
+      'so every trade risks the same share of the account no matter how wide the stop. Override the ' +
+      'units directly if you want.</li>' +
+      '<li><b>Every level is draggable.</b> Stops, targets, partial targets and pending-order prices ' +
+      'are all dragged straight on the chart.</li>' +
+      '<li><b>Market, limit and stop orders</b>, several positions at once, and partial take-profits ' +
+      '(add one and it lands at 1R, then drag it and tap the % to change the share).</li>' +
+      '<li><b>Fills are honest.</b> Orders fill bar by bar as the tape advances; a bar that gaps ' +
+      'through a stop order fills at the open, not the order price. When one bar covers both your stop ' +
+      'and your target, the <i>stop</i> is taken — the path inside a bar is unknown, and assuming the ' +
+      'good outcome is how a backtest ends up lying to you.</li>' +
+      '<li><b>R is measured against the risk the trade started with</b>, so scaling out cannot flatter ' +
+      'the numbers, and a position that closes in pieces still counts as one trade.</li>' +
+      '<li><b>New tape</b> keeps the account, so your sample can span several stretches of market. ' +
+      '<b>Copy results</b> puts the whole run — every trade with its R — on the clipboard.</li>' +
+
       '<h3>Scoring</h3>' +
       '<p>Each node is a set of reps. A node is passed only when a <b>single session</b> clears both the pass mark ' +
       '(85% by default) <b>and</b> the required run of consecutive clean answers — an average on its own can hide a ' +
@@ -6581,8 +6656,583 @@ var PROG = (function () {
   window.TT = {
     chD: chD, chP: chP, startNode: startNode, nodeById: nodeById,
     PROG: PROG, Mkt: Mkt, setView: setView, APP: APP,
+    chB: chB, get BT() { return BT; }, btNew: btNew, btStep: btStep, btOpen: btOpen, btClose: btClose,
+    btFills: btFills, btSeries: btSeries, equity: equity, openPL: openPL,
+    unitsFor: unitsFor, btStats: btStats, btReport: btReport, paintBT: paintBT,
     get session() { return S; }
   };
+
+
+  /* =====================================================================
+     DESK — free backtesting on a long tape
+
+     Practice shows one setup and asks one question. The Desk is the other
+     thing: a long continuous tape you trade freely, so you can run your own
+     approach over many trades and read the result off the equity curve.
+
+     The tape is built by stitching Brooks contexts end to end and rebasing
+     each one onto the previous close, so the series has real trends, ranges,
+     breakouts and reversals rather than being a random walk.
+     ===================================================================== */
+  var BT = {
+    ch: null, start: 25000, balance: 25000, riskPct: 1,
+    pos: [], ord: [], log: [], nextId: 1,
+    dir: 1, otype: "market", playing: false, timer: null, speed: 320,
+    peak: 25000, maxDD: 0, curve: []
+  };
+
+  /** one long tape: many contexts, each rebased to continue from the last close */
+  function btSeries(seed, segs) {
+    var R = Mkt.mkR(seed), bars = [], first = null;
+    for (var s = 0; s < segs; s++) {
+      var key = R.pick(Mkt.KEYS);
+      var c = Mkt.gen({ seed: (seed + s * 7919) >>> 0, ctx: key,
+        sym: first ? first.sym : undefined, tf: first ? first.tf : undefined });
+      if (!first) first = c;
+      var src = c.bars, off = bars.length ? bars[bars.length - 1].c - src[0].o : 0;
+      for (var i = 0; i < src.length; i++) {
+        var b = src[i];
+        bars.push({ t: 0, o: b.o + off, h: b.h + off, l: b.l + off, c: b.c + off, v: b.v });
+      }
+    }
+    /* Each segment carries its own clock, so the stitched tape needs one
+       continuous time axis or the labels come out as NaN. */
+    var step = 60000 * ((Mkt.TFS.filter(function (x) { return x.k === first.tf; })[0] || { min: 15 }).min);
+    var t0 = first.bars[0].t;
+    for (var k = 0; k < bars.length; k++) bars[k].t = t0 + k * step;
+
+    /* a tape that drifts to absurd prices reads badly — keep it in a sane band */
+    var lo = Infinity;
+    bars.forEach(function (b) { lo = Math.min(lo, b.l); });
+    if (lo <= first.bars[0].o * 0.25) {
+      var lift = first.bars[0].o * 0.4 - lo;
+      bars.forEach(function (b) { b.o += lift; b.h += lift; b.l += lift; b.c += lift; });
+    }
+    return { bars: bars, sym: first.sym, nm: first.nm, tf: first.tf, tfLbl: first.tfLbl,
+      dec: first.dec, kind: first.kind, seed: seed, U: first.U,
+      atr: Mkt.atr(bars, 14, Math.min(60, bars.length - 1)), gt: null };
+  }
+
+  function btPrice() { var b = BT.ch.bars[chB.vis]; return b ? b.c : 0; }
+  function btATR() { return Mkt.atr(BT.ch.bars, 14, Math.min(chB.vis, BT.ch.bars.length - 1)) || 1; }
+  function money(v) {
+    var s = Math.abs(v) >= 1000 ? Math.round(v).toLocaleString("en-US")
+      : (Math.round(v * 100) / 100).toFixed(2);
+    return (v < 0 ? "-" : "") + "$" + s.replace("-", "");
+  }
+  function px(v) { return fmtN(v, BT.ch ? BT.ch.dec : 2); }
+
+  /** open P/L of one position at a price */
+  function posPL(p, at) { return (at - p.entry) * p.dir * p.units; }
+  function openPL() {
+    var at = btPrice(), t = 0;
+    BT.pos.forEach(function (p) { t += posPL(p, at); });
+    return t;
+  }
+  function equity() { return BT.balance + openPL(); }
+
+  /** units implied by the risk model — the whole point of sizing by risk */
+  function unitsFor(entry, stop) {
+    var d = Math.abs(entry - stop);
+    if (!(d > 0)) return 0;
+    return (equity() * (BT.riskPct / 100)) / d;
+  }
+
+  /* ---------- order / position lifecycle ---------- */
+  function btOpen(dir, entry, units, sl, tp, atIdx) {
+    var p = { id: BT.nextId++, dir: dir, entry: entry, units: units, units0: units,
+      sl: sl, tp: tp, openIdx: atIdx,
+      rpu: Math.abs(entry - sl),          /* risk per unit, fixed at entry */
+      partials: [], };
+    BT.pos.push(p); syncDraw(); return p;
+  }
+  /** close all or part of a position at `price`; pct is a share of the ORIGINAL size */
+  function btClose(p, price, pct, why) {
+    pct = Math.min(1, Math.max(0, pct == null ? 1 : pct));
+    var unitsOut = Math.min(p.units, p.units0 * pct);
+    if (unitsOut <= 1e-12) return;
+    var pl = (price - p.entry) * p.dir * unitsOut;
+    BT.balance += pl;
+    p.units -= unitsOut;
+    BT.log.push({ id: p.id, dir: p.dir, entry: p.entry, exit: price, units: unitsOut,
+      /* R is measured against the risk the WHOLE trade started with — dividing a
+         partial by its own slice risk would make scaling out look better than it is */
+      pl: pl, r: p.rpu > 0 ? pl / (p.rpu * p.units0) : 0,
+      why: why || "manual", idx: chB.vis });
+    if (p.units <= 1e-9) BT.pos.splice(BT.pos.indexOf(p), 1);
+    syncDraw();
+  }
+
+  /** fills for the bar that was just revealed — pending orders first, then exits */
+  function btFills(i) {
+    var b = BT.ch.bars[i];
+    if (!b) return;
+
+    /* pending orders. A stop order fills at its price, or at the open when the
+       bar gapped straight through it; a limit fills at its price or better. */
+    for (var k = BT.ord.length - 1; k >= 0; k--) {
+      var o = BT.ord[k], hit = false, fill = o.price;
+      if (o.kind === "stop") {
+        if (o.dir > 0 && b.h >= o.price) { hit = true; fill = b.o > o.price ? b.o : o.price; }
+        if (o.dir < 0 && b.l <= o.price) { hit = true; fill = b.o < o.price ? b.o : o.price; }
+      } else {
+        if (o.dir > 0 && b.l <= o.price) { hit = true; fill = b.o < o.price ? b.o : o.price; }
+        if (o.dir < 0 && b.h >= o.price) { hit = true; fill = b.o > o.price ? b.o : o.price; }
+      }
+      if (hit) {
+        BT.ord.splice(k, 1);
+        btOpen(o.dir, fill, o.units, o.sl, o.tp, i);
+        toast((o.dir > 0 ? "Buy" : "Sell") + " " + o.kind + " filled at " + px(fill));
+      }
+    }
+
+    /* exits. When a bar covers both the stop and a target, the stop is taken
+       first — the bar's path is unknown and flattering yourself here is the
+       fastest way to build a backtest that lies to you. */
+    for (var j = BT.pos.length - 1; j >= 0; j--) {
+      var p = BT.pos[j];
+      if (p.openIdx === i) continue;                    /* no same-bar exit */
+      var slHit = p.sl != null && (p.dir > 0 ? b.l <= p.sl : b.h >= p.sl);
+      if (slHit) { btClose(p, p.sl, 1, "stop"); continue; }
+      (p.partials || []).forEach(function (pt) {
+        if (pt.done) return;
+        var touched = p.dir > 0 ? b.h >= pt.price : b.l <= pt.price;
+        if (touched) { pt.done = true; btClose(p, pt.price, pt.pct / 100, "partial"); }
+      });
+      if (p.units <= 1e-9) continue;
+      if (p.tp != null && (p.dir > 0 ? b.h >= p.tp : b.l <= p.tp)) btClose(p, p.tp, 1, "target");
+    }
+
+    var eq = equity();
+    BT.curve.push(eq);
+    if (eq > BT.peak) BT.peak = eq;
+    BT.maxDD = Math.max(BT.maxDD, BT.peak > 0 ? (BT.peak - eq) / BT.peak : 0);
+  }
+
+  /* ---------- chart <-> account sync ----------
+     Positions and pending orders are drawn as the chart's own `pos` / `hline`
+     objects, so the existing hit-testing and drag loop makes every level
+     draggable with no new pointer code. */
+  function syncDraw() {
+    if (!chB) return;
+    chB.drawings = chB.drawings.filter(function (d) { return !d._bt; });
+    BT.pos.forEach(function (p) {
+      chB.drawings.push({ type: "pos", _bt: "pos", _id: p.id, i: p.openIdx, dir: p.dir,
+        entry: p.entry, stop: p.sl, target: p.tp == null ? p.entry + p.dir * btATR() * 2 : p.tp });
+      (p.partials || []).forEach(function (pt, n) {
+        if (!pt.done) chB.drawings.push({ type: "hline", _bt: "part", _id: p.id, _n: n, p: pt.price });
+      });
+    });
+    BT.ord.forEach(function (o) {
+      chB.drawings.push({ type: "hline", _bt: "ord", _id: o.id, p: o.price });
+      if (o.sl != null) chB.drawings.push({ type: "hline", _bt: "ordsl", _id: o.id, p: o.sl });
+    });
+  }
+  /** A drag moved a line — write it back to the account object it belongs to.
+      This deliberately mutates the existing drawing objects instead of calling
+      syncDraw(): the drag loop holds a reference to the object it grabbed, so
+      rebuilding the array mid-drag would detach the pointer from the line. */
+  function readDraw() {
+    chB.drawings.forEach(function (d) {
+      if (!d._bt) return;
+      var p = null, o = null, i;
+      for (i = 0; i < BT.pos.length; i++) if (BT.pos[i].id === d._id) p = BT.pos[i];
+      for (i = 0; i < BT.ord.length; i++) if (BT.ord[i].id === d._id) o = BT.ord[i];
+      if (d._bt === "pos" && p) {
+        d.entry = p.entry;            /* a fill cannot be dragged — snap it back */
+        d.i = p.openIdx;
+        p.sl = d.stop; p.tp = d.target;
+      }
+      if (d._bt === "part" && p && p.partials[d._n]) p.partials[d._n].price = d.p;
+      if (d._bt === "ord" && o) o.price = d.p;
+      if (d._bt === "ordsl" && o) o.sl = d.p;
+    });
+  }
+
+  /* ---------- lifecycle ---------- */
+  function btNew(keepAccount) {
+    if (BT.timer) { clearInterval(BT.timer); BT.timer = null; }
+    BT.playing = false;
+    BT.ch = btSeries((Date.now() ^ (Math.random() * 1e9)) >>> 0, 22);
+    BT.pos = []; BT.ord = [];
+    if (!keepAccount) {
+      BT.balance = BT.start; BT.log = []; BT.peak = BT.start; BT.maxDD = 0; BT.curve = [];
+    }
+    chB.load(BT.ch, 140);              /* a real run-up of context, not a few bars */
+    chB.locked = false;
+    chB.gt = null; chB.sigBar = null;
+    chB.setSpan(150, 110);
+    chB.onChange = function () { readDraw(); paintBT(); };
+    buildBTTools();
+    paintBT();
+  }
+  function btResetAccount(stake) {
+    BT.start = stake; BT.balance = stake; BT.peak = stake; BT.maxDD = 0;
+    BT.log = []; BT.curve = []; BT.pos = []; BT.ord = [];
+    syncDraw(); chB.render(); paintBT();
+    toast("Account reset to " + money(stake));
+  }
+  function btStep(n) {
+    if (!BT.ch) return;
+    for (var k = 0; k < n; k++) {
+      if (chB.vis >= BT.ch.bars.length - 1) { if (BT.playing) btPlay(); break; }
+      chB.vis++;
+      btFills(chB.vis);
+      if (chB.vis > chB.i1 - 4) { chB.i0 += 1; chB.i1 += 1; }
+    }
+    chB.render(); paintBT();
+  }
+  function btPlay() {
+    if (BT.playing) { clearInterval(BT.timer); BT.timer = null; BT.playing = false; }
+    else { BT.playing = true; BT.timer = setInterval(function () { btStep(1); }, BT.speed); }
+    var b = $("btPlayBtn"); if (b) b.textContent = BT.playing ? "Pause ❚❚" : "Play ▶";
+  }
+  function buildBTTools() {
+    var wrap = $("btTools");
+    var html = '<div class="sym"><b>' + BT.ch.sym + '</b>' + BT.ch.tfLbl + '</div><div class="tsep"></div>';
+    TOOLBTN.forEach(function (t) { html += '<button class="tool" data-tool="' + t[0] + '" title="' + t[2] + '">' + t[1] + '</button>'; });
+    html += '<div class="tsep"></div>' +
+      '<button class="tool" data-act="undo" title="Undo drawing">↺</button>' +
+      '<button class="tool" data-act="clear" title="Clear drawings">✕</button>' +
+      '<button class="tool" data-act="fit" title="Fit">⤢</button>' +
+      '<div class="tsep"></div>' +
+      '<button class="tool wide" data-act="s1">Step ▸</button>' +
+      '<button class="tool wide" data-act="s10">+10 ▸▸</button>' +
+      '<button class="tool wide" data-act="play" id="btPlayBtn">Play ▶</button>' +
+      '<select class="tool wide" id="btSpeed" title="Replay speed">' +
+      '<option value="600">Slow</option><option value="320" selected>Normal</option>' +
+      '<option value="120">Fast</option><option value="40">Turbo</option></select>' +
+      '<div class="tsep"></div>' +
+      '<button class="tool wide" data-act="new">New tape</button>';
+    wrap.innerHTML = html;
+    [].forEach.call(wrap.querySelectorAll("[data-tool]"), function (b) {
+      b.onclick = function () { chB.setTool(b.dataset.tool); syncTools(wrap, chB); };
+    });
+    [].forEach.call(wrap.querySelectorAll("[data-act]"), function (b) {
+      b.onclick = function () {
+        var a = b.dataset.act;
+        if (a === "undo") { chB.undo(); syncDraw(); }
+        if (a === "clear") { chB.drawings = chB.drawings.filter(function (d) { return d._bt; }); }
+        if (a === "fit") chB.fit();
+        if (a === "s1") btStep(1);
+        if (a === "s10") btStep(10);
+        if (a === "play") btPlay();
+        if (a === "new") {
+          /* the account carries over on purpose: a sample of trades is only
+             meaningful once it spans more than one stretch of market */
+          var had = BT.pos.length + BT.ord.length;
+          btNew(true);
+          toast(had ? "New tape — " + had + " open position(s)/order(s) discarded, account kept"
+            : "New tape — account kept");
+          return;
+        }
+        chB.render(); paintBT();
+      };
+    });
+    var sp = $("btSpeed");
+    if (sp) sp.onchange = function () {
+      BT.speed = +this.value || 320;
+      if (BT.playing) { btPlay(); btPlay(); }
+    };
+    chB._syncWrap = wrap;
+    syncTools(wrap, chB);
+  }
+
+  /* ---------- stats ---------- */
+  function btStats() {
+    /* one position may close in several slices (partials, then the runner);
+       a trade is the position, not the slice, or scaling out would inflate
+       both the trade count and the win rate */
+    var byId = {}, order = [];
+    BT.log.forEach(function (t) {
+      if (!byId[t.id]) { byId[t.id] = { pl: 0, r: 0 }; order.push(t.id); }
+      byId[t.id].pl += t.pl; byId[t.id].r += t.r;
+    });
+    var w = 0, l = 0, gp = 0, gl = 0, rs = 0, n = order.length;
+    order.forEach(function (id) {
+      var t = byId[id];
+      if (t.pl >= 0) { w++; gp += t.pl; } else { l++; gl += -t.pl; }
+      rs += t.r;
+    });
+    return { n: n, w: w, l: l, win: n ? w / n : 0, pf: gl > 0 ? gp / gl : (gp > 0 ? Infinity : 0),
+      avgR: n ? rs / n : 0, netR: rs, net: BT.balance - BT.start };
+  }
+  function drawCurve() {
+    var cv = $("eqCurve"); if (!cv) return;
+    var d = window.devicePixelRatio || 1, w = cv.clientWidth || 300, h = 46;
+    cv.width = w * d; cv.height = h * d;
+    var c = cv.getContext("2d"); c.setTransform(d, 0, 0, d, 0, 0);
+    c.clearRect(0, 0, w, h);
+    var pts = BT.curve.length > 1 ? BT.curve : [BT.start, equity()];
+    var lo = Math.min.apply(null, pts), hi = Math.max.apply(null, pts);
+    if (hi - lo < 1e-9) { hi = lo + 1; }
+    var x = function (i) { return (i / (pts.length - 1)) * (w - 2) + 1; };
+    var y = function (v) { return h - 3 - ((v - lo) / (hi - lo)) * (h - 6); };
+    /* the starting balance as a reference line — above it is profit */
+    if (BT.start >= lo && BT.start <= hi) {
+      c.strokeStyle = "rgba(138,146,162,.45)"; c.setLineDash([3, 3]); c.lineWidth = 1;
+      c.beginPath(); c.moveTo(0, y(BT.start)); c.lineTo(w, y(BT.start)); c.stroke(); c.setLineDash([]);
+    }
+    var up = pts[pts.length - 1] >= BT.start;
+    c.strokeStyle = up ? COL.ok : COL.bad; c.lineWidth = 1.5;
+    c.beginPath();
+    pts.forEach(function (v, i) { i ? c.lineTo(x(i), y(v)) : c.moveTo(x(i), y(v)); });
+    c.stroke();
+  }
+
+  /* ---------- panel ---------- */
+  function paintBT() {
+    if (!BT.ch) return;
+    var at = btPrice(), A = btATR(), eq = equity(), op = openPL(), st = btStats();
+    var out = [];
+
+    /* account */
+    out.push('<div class="btsec"><h5>Account <span class="mono" style="color:var(--muted)">bar ' +
+      (chB.vis + 1) + ' / ' + BT.ch.bars.length + '</span></h5>' +
+      '<div class="btgrid">' +
+      kv("Balance", money(BT.balance)) +
+      kv("Equity", money(eq), eq >= BT.start ? "up" : "dn") +
+      kv("Open P/L", money(op), op > 0 ? "up" : op < 0 ? "dn" : "") +
+      kv("Peak", money(BT.peak)) +
+      kv("Max DD", (BT.maxDD * 100).toFixed(1) + "%", BT.maxDD > 0.2 ? "dn" : "") +
+      kv("Price", px(at)) +
+      '</div>' +
+      '<div style="margin-top:7px"><label class="btlab">Start capital</label>' +
+      '<input class="btin" id="btStart" type="number" step="any" value="' + BT.start + '"></div>' +
+      '<canvas id="eqCurve" style="margin-top:8px"></canvas></div>');
+
+    /* ticket */
+    var slDef = +(at - BT.dir * A * 1.5).toFixed(BT.ch.dec);
+    var tpDef = +(at + BT.dir * A * 3).toFixed(BT.ch.dec);
+    var entryFld = BT.otype === "market" ? at : (BT.tPrice != null ? BT.tPrice : +(at + BT.dir * A).toFixed(BT.ch.dec));
+    var sl = BT.tSL != null ? BT.tSL : slDef, tp = BT.tTP != null ? BT.tTP : tpDef;
+    var u = unitsFor(entryFld, sl), riskMoney = Math.abs(entryFld - sl) * u;
+    out.push('<div class="btsec"><h5>Order ticket</h5>' +
+      '<div class="btseg" style="margin-bottom:7px">' +
+      '<button class="buy' + (BT.dir > 0 ? " on" : "") + '" data-bt="dir" data-v="1">Buy</button>' +
+      '<button class="sell' + (BT.dir < 0 ? " on" : "") + '" data-bt="dir" data-v="-1">Sell</button></div>' +
+      '<div class="btseg" style="margin-bottom:7px">' +
+      ["market", "limit", "stop"].map(function (t) {
+        return '<button class="' + (BT.otype === t ? "on" : "") + '" data-bt="otype" data-v="' + t + '">' +
+          t.charAt(0).toUpperCase() + t.slice(1) + '</button>';
+      }).join("") + '</div>' +
+      '<div class="btgrid">' +
+      (BT.otype === "market" ? "" :
+        '<div><label class="btlab">Entry</label><input class="btin" id="btPrice" type="number" step="any" value="' + entryFld + '"></div>') +
+      '<div><label class="btlab">Stop loss</label><input class="btin" id="btSL" type="number" step="any" value="' + sl + '"></div>' +
+      '<div><label class="btlab">Take profit</label><input class="btin" id="btTP" type="number" step="any" value="' + tp + '"></div>' +
+      '<div><label class="btlab">Risk %</label><input class="btin" id="btRisk" type="number" step="0.1" value="' + BT.riskPct + '"></div>' +
+      '<div><label class="btlab">Size (units)</label><input class="btin" id="btUnits" type="number" step="any" value="' + (+u.toFixed(4)) + '"></div>' +
+      '</div>' +
+      '<div class="btkv" style="margin-top:7px"><span>Risk on this trade</span><b>' + money(riskMoney) +
+      '  (' + (eq > 0 ? (riskMoney / eq * 100).toFixed(2) : "0") + '%)</b></div>' +
+      '<div class="btkv"><span>Reward : risk</span><b>' +
+      (Math.abs(entryFld - sl) > 0 ? (Math.abs(tp - entryFld) / Math.abs(entryFld - sl)).toFixed(2) + "R" : "—") + '</b></div>' +
+      '<div class="btbtns">' +
+      '<button class="' + (BT.dir > 0 ? "btbuy" : "btsell") + '" id="btPlace">' +
+      (BT.otype === "market" ? (BT.dir > 0 ? "Buy at market" : "Sell at market")
+        : "Place " + BT.otype + " " + (BT.dir > 0 ? "buy" : "sell")) + '</button></div>' +
+      '</div>');
+
+    /* open positions */
+    out.push('<div class="btsec"><h5>Open positions <span class="mono">' + BT.pos.length + '</span></h5>');
+    if (!BT.pos.length) out.push('<div class="hint">Nothing open. Levels you place are draggable right on the chart.</div>');
+    BT.pos.forEach(function (p) {
+      var pl = posPL(p, at), r = p.rpu > 0 ? pl / (p.rpu * p.units0) : 0;
+      out.push('<div class="btrow"><div class="top">' +
+        '<b style="color:' + (p.dir > 0 ? "var(--up)" : "var(--dn)") + '">' +
+        (p.dir > 0 ? "LONG" : "SHORT") + ' #' + p.id + '</b>' +
+        '<span class="btpl" style="color:' + (pl >= 0 ? "var(--up)" : "var(--dn)") + '">' +
+        money(pl) + '  ' + (r >= 0 ? "+" : "") + r.toFixed(2) + 'R</span></div>' +
+        '<div class="mono">entry ' + px(p.entry) + ' · size ' + (+p.units.toFixed(4)) +
+        (p.units < p.units0 - 1e-9 ? ' of ' + (+p.units0.toFixed(4)) : '') +
+        ' · SL ' + (p.sl == null ? "—" : px(p.sl)) + ' · TP ' + (p.tp == null ? "—" : px(p.tp)) + '</div>' +
+        (p.partials.length ? '<div class="acts" style="margin-top:4px">' + p.partials.map(function (x, n) {
+          return x.done
+            ? '<button disabled style="opacity:.5">✓ ' + x.pct + '% @ ' + px(x.price) + '</button>'
+            : '<button data-bt="partpct" data-id="' + p.id + '" data-v="' + n + '" title="Tap to change the share">' +
+              x.pct + '% @ ' + px(x.price) + '</button>' +
+              '<button data-bt="delpart" data-id="' + p.id + '" data-v="' + n + '" title="Remove">✕</button>';
+        }).join("") + '</div>' : '') +
+        '<div class="acts">' +
+        '<button data-bt="close" data-id="' + p.id + '" data-v="1">Close</button>' +
+        '<button data-bt="close" data-id="' + p.id + '" data-v="0.5">Close 50%</button>' +
+        '<button data-bt="close" data-id="' + p.id + '" data-v="0.25">25%</button>' +
+        '<button data-bt="be" data-id="' + p.id + '">SL to entry</button>' +
+        '<button data-bt="addpart" data-id="' + p.id + '">+ partial TP</button>' +
+        '</div></div>');
+    });
+    out.push('</div>');
+
+    /* pending orders */
+    if (BT.ord.length) {
+      out.push('<div class="btsec"><h5>Pending orders <span class="mono">' + BT.ord.length + '</span></h5>');
+      BT.ord.forEach(function (o) {
+        out.push('<div class="btrow"><div class="top"><b style="color:' +
+          (o.dir > 0 ? "var(--up)" : "var(--dn)") + '">' + (o.dir > 0 ? "BUY" : "SELL") + ' ' +
+          o.kind.toUpperCase() + ' #' + o.id + '</b></div>' +
+          '<div class="mono">at ' + px(o.price) + ' · size ' + (+o.units.toFixed(4)) +
+          ' · SL ' + (o.sl == null ? "—" : px(o.sl)) + ' · TP ' + (o.tp == null ? "—" : px(o.tp)) + '</div>' +
+          '<div class="acts"><button data-bt="cancel" data-id="' + o.id + '">Cancel</button></div></div>');
+      });
+      out.push('</div>');
+    }
+
+    /* results */
+    out.push('<div class="btsec"><h5>Results</h5><div class="btgrid">' +
+      kv("Trades", String(st.n)) +
+      kv("Win rate", st.n ? (st.win * 100).toFixed(0) + "%" : "—") +
+      kv("Net", money(st.net), st.net >= 0 ? "up" : "dn") +
+      kv("Total R", (st.netR >= 0 ? "+" : "") + st.netR.toFixed(2) + "R", st.netR >= 0 ? "up" : "dn") +
+      kv("Avg per trade", (st.avgR >= 0 ? "+" : "") + st.avgR.toFixed(2) + "R", st.avgR >= 0 ? "up" : "dn") +
+      kv("Profit factor", st.n ? (isFinite(st.pf) ? st.pf.toFixed(2) : "∞") : "—",
+        st.pf >= 1 ? "up" : st.n ? "dn" : "") +
+      '</div>' +
+      (st.n >= 8
+        ? '<div class="hint" style="margin-top:7px">' + verdict(st) + '</div>'
+        : '<div class="hint" style="margin-top:7px">Take at least 8 trades before reading anything into these numbers.</div>') +
+      '<div class="btbtns"><button class="btn" id="btReset">Reset account</button>' +
+      '<button class="btn" id="btCopy">📋 Copy results</button></div></div>');
+
+    $("btPanel").innerHTML = out.join("");
+    $("btFoot").innerHTML = '<div class="hint">Drag any stop, target or order line straight on the chart. ' +
+      'Step the tape with <b>Step</b> or <b>Play</b>; fills happen bar by bar.</div>';
+    drawCurve();
+    wireBT();
+  }
+  function kv(k, v, cls) {
+    return '<div class="btkv"><span>' + k + '</span><b' +
+      (cls ? ' class="' + cls + '"' : '') + '>' + v + '</b></div>';
+  }
+  /** what the numbers say about the approach, once there are enough of them */
+  function verdict(st) {
+    if (st.avgR > 0.15 && st.pf >= 1.3)
+      return "Positive expectancy: <b>" + st.avgR.toFixed(2) + "R</b> per trade. Keep the sample growing before trusting it.";
+    if (st.avgR > 0)
+      return "Marginally positive at <b>" + st.avgR.toFixed(2) + "R</b>. Thin enough that costs or one bad run could flip it.";
+    if (st.win >= 0.5)
+      return "You are right more often than not but still losing: <b>" + st.avgR.toFixed(2) +
+        "R</b> per trade. The winners are too small for the losers — look at where you take profit, not at your entries.";
+    return "Negative at <b>" + st.avgR.toFixed(2) + "R</b> per trade with a " + (st.win * 100).toFixed(0) +
+      "% hit rate. Either the entries have no edge, or the stops are too tight for the targets you are aiming at.";
+  }
+
+  /* ---------- wiring ---------- */
+  function wireBT() {
+    var P = $("btPanel");
+    [].forEach.call(P.querySelectorAll("[data-bt]"), function (b) {
+      b.onclick = function () {
+        var a = b.dataset.bt, id = +b.dataset.id, v = b.dataset.v;
+        var pos = BT.pos.filter(function (x) { return x.id === id; })[0];
+        if (a === "dir") { BT.dir = +v; BT.tSL = BT.tTP = BT.tPrice = null; }
+        if (a === "otype") { BT.otype = v; BT.tPrice = null; }
+        if (a === "close" && pos) btClose(pos, btPrice(), +v, "manual");
+        if (a === "be" && pos) { pos.sl = pos.entry; syncDraw(); }
+        if (a === "cancel") { BT.ord = BT.ord.filter(function (x) { return x.id !== id; }); syncDraw(); }
+        if (a === "addpart" && pos) {
+          /* land it at 1R and let them drag it — faster than a prompt, and the
+             chart is where the level actually wants to be chosen anyway */
+          var n = pos.partials.length + 1;
+          pos.partials.push({ price: +(pos.entry + pos.dir * pos.rpu * n).toFixed(BT.ch.dec),
+            pct: 50, done: false });
+          syncDraw();
+        }
+        if (a === "delpart" && pos) { pos.partials.splice(+v, 1); syncDraw(); }
+        if (a === "partpct" && pos && pos.partials[+v]) {
+          var cur = pos.partials[+v].pct;
+          pos.partials[+v].pct = cur >= 75 ? 25 : cur >= 50 ? 75 : 50;
+        }
+        chB.render(); paintBT();
+      };
+    });
+    function num(id, set) {
+      var el = $(id);
+      if (el) el.onchange = function () { var v = +this.value; if (isFinite(v)) set(v); chB.render(); paintBT(); };
+    }
+    num("btPrice", function (v) { BT.tPrice = v; });
+    num("btSL", function (v) { BT.tSL = v; });
+    num("btTP", function (v) { BT.tTP = v; });
+    num("btRisk", function (v) { BT.riskPct = Math.min(20, Math.max(0.05, v)); BT.tUnits = null; });
+    num("btUnits", function (v) { BT.tUnits = Math.max(0, v); });
+    var stEl = $("btStart");
+    if (stEl) stEl.onchange = function () {
+      var v = +this.value;
+      if (!(v > 0)) { toast("Starting capital must be above zero"); paintBT(); return; }
+      /* every past trade was sized off the old stake, so the run restarts */
+      if (BT.log.length && !confirm("Change the starting capital to " + money(v) +
+        "?\n\nThe " + BT.log.length + " trades already taken were sized against " +
+        money(BT.start) + ", so the run resets.")) { paintBT(); return; }
+      btResetAccount(v);
+    };
+
+    var pl = $("btPlace");
+    if (pl) pl.onclick = function () {
+      var at = btPrice(), A = btATR();
+      var entry = BT.otype === "market" ? at
+        : (BT.tPrice != null ? BT.tPrice : at + BT.dir * A);
+      var sl = BT.tSL != null ? BT.tSL : at - BT.dir * A * 1.5;
+      var tp = BT.tTP != null ? BT.tTP : at + BT.dir * A * 3;
+      if ((sl - entry) * BT.dir >= 0) { toast("The stop must sit on the losing side of the entry"); return; }
+      var u = BT.tUnits != null && BT.tUnits > 0 ? BT.tUnits : unitsFor(entry, sl);
+      if (!(u > 0)) { toast("Size works out to zero — check the stop distance"); return; }
+      if (BT.otype === "market") {
+        btOpen(BT.dir, at, u, sl, tp, chB.vis);
+        toast((BT.dir > 0 ? "Bought" : "Sold") + " " + (+u.toFixed(4)) + " at " + px(at));
+      } else {
+        /* a stop order must sit beyond the price, a limit order behind it */
+        var beyond = (entry - at) * BT.dir > 0;
+        if (BT.otype === "stop" && !beyond) { toast("A stop order goes beyond the current price"); return; }
+        if (BT.otype === "limit" && beyond) { toast("A limit order goes behind the current price"); return; }
+        BT.ord.push({ id: BT.nextId++, kind: BT.otype, dir: BT.dir, price: entry, units: u, sl: sl, tp: tp });
+        toast(BT.otype + " order placed at " + px(entry));
+      }
+      BT.tSL = BT.tTP = BT.tPrice = BT.tUnits = null;
+      syncDraw(); chB.render(); paintBT();
+    };
+
+    var rs = $("btReset");
+    if (rs) rs.onclick = function () {
+      if (BT.log.length && !confirm("Clear the account and start again from " +
+        money(BT.start) + "? The " + BT.log.length + " trades in this run are discarded.")) return;
+      btResetAccount(BT.start);
+    };
+    var cp = $("btCopy");
+    if (cp) cp.onclick = function () { copyText(btReport()); };
+  }
+
+  /** the run, as text you can paste into a chat and pick apart */
+  function btReport() {
+    var st = btStats(), L = [];
+    L.push("TRADE TRAINER v" + APP.version + " — desk run");
+    L.push("Tape: " + BT.ch.sym + " " + BT.ch.tfLbl + "   seed=" + BT.ch.seed +
+      "   bar " + (chB.vis + 1) + " of " + BT.ch.bars.length);
+    L.push("Start " + money(BT.start) + "   balance " + money(BT.balance) +
+      "   equity " + money(equity()) + "   max drawdown " + (BT.maxDD * 100).toFixed(1) + "%");
+    L.push("Risk per trade: " + BT.riskPct + "%");
+    L.push("");
+    L.push("RESULTS over " + st.n + " closed trades");
+    L.push("  win rate " + (st.n ? (st.win * 100).toFixed(0) + "%" : "—") +
+      "   profit factor " + (st.n ? (isFinite(st.pf) ? st.pf.toFixed(2) : "inf") : "—") +
+      "   total " + (st.netR >= 0 ? "+" : "") + st.netR.toFixed(2) + "R" +
+      "   avg " + (st.avgR >= 0 ? "+" : "") + st.avgR.toFixed(2) + "R");
+    if (st.n >= 8) L.push("  " + verdict(st).replace(/<[^>]+>/g, ""));
+    L.push("");
+    L.push("TRADES (entry -> exit, why, R)");
+    BT.log.forEach(function (t, i) {
+      L.push("  " + (i + 1) + ". " + (t.dir > 0 ? "long " : "short") + " " + px(t.entry) +
+        " -> " + px(t.exit) + "  " + t.why + "  " + (t.r >= 0 ? "+" : "") + t.r.toFixed(2) + "R  " + money(t.pl));
+    });
+    if (BT.pos.length) {
+      L.push("");
+      L.push("STILL OPEN");
+      BT.pos.forEach(function (p) {
+        L.push("  " + (p.dir > 0 ? "long " : "short") + " from " + px(p.entry) +
+          "  SL " + (p.sl == null ? "—" : px(p.sl)) + "  TP " + (p.tp == null ? "—" : px(p.tp)) +
+          "  open " + money(posPL(p, btPrice())));
+      });
+    }
+    return L.join("\n");
+  }
 
   /* ---------------- boot ---------------- */
   $("verTag").textContent = "v" + APP.version;
@@ -6590,7 +7240,7 @@ var PROG = (function () {
   paintHeader();
   paintPath();
   if (!PROG.st.placed) setTimeout(showHelp, 400);
-  window.addEventListener("resize", function () { chD.render(); chP.render(); });
+  window.addEventListener("resize", function () { chD.render(); chP.render(); if (BT.ch) { chB.render(); drawCurve(); } });
 })();
 </script>
 </body>
