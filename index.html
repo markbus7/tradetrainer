@@ -192,6 +192,8 @@
   .btin{width:100%;background:var(--bg3);color:var(--paper);border:1px solid var(--line);border-radius:6px;
     padding:5px 7px;font-family:'IBM Plex Mono',monospace;font-size:11.5px}
   .btin:focus{outline:none;border-color:var(--amber)}
+  /* a readout dressed as a field would invite typing into it — so it looks inert */
+  .btin[readonly]{background:transparent;border-style:dashed;color:var(--muted);cursor:default}
   .btlab{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;display:block}
   .btseg{display:flex;gap:4px}
   .btseg button{flex:1;padding:5px 0;font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:6px;background:var(--bg3);color:var(--muted)}
@@ -293,7 +295,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.29.0", build: "2026-08-15", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.30.0", build: "2026-09-16", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -6585,17 +6587,21 @@ var PROG = (function () {
       '<li><b>Size is in lots.</b> Each instrument carries a real contract size, so a lot means what ' +
       'it means on a platform: 100,000 units on FX ($10 a pip on EURUSD, $6.67 on GBPJPY), 100oz of ' +
       'gold, one contract on ES ($50 a point) or NQ ($20), one coin on BTC, 100 shares on stock. ' +
-      'Set Risk % and the lots are worked out from your stop distance, or type the lots and read the ' +
-      'risk back.</li>' +
+      'You type the lots — nothing sizes the trade for you, because on a real platform nobody does. ' +
+      'The ticket reads the risk back in money and in percent of the account, and shows what 1% of ' +
+      'equity would have come to at that stop distance, as a yardstick you can ignore.</li>' +
       '<li><b>Work orders straight off the chart.</b> Pick Buy or Sell, hit the <b>⊕</b> tool and ' +
       'click the price you want. Limit or stop is inferred from where you clicked — behind the ' +
       'current price is a limit, beyond it is a stop — and the order appears with a stop and target ' +
-      'you then drag wherever you like. Size it afterwards in the order row, by lots or by risk %.</li>' +
+      'you then drag wherever you like. Set its lots afterwards in the order row.</li>' +
       '<li><b>Every level is draggable</b>: entries on working orders, stops, targets and partial ' +
       'targets. Dragging a working order across the current price flips it between limit and stop on ' +
       'its own.</li>' +
       '<li><b>Several positions at once</b>, and partial take-profits (add one and it lands at 1R, ' +
       'then drag it and tap the % to change the share).</li>' +
+      '<li><b>The curve is one point per closed trade</b>, not one per bar, so it shows the balance ' +
+      'you actually banked. Peak and max drawdown are measured on that same series — open profit ' +
+      'swinging around mid-trade is not a drawdown you took.</li>' +
       '<li><b>Fills are honest.</b> Orders fill bar by bar as the tape advances; a bar that gaps ' +
       'through a stop order fills at the open, not the order price. When one bar covers both your stop ' +
       'and your target, the <i>stop</i> is taken — the path inside a bar is unknown, and assuming the ' +
@@ -6665,7 +6671,8 @@ var PROG = (function () {
     PROG: PROG, Mkt: Mkt, setView: setView, APP: APP,
     chB: chB, get BT() { return BT; }, btNew: btNew, btStep: btStep, btOpen: btOpen, btClose: btClose,
     btFills: btFills, btSeries: btSeries, equity: equity, openPL: openPL,
-    lotUnits: lotUnits, toLots: toLots, fmtLots: fmtLots, perPoint: perPoint, pipName: pipName,
+    lotUnits: lotUnits, toLots: toLots, toUnits: toUnits, fmtLots: fmtLots,
+    perPoint: perPoint, pipName: pipName,
     unitsFor: unitsFor, btStats: btStats, btReport: btReport, paintBT: paintBT,
     get session() { return S; }
   };
@@ -6676,17 +6683,17 @@ var PROG = (function () {
 
      Practice shows one setup and asks one question. The Desk is the other
      thing: a long continuous tape you trade freely, so you can run your own
-     approach over many trades and read the result off the equity curve.
+     approach over many trades and read the result off the balance-per-trade curve.
 
      The tape is built by stitching Brooks contexts end to end and rebasing
      each one onto the previous close, so the series has real trends, ranges,
      breakouts and reversals rather than being a random walk.
      ===================================================================== */
   var BT = {
-    ch: null, start: 25000, balance: 25000, riskPct: 1,
+    ch: null, start: 25000, balance: 25000, lots: 1,
     pos: [], ord: [], log: [], nextId: 1,
     dir: 1, otype: "market", playing: false, timer: null, speed: 320,
-    peak: 25000, maxDD: 0, curve: []
+    peak: 25000, maxDD: 0, curve: [25000]
   };
 
   /** one long tape: many contexts, each rebased to continue from the last close */
@@ -6774,10 +6781,12 @@ var PROG = (function () {
   function equity() { return BT.balance + openPL(); }
 
   /** units implied by the risk model — the whole point of sizing by risk */
+  /* What one percent of the account would buy at this stop distance. Shown on the
+     ticket as a yardstick only — nothing in the app sizes a trade for you. */
   function unitsFor(entry, stop) {
     var d = Math.abs(entry - stop) * qRate();
     if (!(d > 0)) return 0;
-    return (equity() * (BT.riskPct / 100)) / d;
+    return (equity() * 0.01) / d;
   }
 
   /* ---------- order / position lifecycle ---------- */
@@ -6801,7 +6810,14 @@ var PROG = (function () {
          partial by its own slice risk would make scaling out look better than it is */
       pl: pl, r: p.rpu > 0 ? pl / (p.rpu * p.units0) : 0,
       why: why || "manual", idx: chB.vis });
-    if (p.units <= 1e-9) BT.pos.splice(BT.pos.indexOf(p), 1);
+    if (p.units <= 1e-9) {
+      BT.pos.splice(BT.pos.indexOf(p), 1);
+      /* One point per finished trade. Sampling equity every bar instead would
+         draw the open-profit wobble, and a drawdown you never actually took. */
+      BT.curve.push(BT.balance);
+      if (BT.balance > BT.peak) BT.peak = BT.balance;
+      BT.maxDD = Math.max(BT.maxDD, BT.peak > 0 ? (BT.peak - BT.balance) / BT.peak : 0);
+    }
     syncDraw();
   }
 
@@ -6845,10 +6861,6 @@ var PROG = (function () {
       if (p.tp != null && (p.dir > 0 ? b.h >= p.tp : b.l <= p.tp)) btClose(p, p.tp, 1, "target");
     }
 
-    var eq = equity();
-    BT.curve.push(eq);
-    if (eq > BT.peak) BT.peak = eq;
-    BT.maxDD = Math.max(BT.maxDD, BT.peak > 0 ? (BT.peak - eq) / BT.peak : 0);
   }
 
   /* ---------- chart <-> account sync ----------
@@ -6903,7 +6915,7 @@ var PROG = (function () {
     BT.ch = btSeries((Date.now() ^ (Math.random() * 1e9)) >>> 0, 22);
     BT.pos = []; BT.ord = [];
     if (!keepAccount) {
-      BT.balance = BT.start; BT.log = []; BT.peak = BT.start; BT.maxDD = 0; BT.curve = [];
+      BT.balance = BT.start; BT.log = []; BT.peak = BT.start; BT.maxDD = 0; BT.curve = [BT.start];
     }
     chB.load(BT.ch, 140);              /* a real run-up of context, not a few bars */
     chB.locked = false;
@@ -6935,14 +6947,14 @@ var PROG = (function () {
     if (Math.abs(price - at) < A * 0.15) { toast("Too close to the current price — that is a market order"); return; }
     var kind = (price - at) * d > 0 ? "stop" : "limit";
     var sl = price - d * A * 1.5, tp = price + d * A * 3;
-    var u = BT.tUnits != null && BT.tUnits > 0 ? BT.tUnits : unitsFor(price, sl);
+    var u = toUnits(BT.lots);
     BT.ord.push({ id: BT.nextId++, kind: kind, dir: d, price: price, units: u, sl: sl, tp: tp });
     syncDraw(); chB.render(); paintBT();
     toast((d > 0 ? "Buy" : "Sell") + " " + kind + " working at " + px(price) + " — drag the lines, set the lots");
   }
   function btResetAccount(stake) {
     BT.start = stake; BT.balance = stake; BT.peak = stake; BT.maxDD = 0;
-    BT.log = []; BT.curve = []; BT.pos = []; BT.ord = [];
+    BT.log = []; BT.curve = [stake]; BT.pos = []; BT.ord = [];
     syncDraw(); chB.render(); paintBT();
     toast("Account reset to " + money(stake));
   }
@@ -7041,7 +7053,7 @@ var PROG = (function () {
     cv.width = w * d; cv.height = h * d;
     var c = cv.getContext("2d"); c.setTransform(d, 0, 0, d, 0, 0);
     c.clearRect(0, 0, w, h);
-    var pts = BT.curve.length > 1 ? BT.curve : [BT.start, equity()];
+    var pts = BT.curve.length > 1 ? BT.curve : [BT.start, BT.start];
     var lo = Math.min.apply(null, pts), hi = Math.max.apply(null, pts);
     if (hi - lo < 1e-9) { hi = lo + 1; }
     var x = function (i) { return (i / (pts.length - 1)) * (w - 2) + 1; };
@@ -7071,20 +7083,24 @@ var PROG = (function () {
       kv("Balance", money(BT.balance)) +
       kv("Equity", money(eq), eq >= BT.start ? "up" : "dn") +
       kv("Open P/L", money(op), op > 0 ? "up" : op < 0 ? "dn" : "") +
-      kv("Peak", money(BT.peak)) +
+      kv("Peak balance", money(BT.peak)) +
       kv("Max DD", (BT.maxDD * 100).toFixed(1) + "%", BT.maxDD > 0.2 ? "dn" : "") +
       kv("Price", px(at)) +
       '</div>' +
       '<div style="margin-top:7px"><label class="btlab">Start capital</label>' +
       '<input class="btin" id="btStart" type="number" step="any" value="' + BT.start + '"></div>' +
-      '<canvas id="eqCurve" style="margin-top:8px"></canvas></div>');
+      '<label class="btlab" style="margin-top:8px;display:block">Balance per closed trade' +
+      (BT.curve.length > 1 ? '  (' + (BT.curve.length - 1) + ')' : '') + '</label>' +
+      '<canvas id="eqCurve"></canvas></div>');
 
     /* ticket */
     var slDef = +(at - BT.dir * A * 1.5).toFixed(BT.ch.dec);
     var tpDef = +(at + BT.dir * A * 3).toFixed(BT.ch.dec);
     var entryFld = BT.otype === "market" ? at : (BT.tPrice != null ? BT.tPrice : +(at + BT.dir * A).toFixed(BT.ch.dec));
     var sl = BT.tSL != null ? BT.tSL : slDef, tp = BT.tTP != null ? BT.tTP : tpDef;
-    var u = unitsFor(entryFld, sl), riskMoney = Math.abs(entryFld - sl) * u * qRate();
+    /* Lots are yours. The app reports what that risks — it never resizes for you,
+       because picking the size is the thing worth practising. */
+    var u = toUnits(BT.lots), riskMoney = Math.abs(entryFld - sl) * u * qRate();
     out.push('<div class="btsec"><h5>Order ticket</h5>' +
       '<div class="btseg" style="margin-bottom:7px">' +
       '<button class="buy' + (BT.dir > 0 ? " on" : "") + '" data-bt="dir" data-v="1">Buy</button>' +
@@ -7099,8 +7115,10 @@ var PROG = (function () {
         '<div><label class="btlab">Entry</label><input class="btin" id="btPrice" type="number" step="any" value="' + entryFld + '"></div>') +
       '<div><label class="btlab">Stop loss</label><input class="btin" id="btSL" type="number" step="any" value="' + sl + '"></div>' +
       '<div><label class="btlab">Take profit</label><input class="btin" id="btTP" type="number" step="any" value="' + tp + '"></div>' +
-      '<div><label class="btlab">Risk %</label><input class="btin" id="btRisk" type="number" step="0.1" value="' + BT.riskPct + '"></div>' +
-      '<div><label class="btlab">Lots</label><input class="btin" id="btLots" type="number" step="0.01" value="' + (+toLots(u).toFixed(3)) + '"></div>' +
+      '<div><label class="btlab">Lots</label><input class="btin" id="btLots" type="number" step="0.01" value="' + BT.lots + '"></div>' +
+      '<div><label class="btlab">1% of equity is</label><input class="btin" readonly tabindex="-1" ' +
+      'title="What one percent of the account would size to here — shown for reference, not applied" ' +
+      'value="' + (+toLots(unitsFor(entryFld, sl)).toFixed(2)) + ' lots"></div>' +
       '</div>' +
       '<div class="btkv" style="margin-top:7px"><span>Risk on this trade</span><b>' + money(riskMoney) +
       '  (' + (eq > 0 ? (riskMoney / eq * 100).toFixed(2) : "0") + '%)</b></div>' +
@@ -7156,16 +7174,13 @@ var PROG = (function () {
           '<span class="mono">' + oRR.toFixed(2) + 'R</span></div>' +
           '<div class="mono">at ' + px(o.price) +
           ' · SL ' + (o.sl == null ? "—" : px(o.sl)) + ' · TP ' + (o.tp == null ? "—" : px(o.tp)) + '</div>' +
-          '<div class="btgrid" style="margin-top:5px">' +
+          '<div style="margin-top:5px">' +
           '<div><label class="btlab">Lots</label>' +
           '<input class="btin" data-olot="' + o.id + '" type="number" step="0.01" value="' +
           (+toLots(o.units).toFixed(3)) + '"></div>' +
-          '<div><label class="btlab">Risk %</label>' +
-          '<input class="btin" data-orisk="' + o.id + '" type="number" step="0.1"' +
-          ' title="Set the risk % and the lots follow"' +
-          ' value="' + (equity() > 0 ? (oRisk / equity() * 100).toFixed(2) : "0") + '"></div>' +
           '</div>' +
-          '<div class="btkv" style="margin-top:4px"><span>Risking</span><b>' + money(oRisk) + '</b></div>' +
+          '<div class="btkv" style="margin-top:4px"><span>Risking</span><b>' + money(oRisk) +
+          '  (' + (equity() > 0 ? (oRisk / equity() * 100).toFixed(2) : "0") + '%)</b></div>' +
           '<div class="acts"><button data-bt="cancel" data-id="' + o.id + '">Cancel order</button></div></div>');
       });
       out.push('</div>');
@@ -7245,8 +7260,7 @@ var PROG = (function () {
     num("btPrice", function (v) { BT.tPrice = v; });
     num("btSL", function (v) { BT.tSL = v; });
     num("btTP", function (v) { BT.tTP = v; });
-    num("btRisk", function (v) { BT.riskPct = Math.min(20, Math.max(0.05, v)); BT.tUnits = null; });
-    num("btLots", function (v) { BT.tUnits = Math.max(0, toUnits(v)); });
+    num("btLots", function (v) { if (v > 0) BT.lots = v; });
     var stEl = $("btStart");
     if (stEl) stEl.onchange = function () {
       var v = +this.value;
@@ -7266,15 +7280,6 @@ var PROG = (function () {
         chB.render(); paintBT();
       };
     });
-    [].forEach.call(P.querySelectorAll("[data-orisk]"), function (el) {
-      el.onchange = function () {
-        var o = BT.ord.filter(function (x) { return x.id === +el.dataset.orisk; })[0];
-        var v = +this.value, d = o ? Math.abs(o.price - o.sl) * qRate() : 0;
-        if (o && v > 0 && d > 0) o.units = (equity() * (v / 100)) / d;
-        chB.render(); paintBT();
-      };
-    });
-
     var pl = $("btPlace");
     if (pl) pl.onclick = function () {
       var at = btPrice(), A = btATR();
@@ -7283,7 +7288,7 @@ var PROG = (function () {
       var sl = BT.tSL != null ? BT.tSL : at - BT.dir * A * 1.5;
       var tp = BT.tTP != null ? BT.tTP : at + BT.dir * A * 3;
       if ((sl - entry) * BT.dir >= 0) { toast("The stop must sit on the losing side of the entry"); return; }
-      var u = BT.tUnits != null && BT.tUnits > 0 ? BT.tUnits : unitsFor(entry, sl);
+      var u = toUnits(BT.lots);
       if (!(u > 0)) { toast("Size works out to zero — check the stop distance"); return; }
       if (BT.otype === "market") {
         btOpen(BT.dir, at, u, sl, tp, chB.vis);
@@ -7296,7 +7301,7 @@ var PROG = (function () {
         BT.ord.push({ id: BT.nextId++, kind: BT.otype, dir: BT.dir, price: entry, units: u, sl: sl, tp: tp });
         toast(BT.otype + " order placed at " + px(entry));
       }
-      BT.tSL = BT.tTP = BT.tPrice = BT.tUnits = null;
+      BT.tSL = BT.tTP = BT.tPrice = null;
       syncDraw(); chB.render(); paintBT();
     };
 
@@ -7320,7 +7325,7 @@ var PROG = (function () {
       money(perPoint()) + " per " + pipName());
     L.push("Start " + money(BT.start) + "   balance " + money(BT.balance) +
       "   equity " + money(equity()) + "   max drawdown " + (BT.maxDD * 100).toFixed(1) + "%");
-    L.push("Risk per trade: " + BT.riskPct + "%");
+    L.push("Size: " + BT.lots + " lots");
     L.push("");
     L.push("RESULTS over " + st.n + " closed trades");
     L.push("  win rate " + (st.n ? (st.win * 100).toFixed(0) + "%" : "—") +
