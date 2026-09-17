@@ -304,7 +304,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.36.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.37.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -6939,6 +6939,20 @@ var PROG = (function () {
       'there, so you can grind the same instrument the way you actually trade it. Changing either ' +
       'starts a fresh tape and keeps the account; anything open at the time is discarded, not closed, ' +
       'so it never lands in your results.</li>' +
+      '<li><b>Coach</b> shows you what the tape is actually printing. The Desk stitches its tape ' +
+      'from the same fourteen contexts the drills use, so every stretch has a known setup — and the ' +
+      'coach surfaces it the moment its signal bar prints, which is the real decision point. You get ' +
+      'the name, the entry, the stop beyond the signal bar, the target, the reward-to-risk and the ' +
+      'win rate that context is calibrated to. <b>Fill the ticket with this</b> loads it into the ' +
+      'order ticket — direction, entry, stop and target — and then stops. It never picks your lot ' +
+      'size, because that is the part worth practising.</li>' +
+      '<li><b>What the coach is not.</b> Those odds come from Brooks\' method encoded into the ' +
+      'generator and verified self-consistent against it — every context resolves within about three ' +
+      'points of the rate it quotes. They are <i>not</i> the output of backtesting live markets, and ' +
+      'nobody should trade real money off them. What they train is <b>execution</b>: whether you can ' +
+      'take the setup in front of you, at a size you chose, again and again, without flinching or ' +
+      'improvising. The counter reads <b>taken / seen</b>, and skipped setups are counted too — ' +
+      'sitting out a no-trade context is correct, sitting out a good one is a leak worth seeing.</li>' +
       '<li><b>New tape</b> keeps the account, so your sample can span several stretches of market. ' +
       '<b>Copy results</b> puts the whole run — every trade with its R — on the clipboard.</li>' +
 
@@ -7044,6 +7058,7 @@ var PROG = (function () {
      ===================================================================== */
   var BT = {
     ch: null, sym: null, tf: null,       /* null = let the tape pick */
+    coach: false, coachSeen: 0, coachTaken: 0, coachSkipped: 0,
     start: 25000, balance: 25000, lots: 1,
     pos: [], ord: [], log: [], nextId: 1,
     dir: 1, otype: "market", playing: false, timer: null, speed: 320,
@@ -7052,7 +7067,7 @@ var PROG = (function () {
 
   /** one long tape: many contexts, each rebased to continue from the last close */
   function btSeries(seed, segs) {
-    var R = Mkt.mkR(seed), bars = [], first = null;
+    var R = Mkt.mkR(seed), bars = [], first = null, sigs = [];
     for (var s = 0; s < segs; s++) {
       var key = R.pick(Mkt.KEYS);
       /* the first segment fixes the instrument and timeframe; the rest follow it,
@@ -7062,9 +7077,33 @@ var PROG = (function () {
         tf: first ? first.tf : (BT.tf || undefined) });
       if (!first) first = c;
       var src = c.bars, off = bars.length ? bars[bars.length - 1].c - src[0].o : 0;
+      var base = bars.length;
       for (var i = 0; i < src.length; i++) {
         var b = src[i];
         bars.push({ t: 0, o: b.o + off, h: b.h + off, l: b.l + off, c: b.c + off, v: b.v });
+      }
+      /* Every segment is one of the 14 contexts and knows its own setup — where
+         the signal bar is, what the entry, stop and target were, and the win rate
+         that context is calibrated to. The Desk used to throw all of it away.
+         Keep it, rebased onto the stitched tape, so the coach can show the setup
+         as it arrives instead of the chart being a mystery. */
+      var g = c.gt;
+      if (g && g.sigIdx != null) {
+        sigs.push({
+          i: base + g.sigIdx, key: g.key, name: g.name, cycle: g.cycle,
+          dir: g.dir, tradeable: !!g.tradeable,
+          entry: g.entry != null ? g.entry + off : null,
+          /* the stop just beyond the signal bar, which is the one Brooks takes;
+             `invalid` is the wider structural level, kept for reference.
+             `stopLevel` is prose, not a price — do not put it on a chart. */
+          stop: g.sigStop != null ? g.sigStop + off : null,
+          invalid: g.invalid != null ? g.invalid + off : null,
+          stopDesc: g.stopLevel,
+          target: g.target != null ? g.target + off : null,
+          prob: g.prob, rr: g.refRR, entryType: g.entryType,
+          attempt: g.attempt, style: g.style, brooks: g.brooks,
+          sigKind: g.sigKind, worked: g.worked
+        });
       }
     }
     /* Each segment carries its own clock, so the stitched tape needs one
@@ -7081,7 +7120,7 @@ var PROG = (function () {
       bars.forEach(function (b) { b.o += lift; b.h += lift; b.l += lift; b.c += lift; });
     }
     return { bars: bars, sym: first.sym, nm: first.nm, tf: first.tf, tfLbl: first.tfLbl,
-      dec: first.dec, kind: first.kind, seed: seed, U: first.U,
+      dec: first.dec, kind: first.kind, seed: seed, U: first.U, sigs: sigs,
       atr: Mkt.atr(bars, 14, Math.min(60, bars.length - 1)), gt: null };
   }
 
@@ -7222,6 +7261,56 @@ var PROG = (function () {
 
   }
 
+  /* ---------- the coach ----------
+     The tape is stitched from the same 14 contexts the drills use, and each one
+     carries its setup: where the signal bar is, the entry, the stop beyond that
+     bar, the target, and the win rate the context is calibrated to. With the
+     coach on, that setup surfaces the moment its signal bar is revealed — the
+     actual decision point — so the tape can be traded as the method says
+     instead of guessed at.
+
+     It is NOT a profitable-strategy finder. These probabilities come from
+     Brooks' teaching encoded into the generator and verified self-consistent
+     against it; they are not the result of backtesting live markets. What this
+     trains is execution: whether you can take the setup you are shown, at the
+     size you chose, over and over, without flinching or improvising. */
+  var COACH_WINDOW = 6;        /* bars a signal stays actionable after it prints */
+
+  function liveSignal() {
+    if (!BT.coach || !BT.ch || !BT.ch.sigs) return null;
+    var v = chB.vis, out = null;
+    BT.ch.sigs.forEach(function (g) {
+      if (g.i <= v && v - g.i <= COACH_WINDOW) out = g;
+    });
+    return out;
+  }
+  /* count each setup once, the first time its bar is revealed */
+  function coachTally() {
+    if (!BT.coach || !BT.ch || !BT.ch.sigs) return;
+    var v = chB.vis;
+    BT.ch.sigs.forEach(function (g) {
+      if (g.i <= v && !g._seen) { g._seen = true; BT.coachSeen++; }
+      /* a tradeable setup that aged out untaken is a skip, and skipping is a
+         real decision — a no-trade context is not, so it never counts */
+      if (g._seen && !g._closed && v - g.i > COACH_WINDOW) {
+        g._closed = true;
+        if (g.tradeable && !g._taken) BT.coachSkipped++;
+      }
+    });
+  }
+  function takeSignal() {
+    var g = liveSignal();
+    if (!g || !g.tradeable) return;
+    BT.dir = g.dir > 0 ? 1 : -1;
+    BT.otype = g.entryType === "limit" ? "limit" : "stop";
+    BT.tPrice = +g.entry.toFixed(BT.ch.dec);
+    BT.tSL = +g.stop.toFixed(BT.ch.dec);
+    BT.tTP = +g.target.toFixed(BT.ch.dec);
+    if (!g._taken) { g._taken = true; BT.coachTaken++; }
+    paintBT(); chB.render();
+    toast("Ticket filled from the setup — set your lots, then place it");
+  }
+
   /* ---------- chart <-> account sync ----------
      Positions and pending orders are drawn as the chart's own `pos` / `hline`
      objects, so the existing hit-testing and drag loop makes every level
@@ -7229,6 +7318,18 @@ var PROG = (function () {
   function syncDraw() {
     if (!chB) return;
     chB.drawings = chB.drawings.filter(function (d) { return !d._bt; });
+    /* the live setup, drawn but not draggable — it is what the method says, not
+       a position you own. Tagged so it reads without needing the panel. */
+    var cg = liveSignal();
+    BT._coachAt = cg || null;          /* what the chart is currently showing */
+    if (cg && cg.tradeable) {
+      chB.drawings.push({ type: "hline", _bt: "coach", p: cg.entry,
+        col: COL.amber, tag: "SETUP ENTRY" });
+      chB.drawings.push({ type: "hline", _bt: "coach", p: cg.stop,
+        col: COL.bad, tag: "SETUP STOP" });
+      chB.drawings.push({ type: "hline", _bt: "coach", p: cg.target,
+        col: COL.ok, tag: "SETUP TARGET" });
+    }
     BT.pos.forEach(function (p) {
       chB.drawings.push({ type: "pos", _bt: "pos", _id: p.id, i: p.openIdx, dir: p.dir,
         entry: p.entry, stop: p.sl, target: p.tp == null ? p.entry + p.dir * btATR() * 2 : p.tp });
@@ -7275,6 +7376,7 @@ var PROG = (function () {
     BT.pos = []; BT.ord = [];
     if (!keepAccount) {
       BT.balance = BT.start; BT.log = []; BT.peak = BT.start; BT.maxDD = 0; BT.curve = [BT.start];
+      BT.coachSeen = BT.coachTaken = BT.coachSkipped = 0;
     }
     chB.load(BT.ch, 140);              /* a real run-up of context, not a few bars */
     chB.locked = false;
@@ -7325,6 +7427,8 @@ var PROG = (function () {
       btFills(chB.vis);
       if (chB.vis > chB.i1 - 4) { chB.i0 += 1; chB.i1 += 1; }
     }
+    /* the live setup changes as bars arrive, so its lines have to be rebuilt */
+    if (BT.coach) syncDraw();
     chB.render(); paintBT();
   }
   function btPlay() {
@@ -7365,6 +7469,10 @@ var PROG = (function () {
       '<option value="600">Slow</option><option value="320" selected>Normal</option>' +
       '<option value="120">Fast</option><option value="40">Turbo</option></select>' +
       '<div class="tsep"></div>' +
+      '<button class="tool wide" data-act="coach" id="btCoachBtn"' +
+      (BT.coach ? ' style="border-color:var(--amber);background:#241a08;color:var(--amber)"' : '') +
+      ' title="Show the setup the tape is actually printing, with its calibrated odds">' +
+      (BT.coach ? 'Coach ON' : 'Coach') + '</button>' +
       '<button class="tool wide" data-act="new">New tape</button>';
     wrap.innerHTML = html;
     [].forEach.call(wrap.querySelectorAll("[data-tool]"), function (b) {
@@ -7379,6 +7487,14 @@ var PROG = (function () {
         if (a === "s1") btStep(1);
         if (a === "s10") btStep(10);
         if (a === "play") btPlay();
+        if (a === "coach") {
+          BT.coach = !BT.coach;
+          buildBTTools(); syncDraw(); chB.render(); paintBT();
+          toast(BT.coach
+            ? "Coach on — setups appear as their signal bar prints"
+            : "Coach off");
+          return;
+        }
         if (a === "new") {
           /* the account carries over on purpose: a sample of trades is only
              meaningful once it spans more than one stretch of market */
@@ -7479,6 +7595,52 @@ var PROG = (function () {
       '<label class="btlab" style="margin-top:8px;display:block">Balance per closed trade' +
       (BT.curve.length > 1 ? '  (' + (BT.curve.length - 1) + ')' : '') + '</label>' +
       '<canvas id="eqCurve"></canvas></div>');
+
+    /* ---- the coach's card ---- */
+    coachTally();
+    /* Whatever moved the tape, the lines on the chart must match the setup this
+       panel is about to describe. Only redraws when the setup actually changed,
+       so a rebuild never lands in the middle of a drag. */
+    if (BT.coach && liveSignal() !== BT._coachAt) syncDraw();
+    if (BT.coach) {
+      var cg = liveSignal();
+      out.push('<div class="btsec"><h5>Coach <span class="mono">' +
+        BT.coachTaken + ' taken / ' + BT.coachSeen + ' seen</span></h5>');
+      if (!cg) {
+        out.push('<div class="hint">Nothing here. Step the tape — a setup shows the ' +
+          'moment its signal bar prints, and stays live for ' + COACH_WINDOW + ' bars.</div>');
+      } else if (!cg.tradeable) {
+        out.push('<div class="btrow"><div class="top">' +
+          '<b style="color:var(--muted)">NO TRADE</b>' +
+          '<span class="mono">' + cg.cycle + '</span></div>' +
+          '<div style="margin-top:3px"><b>' + cg.name + '</b></div>' +
+          '<div class="hint" style="margin-top:5px">' + (cg.brooks || '') + '</div>' +
+          '<div class="btkv" style="margin-top:5px"><span>The correct trade</span>' +
+          '<b>None — sit it out</b></div></div>');
+      } else {
+        var risk = Math.abs(cg.entry - cg.stop), rew = Math.abs(cg.target - cg.entry);
+        var rr = risk > 0 ? rew / risk : 0;
+        var edge = cg.prob * rr - (1 - cg.prob);
+        out.push('<div class="btrow"><div class="top">' +
+          '<b style="color:' + (cg.dir > 0 ? 'var(--up)' : 'var(--dn)') + '">' +
+          (cg.dir > 0 ? 'BUY' : 'SELL') + ' ' + (cg.entryType || 'stop').toUpperCase() + '</b>' +
+          '<span class="mono">' + rr.toFixed(2) + 'R</span></div>' +
+          '<div style="margin-top:3px"><b>' + cg.name + '</b></div>' +
+          '<div class="mono" style="margin-top:4px">entry ' + px(cg.entry) +
+          ' · stop ' + px(cg.stop) + ' · target ' + px(cg.target) + '</div>' +
+          '<div class="btkv" style="margin-top:5px"><span>Win rate for this setup</span><b>' +
+          Math.round(cg.prob * 100) + '%</b></div>' +
+          '<div class="btkv"><span>Expectancy</span><b class="' + (edge >= 0 ? 'up' : 'dn') + '">' +
+          (edge >= 0 ? '+' : '') + edge.toFixed(2) + 'R per trade</b></div>' +
+          '<div class="btkv"><span>Stop sits at</span><b>' + (cg.stopDesc || 'the signal bar') + '</b></div>' +
+          '<div class="acts"><button data-bt="take">Fill the ticket with this</button></div>' +
+          '</div>');
+      }
+      out.push('<div class="hint" style="margin-top:6px">These odds are Brooks\' method ' +
+        'encoded and checked against the generator — not a backtest of live markets. ' +
+        'What they drill is execution.</div>');
+      out.push('</div>');
+    }
 
     /* ticket */
     var slDef = +(at - BT.dir * A * 1.5).toFixed(BT.ch.dec);
@@ -7619,6 +7781,7 @@ var PROG = (function () {
       b.onclick = function () {
         var a = b.dataset.bt, id = +b.dataset.id, v = b.dataset.v;
         var pos = BT.pos.filter(function (x) { return x.id === id; })[0];
+        if (a === "take") { takeSignal(); return; }
         if (a === "dir") { BT.dir = +v; BT.tSL = BT.tTP = BT.tPrice = null; }
         if (a === "otype") { BT.otype = v; BT.tPrice = null; }
         if (a === "close" && pos) btClose(pos, btPrice(), +v, "manual");
