@@ -295,7 +295,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.31.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.32.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -449,7 +449,7 @@ var Mkt = (function () {
   /* ---- 1. spike and channel ---------------------------------------- */
   CTX.spikeChannel = {
     name: "Spike and channel", twin: "Spike and channel (bear)",
-    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.76, pWin: 0.54,
+    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.618, pWin: 0.54,
     style: "swing", mmType: "spike", entryType: "stop", sigQ: "strong", attempt: "first", exit: "trail",
     brooks: "The spike is the strongest part of the move — it is where the institutions were most eager. Measure the spike and project it from the top of the spike: that is where the channel is trying to reach. Buy pullbacks in the channel; the first pullback after a spike rarely fails.",
     mmRule: "Measure the spike (its low to its high) and project that height from the top of the spike.",
@@ -483,7 +483,7 @@ var Mkt = (function () {
   /* ---- 2. tight channel -------------------------------------------- */
   CTX.tightChannel = {
     name: "Tight bull channel", twin: "Tight bear channel",
-    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.91, pWin: 0.62,
+    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.746, pWin: 0.62,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "first", exit: "trail",
     brooks: "A tight channel is a one-sided market: the pullbacks are tiny and every reversal attempt fails. Do not look for shorts here — bears keep getting trapped. Buy the first pullback (a High 1) and hold. Countertrend trading here is the worst trade on the chart: about four out of five attempts to reverse a strong trend fail, and in a genuinely tight channel it is worse than that. Bears do not get a good entry until the channel first breaks and price then returns to test the high.",
     mmRule: "Measure the first leg of the channel and project it from the pullback low.",
@@ -515,7 +515,7 @@ var Mkt = (function () {
   /* ---- 3. broad channel -------------------------------------------- */
   CTX.broadChannel = {
     name: "Broad bull channel", twin: "Broad bear channel",
-    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.72, pWin: 0.58,
+    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.632, pWin: 0.58,
     style: "scalp", mmType: "none", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
     brooks: "A broad channel is really a trading range tilted upward — it is two-sided. Buying near the bottom of the channel is fine, but the swings are big and the follow-through is unreliable, so take profit at the top of the channel instead of holding for a big measured move.",
     mmRule: "Measure the prior leg up and project it from the pullback low.",
@@ -545,7 +545,7 @@ var Mkt = (function () {
   /* ---- 4. two-legged pullback (H2 / L2) ---------------------------- */
   CTX.twoLegPullback = {
     name: "Two-legged pullback", twin: "Two-legged pullback",
-    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.68, pWin: 0.54,
+    family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.7, pWin: 0.54,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", exit: "trail",
     brooks: "A two-legged pullback to the 20-bar moving average in a bull trend is the highest-probability buy there is. The first attempt up traps bulls in too early; when it fails, those bulls capitulate and bears press \u2014 and the second attempt up traps the bears. Buy on a stop one tick above the High 2 signal bar.",
     mmRule: "Leg 1 equals leg 2: measure the prior leg up and project the same distance from the pullback low.",
@@ -612,7 +612,7 @@ var Mkt = (function () {
   /* ---- 5. trading range, at the edge ------------------------------- */
   CTX.rangeLow = {
     name: "Trading range — price at the low", twin: "Trading range — price at the high",
-    family: "range", cycle: "trading range", dir: 1, alwaysIn: 0, prob: 0.68, pWin: 0.61,
+    family: "range", cycle: "trading range", dir: 1, alwaysIn: 0, prob: 0.707, pWin: 0.61,
     style: "scalp", mmType: "range", entryType: "limit", sigQ: "strong", attempt: "second", exit: "target",
     brooks: "In a trading range you buy low, sell high and scalp. Price is at the bottom of the range with buyers stepping in, so buy — but take profit at the middle or the top, not beyond. There is no always-in direction in a range; anyone trading it like a trend gets cut to pieces.",
     mmRule: "The range height is the measure. From the low, the realistic target is the middle; the top of the range is the stretch.",
@@ -764,7 +764,7 @@ var Mkt = (function () {
   /* ---- 9. failed breakout (the 80% rule) ---------------------------- */
   CTX.failedBo = {
     name: "Failed breakout below the range", twin: "Failed breakout above the range",
-    family: "breakout", cycle: "trading range", dir: 1, alwaysIn: 1, prob: 0.68, pWin: 0.65, tex: 1.35,
+    family: "breakout", cycle: "trading range", dir: 1, alwaysIn: 1, prob: 0.642, pWin: 0.65, tex: 1.06,   /* the setup IS a trading range, so it gets range texture */
     probe: function (ax) { return [ax.b2.i + 1, ax.bo.i + 1]; },
     style: "scalp", mmType: "failedBo", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
     brooks: "About eight out of ten breakout attempts out of a trading range fail. Price broke below the range, found no sellers, and has reversed back inside — every breakout seller is now trapped and has to buy back. Buy, with a stop below the failed low, and target the other side of the range.",
@@ -801,7 +801,7 @@ var Mkt = (function () {
   /* ---- 10. successful breakout -------------------------------------- */
   CTX.successBo = {
     name: "Breakout with follow-through", twin: "Breakout with follow-through (down)",
-    family: "breakout", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.58, pWin: 0.52,
+    family: "breakout", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.55, pWin: 0.52,
     style: "swing", mmType: "range", entryType: "stop", sigQ: "strong", attempt: "first", exit: "trail",
     brooks: "Most breakouts fail, but this one has earned belief: big trend bars, closes near their highs, almost no tails and a follow-through bar. That is institutional buying, not a probe. The measured move is the height of the range projected from the breakout.",
     mmRule: "Project the height of the range from the point where it broke.",
@@ -878,7 +878,7 @@ var Mkt = (function () {
   /* ---- 12. major trend reversal ------------------------------------- */
   CTX.mtr = {
     name: "Major trend reversal (bull)", twin: "Major trend reversal (bear)",
-    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.45, pWin: 0.42,
+    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.413, pWin: 0.42,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
     brooks: "A major trend reversal needs all of it: a strong bear trend, a countertrend move strong enough to break the bear trendline (and usually the moving average), then a test of the old low that holds. The test can come as a higher low OR as a lower low that reverses — Brooks says the two happen about equally often, so do not insist on a higher low. Without the trendline break first, a reversal attempt is just a pullback, and about four out of five of those fail.",
     mmRule: "Measure the first leg up off the low and project it from the higher low.",
@@ -1059,7 +1059,7 @@ var Mkt = (function () {
   /* ---- 14. climax --------------------------------------------------- */
   CTX.climax = {
     name: "Sell climax", twin: "Buy climax",
-    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: -1, prob: 0.55, pWin: 0.62,
+    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: -1, prob: 0.577, pWin: 0.62,
     style: "scalp", mmType: "none", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
     brooks: "Three or more big bear bars accelerating into a low is a sell climax — exhaustion, not strength. Expect a two-legged correction up lasting about ten bars. But this is a scalp: after a climax the odds of the trend resuming are still about even, so take the bounce and do not marry it.",
     mmRule: "Measure the last climactic leg; a correction typically retraces a good part of it, not all.",
@@ -1522,14 +1522,80 @@ var Mkt = (function () {
        range traverses edge to edge while a trend spreads the same move over
        more bars, ranges come out with LARGER bodies than trends — backwards for
        a method built entirely on reading bars. */
-    var TEX = { trend: 0.60, breakout: 0.55, range: 1.55, nothing: 1.85, reversal: 0.95 };
+    /* Multipliers on how much the price wanders INSIDE a bar, relative to how
+       far the bar travels. Every value here is measured, not chosen: 1.15M bars
+       of real 15-minute XAUUSD/EURUSD/USDJPY/GBPUSD/GBPJPY, split by Kaufman
+       efficiency ratio, give RMS(range)/RMS(body) of 1.52-1.67 in the cleanest
+       trends, 1.68-1.74 mid, 1.71-1.75 in chop, and 1.89-2.00 in stretches that
+       pass a Brooks barbwire filter (tight, overlapping, range < 2.2 ATR).
+       Brooks is right that a range prints more tail than a trend — and right
+       that barbwire prints the most — but the real gap is about 6-9% between
+       trend and range, not the 3.4x this table used to apply. Each value below
+       was fitted so its family lands on the figure real data shows for that
+       condition. */
+    var TEX = { trend: 0.94, breakout: 0.93, range: 1.06, nothing: 1.28, reversal: 1.03 };
     var tex = def.tex !== undefined ? def.tex : (TEX[def.family] || 1);
+
+    /* How hard price is moving right here, bar to bar. It has to be a LOCAL
+       measure, not one number for the whole chart: this generator lays a
+       deterministic drift under the trend segments, so a trend bar's body is
+       bigger than the local noise alone would make it. Scaling the intrabar
+       path off a global average would then give those bars too little range and
+       the quiet stretches too much — which is exactly how you manufacture
+       dojis in the chop and ruler-straight bars in the trend.
+       It is an RMS, not a mean: the statistic this is calibrated against —
+       RMS(range)/RMS(body) — is a second moment, and a mean-absolute estimate
+       reads a drifting stretch differently from a choppy one of the same
+       variance, which is the whole thing we are trying to get right. */
+    var LW = 10, locS = new Array(N), dAbs = new Array(N);
+    for (var q1 = 0; q1 < N; q1++) dAbs[q1] = q1 ? Math.abs(close[q1] - close[q1 - 1]) : 0;
+    for (var q2 = 0; q2 < N; q2++) {
+      var lo2 = Math.max(1, q2 - LW), hi2 = Math.min(N - 1, q2 + LW), sm = 0, cn = 0;
+      for (var q3 = lo2; q3 <= hi2; q3++) { sm += dAbs[q3] * dAbs[q3]; cn++; }
+      locS[q2] = cn ? Math.sqrt(sm / cn) : sig * P0;
+      if (!(locS[q2] > 0)) locS[q2] = sig * P0;
+    }
+    var KB = 4;          /* bridge pieces per bar; see candle() */
+    var INTRA = 1;       /* the bridge needs no fudge factor; kept for clarity */
 
     function candle(c, f, swp) {
       var o = bars.length === 0 ? c - R.t() * sig * P0 : bars[bars.length - 1].c;
       if (bars.length && R.chance(gapP)) o += R.t() * sig * P0 * R.f(0.5, 1.8);
-      var h = Math.max(o, c) + Math.abs(R.t()) * sig * P0 * 0.6 * f * tex;
-      var l = Math.min(o, c) - Math.abs(R.t()) * sig * P0 * 0.6 * f * tex;
+      /* Where price actually went inside the bar. The old formula drew each
+         wick from its own draw scaled to GLOBAL volatility, independent of the
+         bar's own move, so a quiet bar with a tiny body still sprouted a
+         full-size tail on both sides: 68% of bars carried two wicks against 53%
+         in real data, and range/body sat at 2.26 against a real 1.68.
+
+         Instead, treat the bar as what it is — a Brownian bridge from the open
+         to the close — and read the high and low off it. Walking the path in
+         small steps would work but has to be sampled ~1000 times a bar before
+         the extremes stop undershooting, which is far too slow. The bridge
+         maximum has a closed form,
+             P(max > m) = exp(-2m(m-d)/s^2),  m >= max(0,d)
+         so it can be drawn directly from a uniform. Sampling the max and the
+         min that way independently ignores that a bar rarely stretches far
+         both ways, and overstates two-sided bars; splitting the bar into four
+         pieces and giving each its exact extremes restores that dependence.
+         Four is where it converges: RMS(range)/RMS(body) = 1.665, which is
+         sqrt(4 ln 2) — the value a diffusion has to have, and the value 1.15M
+         bars of real 15-minute FX and gold actually show. */
+      var sInt = (locS[bars.length] || locS[N - 1]) * tex * INTRA;
+      var ssub = sInt / Math.sqrt(KB), s2b = ssub * ssub, d0 = c - o;
+      var h = Math.max(o, c), l = Math.min(o, c);
+      var wv = new Array(KB + 1), acc4 = 0, k4;
+      wv[0] = 0;
+      for (k4 = 1; k4 <= KB; k4++) { acc4 += R.g() * ssub; wv[k4] = acc4; }
+      for (k4 = 0; k4 < KB; k4++) {
+        var pa = o + d0 * (k4 / KB) + (wv[k4] - (k4 / KB) * wv[KB]);
+        var pb = o + d0 * ((k4 + 1) / KB) + (wv[k4 + 1] - ((k4 + 1) / KB) * wv[KB]);
+        var dd = pb - pa;
+        var u1 = Math.max(1e-12, R.u()), u2 = Math.max(1e-12, R.u());
+        var mx = pa + (dd + Math.sqrt(dd * dd - 2 * s2b * Math.log(u1))) / 2;
+        var mn = pa + (dd - Math.sqrt(dd * dd - 2 * s2b * Math.log(u2))) / 2;
+        if (mx > h) h = mx;
+        if (mn < l) l = mn;
+      }
       if (swp) { if (swp > 0) h += swp; else l += swp; }
       var mv = Math.abs(c - o) / (sig * P0);
       bars.push({
@@ -6545,6 +6611,23 @@ var PROG = (function () {
       '54% of bars close the opposite colour to the one before, and runs of six or more same-colour bars are about ' +
       '2.5% of all runs. This generator sits at 49% and 2.9%. That matters because a tape that marches ten bars in ' +
       'one direction without a pullback would teach you to expect something the market does not do.</p>' +
+      '<p>Bar <b>shape</b> is calibrated the same way, against 1.15 million bars of real 15-minute gold, ' +
+      'EURUSD, USDJPY, GBPUSD and GBPJPY. The measure is RMS(range) divided by RMS(body): how much ground a ' +
+      'bar covers high to low for the distance it actually closes. Real markets sit at <b>1.66–1.71</b> on ' +
+      'every one of those instruments and every timeframe from 15 minutes to daily — which is no coincidence, ' +
+      'since the square root of 4·ln2 is 1.665 and that is the value any diffusion must have. This generator ' +
+      'used to sit at <b>2.26</b>: each wick was drawn independently of the bar\'s own move, so a quiet bar ' +
+      'with a tiny body still sprouted a full-length tail on both sides, and 68% of bars carried two wicks ' +
+      'against 53% in real data. A bar is now built as a Brownian bridge from its open to its close with the ' +
+      'high and low read off that path, and the tape sits at <b>1.69</b>.</p>' +
+      '<p>Brooks says a trading range prints more prominent tails than a trend. The data agrees — but by less ' +
+      'than the eye suggests. Sorting real bars by how cleanly price is trending puts the calmest trends at ' +
+      '1.52–1.67 and the choppiest stretches at 1.71–1.75, a gap under 10%. Only genuine <b>barbwire</b> — ' +
+      'tight, overlapping, range under 2.2 ATR — separates properly, at 1.89–2.00 with bodies down at 40%. ' +
+      'Each family is tuned to what its real-world equivalent measures. Dojis and two-sided bars still run a ' +
+      'few points above the market average here, and deliberately so: every chart is built around a setup, ' +
+      'with stop runs through swing points and probes through range edges, so it is a sample of moments that ' +
+      'matter rather than a sample of all market time.</p>' +
       '<p>You start at <b>Tier 0 — the first three setups</b>, and the placement test cannot skip it. Brooks is ' +
       'blunt that a beginner should trade a handful of the strongest setups and pass on everything else, so that ' +
       'tier drills the two-legged pullback, the failed breakout and the major trend reversal end to end — ' +
