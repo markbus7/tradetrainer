@@ -323,7 +323,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.41.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.42.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -512,7 +512,7 @@ var Mkt = (function () {
   CTX.spikeChannel = {
     name: "Spike and channel", twin: "Spike and channel (bear)",
     family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.618, pWin: 0.54,
-    style: "swing", mmType: "spike", entryType: "stop", sigQ: "strong", attempt: "first", exit: "trail",
+    style: "swing", mmType: "spike", entryType: "stop", sigQ: "strong", attempt: "first", probFirst: 0.41, exit: "trail",
     brooks: "The spike is the strongest part of the move — it is where the institutions were most eager. Measure the spike and project it from the top of the spike: that is where the channel is trying to reach. Buy pullbacks in the channel; the first pullback after a spike rarely fails.",
     mmRule: "Measure the spike (its low to its high) and project that height from the top of the spike.",
     howTo: ["Two parts, two different starting points. The SPIKE starts at the last swing low before price accelerates hard, leaving the slow chop behind \u2014 that low is the one you measure the spike from. The CHANNEL does not start there: it starts where the spike ends, at the first pullback low after it. That first pullback low is what the channel line is drawn from, and it is the level price usually comes back to test once the channel finally breaks.", "It is still developing as long as pullbacks stay shallow and every push makes a new high; the channel itself is just the slower, controlled drift after the spike burns out.", "Structure breaks the moment a pullback trades below the PRIOR pullback's low \u2014 that is the market failing to make a higher low, and the trend read is no longer safe to assume.", "The stop sits just below that most recent pullback low, plus a small buffer \u2014 that low is the last point still proving the channel is intact."],
@@ -546,7 +546,7 @@ var Mkt = (function () {
   CTX.tightChannel = {
     name: "Tight bull channel", twin: "Tight bear channel",
     family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.746, pWin: 0.62,
-    style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "first", exit: "trail",
+    style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "first", probFirst: 0.52, exit: "trail",
     brooks: "A tight channel is a one-sided market: the pullbacks are tiny and every reversal attempt fails. Do not look for shorts here — bears keep getting trapped. Buy the first pullback (a High 1) and hold. Countertrend trading here is the worst trade on the chart: about four out of five attempts to reverse a strong trend fail, and in a genuinely tight channel it is worse than that. Bears do not get a good entry until the channel first breaks and price then returns to test the high.",
     mmRule: "Measure the first leg of the channel and project it from the pullback low.",
     howTo: ["It starts at the first clear swing low that begins a run of higher highs and higher lows.", "It is still developing as long as every pullback stays small \u2014 shallow, only a few bars, bought quickly. That shallowness is what makes it 'tight'.", "Structure breaks the moment a pullback goes deeper than the one before it, or closes below the most recent higher low \u2014 that is the first real sign sellers are more than just noise.", "The stop sits just below that most recent higher low (the High 1 / High 2 pullback low) \u2014 that is the swing that has to hold for 'tight uptrend' to still be true."],
@@ -578,7 +578,7 @@ var Mkt = (function () {
   CTX.broadChannel = {
     name: "Broad bull channel", twin: "Broad bear channel",
     family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.632, pWin: 0.58,
-    style: "scalp", mmType: "none", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
+    style: "scalp", mmType: "none", entryType: "stop", sigQ: "strong", attempt: "second", probFirst: 0.63, exit: "target",
     brooks: "A broad channel is really a trading range tilted upward — it is two-sided. Buying near the bottom of the channel is fine, but the swings are big and the follow-through is unreliable, so take profit at the top of the channel instead of holding for a big measured move.",
     mmRule: "Measure the prior leg up and project it from the pullback low.",
     howTo: ["It starts at whichever swing first defined a high-low-high sequence, but because it is broad and two-sided, do not expect a clean line \u2014 think of it as a wide box tilted in the trend's direction.", "It is still developing as long as pullbacks keep making higher lows, even if those pullbacks are large and choppy \u2014 that size and chop is normal here, not a warning sign by itself.", "Structure breaks with a wick or close that revisits or exceeds the PRIOR swing high or low that formed the edge nearest you \u2014 because it is wide, use the actual local extreme nearest your entry, not an older, more distant peak.", "Because the swings are big, the stop has to sit beyond that nearest real extreme specifically, not a round number or an average \u2014 that exact point is what would prove the channel read wrong."],
@@ -608,7 +608,7 @@ var Mkt = (function () {
   CTX.twoLegPullback = {
     name: "Two-legged pullback", twin: "Two-legged pullback",
     family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.7, pWin: 0.54,
-    style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", exit: "trail",
+    style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", probFirst: 0.43, exit: "trail",
     brooks: "A two-legged pullback to the 20-bar moving average in a bull trend is the highest-probability buy there is. The first attempt up traps bulls in too early; when it fails, those bulls capitulate and bears press \u2014 and the second attempt up traps the bears. Buy on a stop one tick above the High 2 signal bar.",
     mmRule: "Leg 1 equals leg 2: measure the prior leg up and project the same distance from the pullback low.",
     howTo: ["It starts when an established bull trend makes its first pullback against itself. From that moment you are counting BARS, not eyeballing legs.", "The <b>High 1</b> is the first bar whose high trades above the high of the bar before it \u2014 the first attempt to resume the trend.", "Then wait for one bar with a <b>lower high</b>. It can come one bar later or several. That single bar is all it takes to arm the next count \u2014 the correction does not have to make a new low, and it does not have to complete a leg.", "The <b>High 2</b> is the next bar after that whose high trades above the prior bar's high \u2014 the second attempt. That bar is the setup. Note what is NOT required: leg two does not have to trade below leg one's low. Brooks takes High 2s whose second leg ends above the first one; it is the count that defines it, not the depth. Demand a lower low and you will sit out valid High 2s.", "Third and fourth occurrences are a High 3 and a High 4, and on a long or choppy correction that is exactly what you will count \u2014 the two LEGS and the bar COUNT are different lenses on the same pullback, and they do not have to agree. A two-legged pullback that took fifteen bars to form will usually read High 3 or High 4 by the time it is done, and Brooks' point is that the higher the count runs, the weaker the trend's grip. Read the count off the bars in front of you, not off the name of the pattern.",
@@ -675,7 +675,7 @@ var Mkt = (function () {
   CTX.rangeLow = {
     name: "Trading range — price at the low", twin: "Trading range — price at the high",
     family: "range", cycle: "trading range", dir: 1, alwaysIn: 0, prob: 0.707, pWin: 0.61,
-    style: "scalp", mmType: "range", entryType: "limit", sigQ: "strong", attempt: "second", exit: "target",
+    style: "scalp", mmType: "range", entryType: "limit", sigQ: "strong", attempt: "second", probFirst: 0.64, exit: "target",
     brooks: "In a trading range you buy low, sell high and scalp. Price is at the bottom of the range with buyers stepping in, so buy — but take profit at the middle or the top, not beyond. There is no always-in direction in a range; anyone trading it like a trend gets cut to pieces.",
     mmRule: "The range height is the measure. From the low, the realistic target is the middle; the top of the range is the stretch.",
     howTo: ["A trading range starts once price stops trending and starts reversing on itself \u2014 two clear touches near the same high and two near the same low, neither one broken.", "It is still 'the range' as long as both edges keep holding \u2014 a wick beyond an edge that snaps back inside still counts as the range holding, not breaking.", "Structure breaks when a CLOSE \u2014 not just a wick \u2014 goes through an edge, with real follow-through on the next bar. That is the point it stops being a range and starts being a breakout.", "At an edge, the stop sits just beyond that edge, because a close beyond it is exactly what would mean the range is no longer the range.", "Do not wait for a beautiful signal bar at the edge — <b>bad entry bars in a trading range are normal</b>, because both sides are still trading. What replaces bar quality here is <b>counting attempts</b>: the first try to turn the range usually fails, and the traders who took it are trapped, which is what fuels the next one. Brooks' standard trigger at a range edge is the <b>second entry</b>."],
@@ -828,7 +828,7 @@ var Mkt = (function () {
     name: "Failed breakout below the range", twin: "Failed breakout above the range",
     family: "breakout", cycle: "trading range", dir: 1, alwaysIn: 1, prob: 0.642, pWin: 0.65, tex: 1.06,   /* the setup IS a trading range, so it gets range texture */
     probe: function (ax) { return [ax.b2.i + 1, ax.bo.i + 1]; },
-    style: "scalp", mmType: "failedBo", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
+    style: "scalp", mmType: "failedBo", entryType: "stop", sigQ: "strong", attempt: "second", probFirst: 0.65, exit: "target",
     brooks: "About eight out of ten breakout attempts out of a trading range fail. Price broke below the range, found no sellers, and has reversed back inside — every breakout seller is now trapped and has to buy back. Buy, with a stop below the failed low, and target the other side of the range.",
     mmRule: "A failed breakout targets the opposite side of the range; the range height projected from the failed extreme is the stretch target.",
     howTo: ["It starts exactly like a trading range \u2014 the setup here IS the range, so find that first. That is what separates this from a major trend reversal: here the market was already two-sided, with no trend to reverse, so a failed probe is tradeable straight away. In a trend you would first need a significant trendline break before any reversal read counts.", "The failed-breakout structure begins the moment price pushes outside an edge \u2014 that push is what you now watch closely.", "It becomes a valid failed-breakout trade the moment that push shows no follow-through (small body, long tail back inside) and closes back inside the range \u2014 that snap-back in is the confirmation, not the push out.", "The stop sits just beyond the actual extreme of that failed push \u2014 the wick tip, not the range edge itself. If price trades back past that wick, the 'it was just a fakeout' read is wrong."],
@@ -864,7 +864,7 @@ var Mkt = (function () {
   CTX.successBo = {
     name: "Breakout with follow-through", twin: "Breakout with follow-through (down)",
     family: "breakout", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.55, pWin: 0.52,
-    style: "swing", mmType: "range", entryType: "stop", sigQ: "strong", attempt: "first", exit: "trail",
+    style: "swing", mmType: "range", entryType: "stop", sigQ: "strong", attempt: "first", probFirst: 0.48, exit: "trail",
     brooks: "Most breakouts fail, but this one has earned belief: big trend bars, closes near their highs, almost no tails and a follow-through bar. That is institutional buying, not a probe. The measured move is the height of the range projected from the breakout.",
     mmRule: "Project the height of the range from the point where it broke.",
     howTo: ["It starts the same way \u2014 a trading range with two defined edges.", "It becomes a real breakout, not a fakeout, when the breaking bar or bars have large bodies, close near their extreme, and the very next bar keeps going instead of snapping back \u2014 that continuation bar is what Brooks calls follow-through.", "The breakout would be proven false if price closed back inside the old range afterward \u2014 so that is exactly where the invalidation sits.", "The stop goes just inside the old range, beyond the pullback low or high that follows the breakout \u2014 not at the breakout bar itself, since a normal pullback right after breaking out is expected and should not stop you out on its own."],
@@ -898,7 +898,7 @@ var Mkt = (function () {
   CTX.wedgeBottom = {
     name: "Wedge bottom (three pushes down)", twin: "Wedge top (three pushes up)",
     family: "reversal", cycle: "trading range", dir: 1, alwaysIn: 1, prob: 0.39, pWin: 0.40,
-    style: "swing", mmType: "wedge", entryType: "stop", sigQ: "strong", countAs: "wedge", attempt: "second", exit: "target",
+    style: "swing", mmType: "wedge", entryType: "stop", sigQ: "strong", countAs: "wedge", attempt: "second", probFirst: 0.39, exit: "target",
     brooks: "Three pushes down, each one weaker than the last, inside a converging wedge — the sellers are exhausted. A wedge reversal usually returns to the start of the wedge, and often gives a two-legged move up. Stop below the third push.",
     mmRule: "A wedge's first target is the level where the wedge began — usually reached in two legs. Only if price breaks beyond that does the height of the wedge get projected as the next target.",
     howTo: ["It starts at the first of three pushes down \u2014 you cannot call a wedge until you can already see at least two clear lower lows forming inside converging trendlines.", "It is still developing through push two and push three, and each one should be weaker (smaller, slower) than the last \u2014 that weakening momentum is the actual signal, not just the converging shape.", "It completes at push three's low, and breaks (invalidates) if price makes a new low below push three \u2014 that would mean the sellers were not actually exhausted after all.", "The stop sits just below push three's low, since that is the exact point that would prove the exhaustion read wrong."],
@@ -941,7 +941,7 @@ var Mkt = (function () {
   CTX.mtr = {
     name: "Major trend reversal (bull)", twin: "Major trend reversal (bear)",
     family: "reversal", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.413, pWin: 0.42,
-    style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
+    style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", probFirst: 0.47, exit: "target",
     brooks: "A major trend reversal needs all of it: a strong bear trend, a countertrend move strong enough to break the bear trendline (and usually the moving average), then a test of the old low that holds. The test can come as a higher low OR as a lower low that reverses — Brooks says the two happen about equally often, so do not insist on a higher low. Without the trendline break first, a reversal attempt is just a pullback, and about four out of five of those fail.",
     mmRule: "Measure the first leg up off the low and project it from the higher low.",
     howTo: ["It starts with a real trend already in place \u2014 a clear sequence of lower highs and lower lows, not just one big bar. This is the whole difference from a failed breakout: a failed breakout happens inside a TRADING RANGE, where the market was already two-sided and there is no trend to reverse. Here there is a trend, so it has to be broken before anything else counts.", "First requirement: a countertrend move strong enough to BREAK THE TRENDLINE drawn along the recent lower highs, and usually the moving average with it. Brooks is blunt that you should not even think about trading against a trend until a significant trendline has broken. Without it, what you are looking at is a pullback, and about four out of five of those fail. Note where that break sits: it is a bar INSIDE the countertrend rally, usually well below its top. It is the requirement, not the measurement — what gets measured is the whole first leg, from the trend's low to the highest point that rally reached.", "Second requirement: a test of the old low that holds. The test can be a HIGHER LOW or a LOWER LOW that reverses \u2014 Brooks says the two occur about equally often, so do not throw away the setup because price traded through the old low. A lower-low test that reverses hard IS the failed breakout of the trend's low, and that is one of the strongest versions of this pattern.", "So the sequence is: trend, then trendline break, then a test that holds. The trendline break alone is not enough, and the test alone is not enough \u2014 it is the pair, in that order.", "The stop sits just beyond the extreme of that test, since that is the one point that, if it fails, means the 'reversal' was just a pause inside the same downtrend."],
@@ -1070,7 +1070,7 @@ var Mkt = (function () {
   CTX.finalFlag = {
     name: "Final flag reversal (bull)", twin: "Final flag reversal (bear)",
     family: "reversal", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.44, pWin: 0.44,
-    style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
+    style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", probFirst: 0.46, exit: "target",
     brooks: "The bear trend made a small tight flag, broke out of it — and the breakout immediately failed. That flag was the final flag of the trend: the last of the sellers committed there and are now trapped. The move usually retraces to the start of the flag at least.",
     mmRule: "Measure the leg into the final flag and project it back from the failed breakout.",
     howTo: ["It starts as an ordinary small flag or pullback late in a trend \u2014 nothing unusual about it yet.", "It is still just a normal continuation flag as long as its breakout in the trend's own direction actually works.", "It becomes a final-flag reversal signal specifically when that breakout FAILS immediately \u2014 the flag's own breakout reverses hard, trapping the last of the trend-followers who had just entered.", "The stop sits just beyond that failed breakout's own extreme, since that exact price is what would mean the trend-followers were right after all."],
@@ -1122,7 +1122,7 @@ var Mkt = (function () {
   CTX.climax = {
     name: "Sell climax", twin: "Buy climax",
     family: "reversal", cycle: "breakout", dir: 1, alwaysIn: -1, prob: 0.577, pWin: 0.62,
-    style: "scalp", mmType: "none", entryType: "stop", sigQ: "strong", attempt: "second", exit: "target",
+    style: "scalp", mmType: "none", entryType: "stop", sigQ: "strong", attempt: "second", probFirst: 0.71, exit: "target",
     brooks: "Three or more big bear bars accelerating into a low is a sell climax — exhaustion, not strength. Expect a two-legged correction up lasting about ten bars. But this is a scalp: after a climax the odds of the trend resuming are still about even, so take the bounce and do not marry it.",
     mmRule: "Measure the last climactic leg; a correction typically retraces a good part of it, not all.",
     howTo: ["It starts when a trend's bars stop looking orderly and start getting bigger and steeper instead \u2014 three or more increasingly large bars in the same direction is the tell.", "It is still just a strong trend leg until the bars stop expanding and price prints a small, weak bar or reverses off the extreme \u2014 that deceleration is the actual exhaustion signal.", "There is no trendline-style break of structure here \u2014 the climactic leg itself IS the structure, and its low or high is the level everything else is measured from.", "The stop sits just beyond the climax extreme itself, since a genuine climax should not be revisited immediately if the exhaustion read is correct."],
@@ -1170,7 +1170,7 @@ var Mkt = (function () {
     CTX[k + "_D"] = {
       name: s.twin, twin: s.name, flip: -1, mirrorOf: k,
       family: s.family, cycle: s.cycle,
-      dir: -s.dir, alwaysIn: -s.alwaysIn, prob: s.prob, pWin: s.pWin,
+      dir: -s.dir, alwaysIn: -s.alwaysIn, prob: s.prob, pWin: s.pWin, probFirst: s.probFirst,
       style: s.style, mmType: s.mmType, entryType: s.entryType, sigQ: s.sigQ,
       attempt: s.attempt, exit: s.exit,
       tex: s.tex,
@@ -1879,6 +1879,53 @@ var Mkt = (function () {
       res = scan(); hitT = res[0]; hitI = res[1]; fillAt = res[2];
     }
 
+    /* ---- the first entry, when it is a genuinely earlier, distinct attempt ----
+       Brooks: the first entry usually fails, which is exactly why the second
+       is the standard trigger — but the first is still a real, tradeable
+       decision point, and pretending it does not exist teaches a false picture
+       of how often the market actually gives you a shot before the good one.
+       Only meaningful when the count found more than one attempt and the
+       earliest is not simply the signal bar itself (an attempt="first"
+       context like a tight channel has its designed signal AT the first
+       pullback, so there is nothing earlier to also show). Uses the exact same
+       target/invalid levels as the real trade — the structure does not change
+       depending on which attempt you took it on, only the entry and stop do. */
+    var firstAttempt = null;
+    if (dir && count.idx.length > 1 && count.idx[0] !== sigIdx) {
+      var fi = count.idx[0], fb = bars[fi];
+      var fEntry = dir > 0 ? fb.h : fb.l;
+      var fStop = (dir > 0 ? fb.l : fb.h) - dir * 0.08 * A14;
+      function fFills(bar) {
+        return def.entryType === "limit"
+          ? (td > 0 ? bar.l <= fEntry : bar.h >= fEntry)
+          : (td > 0 ? bar.h >= fEntry : bar.l <= fEntry);
+      }
+      var fFill = -1, fHitT = -1, fHitI = -1;
+      for (var fq = fi + 1; fq < bars.length; fq++) {
+        if (fFill < 0) { if (!fFills(bars[fq])) continue; fFill = fq; }
+        var ftH = td > 0 ? bars[fq].h >= target : bars[fq].l <= target;
+        var fiH = td > 0 ? bars[fq].l <= invalid : bars[fq].h >= invalid;
+        if (fiH) { fHitI = fq; if (ftH) fHitT = fq; break; }
+        if (ftH) { fHitT = fq; break; }
+      }
+      /* a first entry that never even filled is not a loss, it is a non-event —
+         the same distinction the real signal's fills() check exists to make */
+      /* Guard rather than untangle: the first counted bar can, rarely, sit
+         chronologically so early that price has already passed the eventual
+         (shared) target before this earlier entry would even trigger — the
+         target then falls on the wrong side of the entry for this attempt,
+         even though it is the right side for the real signal. Rather than
+         chase that per-context, skip showing this one — a first attempt that
+         does not form a coherent trade is not a first attempt worth taking. */
+      var fSane = dir > 0 ? (fStop < fEntry && target > fEntry) : (fStop > fEntry && target < fEntry);
+      if (fSane) {
+        firstAttempt = {
+          i: fi, entry: fEntry, stop: fStop, target: target,
+          filled: fFill >= 0, worked: fFill >= 0 && fHitT >= 0 && (fHitI < 0 || fHitT < fHitI)
+        };
+      }
+    }
+
     /* ---- actual risk ----
        Brooks: the distance from the entry to the extreme of the pullback that
        happened AFTER entry — not to where the stop was. You can only know it in
@@ -1922,6 +1969,11 @@ var Mkt = (function () {
            trading range the first attempt usually fails, which is exactly why
            the second entry is the standard trigger there. */
         firstEntry: count.idx.length > 0 ? bars[count.idx[0]] : null,
+        /* firstAttempt itself is instance-specific (this tape's actual outcome);
+           probFirst is the CONTEXT's declared, measured rate — the number Coach
+           shows is the calibrated odds, exactly like the main signal's g.prob,
+           never this one instance's result. */
+        firstAttempt: firstAttempt, probFirst: def.probFirst,
         secondEntry: count.idx.length > 1 ? bars[count.idx[1]] : null,
         rangeTop: g.rangeTop, rangeBot: g.rangeBot,
         trendline: g.trendline || null, broke: g.broke,
@@ -7094,6 +7146,15 @@ var PROG = (function () {
       'win rate that context is calibrated to. <b>Fill the ticket with this</b> loads it into the ' +
       'order ticket — direction, entry, stop and target — and then stops. It never picks your lot ' +
       'size, because that is the part worth practising.</li>' +
+      '<li><b>Some setups show a first entry too.</b> Brooks counts attempts: the first often fails, ' +
+      'which is why the second is the standard trigger — but not always, and this app measures rather ' +
+      'than assumes it. When the generator finds a genuinely earlier, distinct attempt, the coach shows ' +
+      'it first, tagged <b>FIRST ENTRY</b> in a plain border, with its own separately measured win rate. ' +
+      'In a range that rate usually sits close to the main entry\'s odds — the first try there really is ' +
+      'weaker. In a one-sided channel it can run just as high, because in a market that only wants to go ' +
+      'one way, even an early pullback tends to get bought. In a violent reversal it can run higher still, ' +
+      'because the order only fills at all once the move has already proven itself. None of that is ' +
+      'assumed — every number shown is the measured outcome of that context\'s own simulated trades.</li>' +
       '<li><b>What the coach is not.</b> Those odds come from Brooks\' method encoded into the ' +
       'generator and verified self-consistent against it — every context resolves within about three ' +
       'points of the rate it quotes. They are <i>not</i> the output of backtesting live markets, and ' +
@@ -7265,7 +7326,29 @@ var PROG = (function () {
           target: g.target != null ? g.target + off : null,
           prob: g.prob, rr: g.refRR, entryType: g.entryType,
           attempt: g.attempt, style: g.style, brooks: g.brooks,
-          sigKind: g.sigKind, worked: g.worked
+          sigKind: g.sigKind, worked: g.worked, isFirstAttempt: false
+        });
+      }
+      /* The earlier, distinct attempt — chronologically before the main signal
+         and shown first as the tape reveals it. Only pushed when the context
+         has a declared, MEASURED first-entry rate and this instance actually
+         produced a distinct one; a context whose count never separates from
+         the main signal (an attempt="first" context usually IS the first
+         count) has nothing extra to show, and that is correct, not a gap. */
+      if (g && g.firstAttempt && g.probFirst != null) {
+        var fa = g.firstAttempt;
+        var faRisk = Math.abs(fa.entry - fa.stop), faRr = faRisk > 0
+          ? Math.abs(fa.target - fa.entry) / faRisk : 0;
+        sigs.push({
+          i: base + fa.i, key: g.key, name: g.name + " — first entry", cycle: g.cycle,
+          dir: g.dir, tradeable: true,
+          entry: fa.entry + off, stop: fa.stop + off, invalid: g.invalid != null ? g.invalid + off : null,
+          stopDesc: "the first attempt's own bar", target: fa.target + off,
+          prob: g.probFirst, rr: faRr, entryType: g.entryType,
+          attempt: "first", style: g.style,
+          brooks: "This is the earlier attempt — the one before the standard " +
+            (g.attempt || "second") + " entry. " + (g.brooks || ""),
+          sigKind: null, worked: fa.worked, isFirstAttempt: true
         });
       }
     }
@@ -7442,8 +7525,11 @@ var PROG = (function () {
   function liveSignal() {
     if (!BT.coach || !BT.ch || !BT.ch.sigs) return null;
     var v = chB.vis, out = null;
+    /* the MOST RECENT signal wins, not simply the last one pushed — a first
+       attempt and its own second entry can fall inside the window together
+       near a fast pattern, and it is the newer one that just printed */
     BT.ch.sigs.forEach(function (g) {
-      if (g.i <= v && v - g.i <= COACH_WINDOW) out = g;
+      if (g.i <= v && v - g.i <= COACH_WINDOW && (!out || g.i > out.i)) out = g;
     });
     return out;
   }
@@ -7897,12 +7983,16 @@ var PROG = (function () {
         var risk = Math.abs(cg.entry - cg.stop), rew = Math.abs(cg.target - cg.entry);
         var rr = risk > 0 ? rew / risk : 0;
         var edge = cg.prob * rr - (1 - cg.prob);
-        out.push('<div class="btrow" style="border-color:var(--amber);background:#1a1508">' +
+        var faTag = cg.isFirstAttempt
+          ? '<span class="mono" style="color:var(--muted);margin-left:6px">FIRST ENTRY</span>' : '';
+        out.push('<div class="btrow" style="border-color:' + (cg.isFirstAttempt ? 'var(--line)' : 'var(--amber)') +
+          ';background:' + (cg.isFirstAttempt ? 'var(--bg3)' : '#1a1508') + '">' +
           '<div class="top">' +
           '<b style="color:' + (cg.dir > 0 ? 'var(--up)' : 'var(--dn)') + '">' +
-          (cg.dir > 0 ? 'BUY' : 'SELL') + ' ' + (cg.entryType || 'stop').toUpperCase() + '</b>' +
+          (cg.dir > 0 ? 'BUY' : 'SELL') + ' ' + (cg.entryType || 'stop').toUpperCase() + '</b>' + faTag +
           '<span class="mono">' + rr.toFixed(2) + 'R</span></div>' +
           '<div style="margin-top:3px"><b>' + cg.name + '</b></div>' +
+          (cg.isFirstAttempt ? '<div class="hint" style="margin-top:3px">' + cg.brooks + '</div>' : '') +
           '<div class="mono" style="margin-top:4px">entry ' + px(cg.entry) +
           ' · stop ' + px(cg.stop) + ' · target ' + px(cg.target) + '</div>' +
           '<div class="btkv" style="margin-top:5px"><span>Win rate for this setup</span><b>' +
