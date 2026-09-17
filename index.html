@@ -304,7 +304,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.38.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.39.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -6978,6 +6978,11 @@ var PROG = (function () {
       'there, so you can grind the same instrument the way you actually trade it. Changing either ' +
       'starts a fresh tape and keeps the account; anything open at the time is discarded, not closed, ' +
       'so it never lands in your results.</li>' +
+      '<li><b>Where to find it.</b> <b>Coach</b> is the toggle in the Desk toolbar, between Play and ' +
+      'New tape. It reads <b>Coach: off</b> until you switch it on. Setups are roughly a hundred bars ' +
+      'apart, so when nothing is live the panel tells you how many bars away the next one is and ' +
+      'offers <b>Skip ahead to it</b> — the tape still fills bar by bar on the way, so nothing jumps ' +
+      'past a stop you had working.</li>' +
       '<li><b>Coach</b> shows you what the tape is actually printing. The Desk stitches its tape ' +
       'from the same fourteen contexts the drills use, so every stretch has a known setup — and the ' +
       'coach surfaces it the moment its signal bar prints, which is the real decision point. You get ' +
@@ -7337,6 +7342,25 @@ var PROG = (function () {
       }
     });
   }
+  /* the next setup still ahead of the revealed tape, if any */
+  function nextSignal() {
+    if (!BT.ch || !BT.ch.sigs) return null;
+    var v = chB.vis, best = null;
+    BT.ch.sigs.forEach(function (g) {
+      if (g.i > v && (!best || g.i < best.i)) best = g;
+    });
+    return best;
+  }
+  /* Jump the tape to just before the next setup. Coach mode is an EXECUTION
+     drill, not a recognition one — recognition is what Practice is for — so
+     skipping the dead ground between setups costs nothing and saves clicking
+     +10 a dozen times. Fills still run on every bar it passes through. */
+  function skipToNext() {
+    var g = nextSignal();
+    if (!g) { toast("No more setups on this tape"); return; }
+    btStep(Math.max(1, g.i - chB.vis));
+  }
+
   function takeSignal() {
     var g = liveSignal();
     if (!g || !g.tradeable) return;
@@ -7510,8 +7534,9 @@ var PROG = (function () {
       '<div class="tsep"></div>' +
       '<button class="tool wide" data-act="coach" id="btCoachBtn"' +
       (BT.coach ? ' style="border-color:var(--amber);background:#241a08;color:var(--amber)"' : '') +
-      ' title="Show the setup the tape is actually printing, with its calibrated odds">' +
-      (BT.coach ? 'Coach ON' : 'Coach') + '</button>' +
+      ' title="Name the setup the tape is printing and show its entry, stop, target and win rate' +
+      ' — turn it off to read the chart yourself">' +
+      (BT.coach ? '\u25cf Coach: ON' : '\u25cb Coach: off') + '</button>' +
       '<button class="tool wide" data-act="new">New tape</button>';
     wrap.innerHTML = html;
     [].forEach.call(wrap.querySelectorAll("[data-tool]"), function (b) {
@@ -7674,8 +7699,19 @@ var PROG = (function () {
       out.push('<div class="btsec"><h5>Coach <span class="mono">' +
         BT.coachTaken + ' taken / ' + BT.coachSeen + ' seen</span></h5>');
       if (!cg) {
-        out.push('<div class="hint">Nothing here. Step the tape — a setup shows the ' +
-          'moment its signal bar prints, and stays live for ' + COACH_WINDOW + ' bars.</div>');
+        var nx = nextSignal();
+        if (nx) {
+          var away = nx.i - chB.vis;
+          out.push('<div class="btkv"><span>Next setup</span><b>' + away +
+            ' bar' + (away === 1 ? '' : 's') + ' away</b></div>' +
+            '<div class="acts"><button data-bt="skipnext">Skip ahead to it</button></div>' +
+            '<div class="hint" style="margin-top:5px">Setups are roughly a hundred bars apart, ' +
+            'so stepping there by hand takes a while. A setup appears the moment its signal bar ' +
+            'prints and stays live for ' + COACH_WINDOW + ' bars.</div>');
+        } else {
+          out.push('<div class="hint">No more setups on this tape. <b>New tape</b> starts ' +
+            'another one and keeps your account.</div>');
+        }
       } else if (!cg.tradeable) {
         out.push('<div class="btrow"><div class="top">' +
           '<b style="color:var(--muted)">NO TRADE</b>' +
@@ -7688,7 +7724,8 @@ var PROG = (function () {
         var risk = Math.abs(cg.entry - cg.stop), rew = Math.abs(cg.target - cg.entry);
         var rr = risk > 0 ? rew / risk : 0;
         var edge = cg.prob * rr - (1 - cg.prob);
-        out.push('<div class="btrow"><div class="top">' +
+        out.push('<div class="btrow" style="border-color:var(--amber);background:#1a1508">' +
+          '<div class="top">' +
           '<b style="color:' + (cg.dir > 0 ? 'var(--up)' : 'var(--dn)') + '">' +
           (cg.dir > 0 ? 'BUY' : 'SELL') + ' ' + (cg.entryType || 'stop').toUpperCase() + '</b>' +
           '<span class="mono">' + rr.toFixed(2) + 'R</span></div>' +
@@ -7819,7 +7856,10 @@ var PROG = (function () {
       '<button class="btn" id="btCopy">📋 Copy results</button></div></div>');
 
     $("btPanel").innerHTML = out.join("");
-    $("btFoot").innerHTML = '<div class="hint">Drag any stop, target or order line straight on the chart. ' +
+    $("btFoot").innerHTML = '<div class="hint">' +
+      (BT.coach ? '' : '<b>Coach</b> in the toolbar names the setup the tape is printing and gives you ' +
+        'its entry, stop and target. ') +
+      'Drag any stop, target or order line straight on the chart. ' +
       'Step the tape with <b>Step</b> or <b>Play</b>; fills happen bar by bar.</div>';
     drawCurve();
     wireBT();
@@ -7849,6 +7889,7 @@ var PROG = (function () {
         var a = b.dataset.bt, id = +b.dataset.id, v = b.dataset.v;
         var pos = BT.pos.filter(function (x) { return x.id === id; })[0];
         if (a === "take") { takeSignal(); return; }
+        if (a === "skipnext") { skipToNext(); return; }
         if (a === "dir") { BT.dir = +v; BT.tSL = BT.tTP = BT.tPrice = null; }
         if (a === "otype") { BT.otype = v; BT.tPrice = null; }
         if (a === "close" && pos) btClose(pos, btPrice(), +v, "manual");
