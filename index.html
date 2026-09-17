@@ -295,7 +295,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.32.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.33.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -356,17 +356,25 @@ var Mkt = (function () {
   }
 
   /* ---------------- instruments ---------------- */
+  /* `sig` is the per-hour volatility knob; the generator turns it into a realised
+     hourly standard deviation 1.465x larger, so sig = (real hourly sd) / 1.465.
+     The five marked MEASURED were fitted to ten years of real hourly closes
+     (2012-2022, ~57.6k bars each): XAUUSD .00192, EURUSD .00100, USDJPY .00109,
+     GBPUSD .00114, GBPJPY .00145. The rest are estimates and are not claimed to
+     be anything else. */
   var INSTR = [
-    { sym: "ES",     nm: "S&P 500 Futures",     dec: 2, lo: 4180,  hi: 6120,  sig: 0.0022, kind: "fut",    vbase: 38000 },
-    { sym: "NQ",     nm: "Nasdaq 100 Futures",  dec: 2, lo: 15200, hi: 22400, sig: 0.0033, kind: "fut",    vbase: 42000 },
-    { sym: "CL",     nm: "Crude Oil Futures",   dec: 2, lo: 62,    hi: 94,    sig: 0.0042, kind: "fut",    vbase: 27000 },
-    { sym: "EURUSD", nm: "Euro / US Dollar",    dec: 5, lo: 1.02,  hi: 1.19,  sig: 0.0016, kind: "fx",     vbase: 24000 },
-    { sym: "GBPJPY", nm: "Pound / Yen",         dec: 3, lo: 172,   hi: 199,   sig: 0.0026, kind: "fx",     vbase: 12000 },
-    { sym: "XAUUSD", nm: "Gold Spot",           dec: 2, lo: 1880,  hi: 2650,  sig: 0.0030, kind: "fx",     vbase: 31000 },
-    { sym: "BTCUSD", nm: "Bitcoin / US Dollar", dec: 1, lo: 26000, hi: 98000, sig: 0.0055, kind: "crypto", vbase: 900 },
-    { sym: "AAPL",   nm: "Apple Inc.",          dec: 2, lo: 168,   hi: 258,   sig: 0.0026, kind: "eq",     vbase: 380000 },
-    { sym: "NVDA",   nm: "NVIDIA Corp.",        dec: 2, lo: 92,    hi: 195,   sig: 0.0049, kind: "eq",     vbase: 620000 },
-    { sym: "TSLA",   nm: "Tesla Inc.",          dec: 2, lo: 178,   hi: 428,   sig: 0.0056, kind: "eq",     vbase: 510000 }
+    { sym: "ES",     nm: "S&P 500 Futures",     dec: 2, lo: 6400,  hi: 7800,  sig: 0.0022,  kind: "fut",    vbase: 38000 },
+    { sym: "NQ",     nm: "Nasdaq 100 Futures",  dec: 2, lo: 24500, hi: 30000, sig: 0.0033,  kind: "fut",    vbase: 42000 },
+    { sym: "CL",     nm: "Crude Oil Futures",   dec: 2, lo: 80,    hi: 105,   sig: 0.0042,  kind: "fut",    vbase: 27000 },
+    { sym: "EURUSD", nm: "Euro / US Dollar",    dec: 5, lo: 1.08,  hi: 1.19,  sig: 0.00068, kind: "fx",     vbase: 24000 },  /* MEASURED */
+    { sym: "GBPUSD", nm: "Pound / US Dollar",   dec: 5, lo: 1.24,  hi: 1.38,  sig: 0.00078, kind: "fx",     vbase: 16000 },  /* MEASURED */
+    { sym: "USDJPY", nm: "US Dollar / Yen",     dec: 3, lo: 145,   hi: 160,   sig: 0.00074, kind: "fx",     vbase: 20000 },  /* MEASURED */
+    { sym: "GBPJPY", nm: "Pound / Yen",         dec: 3, lo: 195,   hi: 215,   sig: 0.00099, kind: "fx",     vbase: 12000 },  /* MEASURED */
+    { sym: "XAUUSD", nm: "Gold Spot",           dec: 2, lo: 3700,  hi: 4500,  sig: 0.00131, kind: "fx",     vbase: 31000 },  /* MEASURED */
+    { sym: "BTCUSD", nm: "Bitcoin / US Dollar", dec: 1, lo: 26000, hi: 98000, sig: 0.0055,  kind: "crypto", vbase: 900 },
+    { sym: "AAPL",   nm: "Apple Inc.",          dec: 2, lo: 168,   hi: 258,   sig: 0.0026,  kind: "eq",     vbase: 380000 },
+    { sym: "NVDA",   nm: "NVIDIA Corp.",        dec: 2, lo: 92,    hi: 195,   sig: 0.0049,  kind: "eq",     vbase: 620000 },
+    { sym: "TSLA",   nm: "Tesla Inc.",          dec: 2, lo: 178,   hi: 428,   sig: 0.0056,  kind: "eq",     vbase: 510000 }
   ];
   /* Brooks works the 5-minute chart, so the pool leans intraday */
   var TFS = [
@@ -6628,6 +6636,12 @@ var PROG = (function () {
       'few points above the market average here, and deliberately so: every chart is built around a setup, ' +
       'with stop runs through swing points and probes through range edges, so it is a sample of moments that ' +
       'matter rather than a sample of all market time.</p>' +
+      '<p>Each instrument\'s <b>volatility</b> is a separate calibration. Gold, EURUSD, GBPUSD, USDJPY ' +
+      'and GBPJPY are fitted to ten years of real hourly closes, so a 5-minute bar spans about the ' +
+      'number of pips it really does — roughly 4.6 on EURUSD, 6.8 on USDJPY, 12.3 on GBPJPY. ES, NQ, ' +
+      'crude, bitcoin and the three stocks are <b>estimates</b>: no real data was measured for them, ' +
+      'so they likely run a little hot. Their bar <i>shape</i> is calibrated like everything else — ' +
+      'it is only the size of the move that is estimated.</p>' +
       '<p>You start at <b>Tier 0 — the first three setups</b>, and the placement test cannot skip it. Brooks is ' +
       'blunt that a beginner should trade a handful of the strongest setups and pass on everything else, so that ' +
       'tier drills the two-legged pullback, the failed breakout and the major trend reversal end to end — ' +
@@ -6872,8 +6886,9 @@ var PROG = (function () {
       'trade. The point is the sample — after enough trades the Results box tells you whether the ' +
       'approach makes money, and if not, which half of it is broken.</p>' +
       '<li><b>Size is in lots.</b> Each instrument carries a real contract size, so a lot means what ' +
-      'it means on a platform: 100,000 units on FX ($10 a pip on EURUSD, $6.67 on GBPJPY), 100oz of ' +
-      'gold, one contract on ES ($50 a point) or NQ ($20), one coin on BTC, 100 shares on stock. ' +
+      'it means on a platform: 100,000 units on FX ($10 a pip on EURUSD and GBPUSD, $6.41 on USDJPY ' +
+      'and GBPJPY, since yen profit converts at USDJPY), 100oz of gold, one contract on ES ($50 a ' +
+      'point) or NQ ($20), one coin on BTC, 100 shares on stock. ' +
       'You type the lots — nothing sizes the trade for you, because on a real platform nobody does. ' +
       'The ticket reads the risk back in money and in percent of the account, and shows what 1% of ' +
       'equity would have come to at that stop distance, as a yardstick you can ignore.</li>' +
@@ -7040,8 +7055,8 @@ var PROG = (function () {
   /* Units per lot, the way a broker would quote the instrument. Size is entered
      in lots because that is what you actually type into a platform; units are
      what the P/L maths needs, so everything converts through here. */
-  var LOT = { EURUSD: 100000, GBPJPY: 100000, XAUUSD: 100, BTCUSD: 1,
-              ES: 50, NQ: 20, CL: 1000 };
+  var LOT = { EURUSD: 100000, GBPUSD: 100000, USDJPY: 100000, GBPJPY: 100000,
+              XAUUSD: 100, BTCUSD: 1, ES: 50, NQ: 20, CL: 1000 };
   var LOT_KIND = { fx: 100000, crypto: 1, fut: 1, eq: 100 };
   function lotUnits(ch) {
     ch = ch || BT.ch;
@@ -7052,7 +7067,9 @@ var PROG = (function () {
      USD except the JPY cross, so without this a 1.00 move on GBPJPY would be
      booked as $100,000 a lot instead of about $667, and risk-based lot sizes
      would come out ~150x too small. */
-  var QUOTE = { GBPJPY: 1 / 150 };
+  /* Profit on a JPY-quoted pair is earned in yen, so it converts at USDJPY —
+     the same rate for every JPY cross, not the pair's own price. */
+  var QUOTE = { USDJPY: 1 / 156, GBPJPY: 1 / 156 };
   function qRate(ch) { return QUOTE[(ch || BT.ch || {}).sym] || 1; }
   /** money per 1.00 of price movement, for the given number of units */
   function pointValue(units) { return units * qRate(); }
