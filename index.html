@@ -124,6 +124,12 @@
   .tool.on{border-color:var(--amber);background:#241a08;color:var(--amber)}
   .tool:hover{border-color:#3d465a}
   .tool.wide{width:auto;padding:0 9px;font-size:11px;font-weight:600}
+  /* icon over a small caption, so no button needs a hover to explain itself */
+  .tool.lab{width:auto;min-width:40px;height:34px;padding:2px 6px;gap:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+  .tool.lab .ic{font-size:13px;line-height:1}
+  .tool.lab .tl{font-size:8px;letter-spacing:.02em;color:var(--muted);margin-top:2px;white-space:nowrap}
+  .tool.lab.on .tl{color:var(--amber)}
   .tsep{width:1px;background:var(--line);margin:2px 3px;flex:0 0 auto}
   .sym{font-family:'IBM Plex Mono';font-size:11px;color:var(--muted);padding:0 6px;display:flex;align-items:center;gap:7px;white-space:nowrap}
   .sym b{color:var(--paper);font-weight:600;letter-spacing:.04em}
@@ -304,7 +310,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.39.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.40.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -1948,6 +1954,9 @@ var Mkt = (function () {
 
   return {
     gen: gen, CTX: CTX, KEYS: KEYS, BASE: BASE, INSTR: INSTR, TFS: TFS, DATA: DATA,
+    /* FIB is declared after this module returns, so a plain reference would
+       capture undefined — the getter reads it at call time instead */
+    get FIB() { return FIB; },
     atr: atr, ema: ema, pivots: pivots, brooksCount: brooksCount, correctionCount: correctionCount, hiIn: hiIn, loIn: loIn, mkR: mkR, rng: rng,
     flipWords: flipWords
   };
@@ -2077,6 +2086,9 @@ Chart.prototype.dPrices = function (d) {
   switch (d.type) {
     case "hline": return [d.p];
     case "trend": case "rect": case "fib": return [d.a.p, d.b && d.b.p];
+    case "fibext": return d.a && d.b && d.c
+      ? [d.a.p, d.b.p, d.c.p].concat(FIB.ext.map(function (f) { return fibPrice(d, f); }))
+      : [d.a.p, d.b && d.b.p, d.c && d.c.p];
     case "measure": return [d.a.p, d.b && d.b.p, d.c && d.c.p, this.measureTarget(d)];
     case "pos": return [d.entry, d.stop, d.target];
   }
@@ -2107,13 +2119,33 @@ Chart.prototype.clearAll = function () {
 Chart.prototype._changed = function () { if (this.onChange) this.onChange(this); };
 
 /* how many points each tool needs */
-var TOOL_PTS = { hline: 1, trend: 2, rect: 2, fib: 2, measure: 3, pos: 1, mark: 1 };
+var TOOL_PTS = { hline: 1, trend: 2, rect: 2, fib: 2, fibext: 3, measure: 3, pos: 1, mark: 1 };
+
+/* The Fibonacci ratios, in one place so the hit-test, the selection outline and
+   the renderer can never disagree — and so they can be changed. Retracement
+   runs 0 to 1 across the leg; extension projects past it from the third point.
+   Both are editable from Help, because which ratios you watch is a personal
+   habit and hard-coding someone else's is presumptuous. */
+var FIB = {
+  ret: [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1],
+  ext: [0, 0.618, 1, 1.272, 1.618, 2, 2.618],
+  /* the ones Brooks-style traders actually watch, drawn brighter */
+  key: { 0.5: 1, 0.618: 1, 1: 1, 1.272: 1, 1.618: 1 }
+};
+function fibLevels(d) { return d.type === "fibext" ? FIB.ext : FIB.ret; }
+/* price of a ratio on either kind: retracement spans a->b, extension projects
+   the a->b leg forward from c */
+function fibPrice(d, f) {
+  return d.type === "fibext"
+    ? d.c.p + (d.b.p - d.a.p) * f
+    : d.a.p + (d.b.p - d.a.p) * f;
+}
 
 /* ---------- selection ----------
    Only the annotation tools take part. A `pos` is the answer a drill is asking
    for, and on the Desk it is a live order that owns its own Close/Cancel button
    — letting either be selected and deleted as scenery would desync them. */
-var SELECTABLE = { hline: 1, trend: 1, rect: 1, fib: 1, measure: 1 };
+var SELECTABLE = { hline: 1, trend: 1, rect: 1, fib: 1, fibext: 1, measure: 1 };
 Chart.prototype.canSelect = function (d) { return !!(d && SELECTABLE[d.type] && !d._bt); };
 
 /* distance from a point to a segment, for hit-testing lines you can't click exactly */
@@ -2145,12 +2177,13 @@ Chart.prototype.hitDrawing = function (x, y) {
           y >= Math.min(y1, y2) - tol && y <= Math.max(y1, y2) + tol) return d;
       continue;
     }
-    if (d.type === "fib") {
-      /* any of its levels, anywhere from the left edge of the leg rightwards */
-      if (x < Math.min(x1, x2) - tol) continue;
+    if (d.type === "fib" || d.type === "fibext") {
+      if (d.type === "fibext" && !d.c) continue;
+      var left = d.type === "fibext" ? this.x(d.c.i) : Math.min(x1, x2);
+      if (x < left - tol) continue;
       var hit = false;
-      [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1].forEach(function (f) {
-        if (Math.abs(y - self.y(d.a.p + (d.b.p - d.a.p) * f)) <= tol) hit = true;
+      fibLevels(d).forEach(function (f) {
+        if (Math.abs(y - self.y(fibPrice(d, f))) <= tol) hit = true;
       });
       if (hit) return d;
       continue;
@@ -2376,13 +2409,16 @@ Chart.prototype.handles = function () {
   var out = [], self = this, b = this.box();
   this.drawings.forEach(function (d, k) {
     if (d.type === "hline") out.push({ d: d, k: k, f: "p", x: self.x(self.vis) - 30, y: self.y(d.p), line: true });
+    if (d.type === "measure" || d.type === "fibext") {
+      ["a", "b", "c"].forEach(function (f) {
+        if (d[f]) out.push({ d: d, k: k, f: f, x: self.x(d[f].i), y: self.y(d[f].p) });
+      });
+    }
     if (d.type === "trend" || d.type === "rect" || d.type === "fib") {
       out.push({ d: d, k: k, f: "a", x: self.x(d.a.i), y: self.y(d.a.p) });
       out.push({ d: d, k: k, f: "b", x: self.x(d.b.i), y: self.y(d.b.p) });
     }
-    if (d.type === "measure") {
-      ["a", "b", "c"].forEach(function (f) { if (d[f]) out.push({ d: d, k: k, f: f, x: self.x(d[f].i), y: self.y(d[f].p) }); });
-    }
+
     if (d.type === "pos") {
       ["entry", "stop", "target"].forEach(function (f) {
         out.push({ d: d, k: k, f: f, x: self.x(d.i) + 26, y: self.y(d[f]), line: true });
@@ -2819,7 +2855,7 @@ Chart.prototype._draw = function (c, b, d, ghost) {
     case "hline": this._drawH(c, b, d); break;
     case "trend": this._drawTrend(c, b, d); break;
     case "rect": this._drawRect(c, b, d); break;
-    case "fib": this._drawFib(c, b, d); break;
+    case "fib": case "fibext": this._drawFib(c, b, d); break;
     case "measure": this._drawMeasure(c, b, d); break;
     case "pos": this._drawPos(c, b, d); break;
   }
@@ -2844,10 +2880,11 @@ Chart.prototype._outline = function (c, b, d) {
     c.rect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
     c.stroke(); return;
   }
-  if (d.type === "fib") {
-    var xl = Math.min(x1, x2), self = this;
-    [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1].forEach(function (f) {
-      var yy = self.y(d.a.p + (d.b.p - d.a.p) * f);
+  if (d.type === "fib" || d.type === "fibext") {
+    if (d.type === "fibext" && !d.c) { c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); return; }
+    var xl = d.type === "fibext" ? this.x(d.c.i) : Math.min(x1, x2), self = this;
+    fibLevels(d).forEach(function (f) {
+      var yy = self.y(fibPrice(d, f));
       c.moveTo(xl, yy); c.lineTo(b.r, yy);
     });
     c.stroke(); return;
@@ -2905,17 +2942,37 @@ Chart.prototype._drawRect = function (c, b, d) {
   c.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
   c.strokeRect(Math.min(x1, x2) + 0.5, Math.min(y1, y2) + 0.5, Math.abs(x2 - x1), Math.abs(y2 - y1));
 };
+/* Draws both kinds. A retracement needs two points and measures across the
+   leg; an extension needs a third and projects the leg forward from it. */
 Chart.prototype._drawFib = function (c, b, d) {
+  var ext = d.type === "fibext", self = this;
   if (!d.b) return;
-  var lv = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1], self = this;
-  var x1 = Math.min(this.x(d.a.i), this.x(d.b.i));
+  if (ext && !d.c) {
+    /* while the third point is still being placed, show the leg it will project */
+    c.strokeStyle = "rgba(138,146,162,.7)"; c.lineWidth = 1.4; c.setLineDash([5, 4]);
+    c.beginPath();
+    c.moveTo(this.x(d.a.i), this.y(d.a.p));
+    c.lineTo(this.x(d.b.i), this.y(d.b.p));
+    c.stroke(); c.setLineDash([]);
+    return;
+  }
+  var x1 = ext ? this.x(d.c.i) : Math.min(this.x(d.a.i), this.x(d.b.i));
+  if (ext) {
+    /* the measured leg, so it is obvious what is being projected */
+    c.strokeStyle = "rgba(138,146,162,.55)"; c.lineWidth = 1.2; c.setLineDash([5, 4]);
+    c.beginPath();
+    c.moveTo(this.x(d.a.i), this.y(d.a.p));
+    c.lineTo(this.x(d.b.i), this.y(d.b.p));
+    c.stroke(); c.setLineDash([]);
+  }
   c.font = "10px 'IBM Plex Mono',monospace"; c.textAlign = "left"; c.textBaseline = "bottom";
-  lv.forEach(function (f) {
-    var p = d.a.p + (d.b.p - d.a.p) * f, y = Math.round(self.y(p)) + 0.5;
-    c.strokeStyle = f === 0.618 || f === 0.5 ? "rgba(242,169,59,.75)" : "rgba(138,146,162,.45)";
+  fibLevels(d).forEach(function (f) {
+    var p = fibPrice(d, f), y = Math.round(self.y(p)) + 0.5;
+    var hot = FIB.key[f];
+    c.strokeStyle = hot ? "rgba(242,169,59,.75)" : "rgba(138,146,162,.45)";
     c.setLineDash([4, 4]); c.lineWidth = 1;
     c.beginPath(); c.moveTo(x1, y); c.lineTo(b.r, y); c.stroke(); c.setLineDash([]);
-    c.fillStyle = "rgba(138,146,162,.9)";
+    c.fillStyle = hot ? "rgba(242,169,59,.9)" : "rgba(138,146,162,.9)";
     c.fillText((f * 100).toFixed(1) + "%  " + self.fmt(p), x1 + 4, y - 2);
   });
 };
@@ -5495,7 +5552,7 @@ var PROG = (function () {
     wrap.innerHTML = '<div class="sym"><b>' + ch.sym + '</b>' + ch.tfLbl + '</div><div class="tsep"></div>' +
       '<button class="tool wide" id="learnPrev"' + (S.learnIdx === 0 ? " disabled" : "") + '>&#9668; Prev</button>' +
       '<button class="tool wide" id="learnNext">' + (last ? "Start drilling &#9658;" : "Next &#9658;") + '</button>' +
-      '<div class="tsep"></div><button class="tool" data-act="fit" title="Fit">&#10530;</button>';
+      '<div class="tsep"></div>' + actBtn("fit", "⤢", "Fit", "Fit the chart to the bars");
     $("learnPrev").onclick = function () { enterLearn(S.learnIdx - 1); };
     $("learnNext").onclick = function () { if (last) exitLearn(); else enterLearn(S.learnIdx + 1); };
     var fitBtn = wrap.querySelector('[data-act="fit"]');
@@ -5552,28 +5609,42 @@ var PROG = (function () {
     });
   }
 
+  /* icon, tooltip, and a short label printed under the icon. Icons alone meant
+     guessing what each button did, and a tooltip you have to hover for is no
+     help at all on a touch screen. */
   var TOOLBTN = [
-    ["cursor", "✛", "Crosshair — click a drawing to select it, drag to move, ✕ to delete"],
-    ["hline", "─", "Horizontal level"],
-    ["trend", "╱", "Trendline"],
-    ["rect", "▭", "Zone"],
-    ["fib", "≡", "Fibonacci retracement"],
-    ["measure", "⇕", "Measured move (A → B → C)"],
-    ["pos", "⌸", "Position (entry / stop / target)"]
+    ["cursor",  "✛", "Select and move — click a drawing, drag it, press its ✕ to delete", "Select"],
+    ["hline",   "─", "Horizontal level", "Level"],
+    ["trend",   "╱", "Trendline", "Trend"],
+    ["rect",    "▭", "Zone / rectangle", "Zone"],
+    ["fib",     "≡", "Fibonacci retracement — click the start and end of the leg", "Fib"],
+    ["fibext",  "≣", "Fibonacci extension — click A, then B, then the point to project from", "Fib ext"],
+    ["measure", "⇕", "Measured move (A → B → C)", "Measure"],
+    ["pos",     "⌸", "Position (entry / stop / target)", "Position"]
   ];
+  /* icon over label, so a button says what it does without being hovered */
+  function toolBtn(t) {
+    return '<button class="tool lab" data-tool="' + t[0] + '" title="' + t[2] + '">' +
+      '<span class="ic">' + t[1] + '</span><span class="tl">' + t[3] + '</span></button>';
+  }
+  function actBtn(act, icon, label, title) {
+    return '<button class="tool lab" data-act="' + act + '" title="' + title + '">' +
+      '<span class="ic">' + icon + '</span><span class="tl">' + label + '</span></button>';
+  }
+
   function buildToolbar(prep) {
     var wrap = $("drillTools"), tools = TOOLBTN.slice();
     if (prep.ui.need === "mark") tools = [["cursor", "✛", "Crosshair"], ["mark", "◉", "Drop a marker"]];
     var html = '<div class="sym"><b>' + (prep.ch ? prep.ch.sym : "—") + '</b>' +
       (prep.ch ? prep.ch.tfLbl : "") + '</div><div class="tsep"></div>';
     tools.forEach(function (t) {
-      html += '<button class="tool" data-tool="' + t[0] + '" title="' + t[2] + '">' + t[1] + '</button>';
+      html += toolBtn(t);
     });
     if (!prep.ch) html = '<div class="sym"><b>—</b>mental maths</div>';
     html += '<div class="tsep"></div>' +
-      '<button class="tool" data-act="undo" title="Undo">↺</button>' +
-      '<button class="tool" data-act="clear" title="Clear every drawing — to remove just one, click it and press its ✕">✕</button>' +
-      '<button class="tool" data-act="fit" title="Fit chart">⤢</button>';
+      actBtn("undo", "↺", "Undo", "Undo the last drawing") +
+      actBtn("clear", "✕", "Clear all", "Clear every drawing — to remove just one, click it and press its ✕") +
+      actBtn("fit", "⤢", "Fit", "Fit the chart to the bars");
     if (S.learnBases && S.learnBases.length) {
       html += '<div class="tsep"></div><button class="tool wide" data-act="learn" title="Review the worked examples">Learn</button>';
     }
@@ -6380,11 +6451,11 @@ var PROG = (function () {
   function buildPracToolbar() {
     var wrap = $("pracTools");
     var html = '<div class="sym"><b>' + prac.ch.sym + '</b>' + prac.ch.tfLbl + '</div><div class="tsep"></div>';
-    TOOLBTN.forEach(function (t) { html += '<button class="tool" data-tool="' + t[0] + '" title="' + t[2] + '">' + t[1] + '</button>'; });
+    TOOLBTN.forEach(function (t) { html += toolBtn(t); });
     html += '<div class="tsep"></div>' +
-      '<button class="tool" data-act="undo" title="Undo">↺</button>' +
-      '<button class="tool" data-act="clear" title="Clear every drawing — to remove just one, click it and press its ✕">✕</button>' +
-      '<button class="tool" data-act="fit" title="Fit">⤢</button>' +
+      actBtn("undo", "↺", "Undo", "Undo the last drawing") +
+      actBtn("clear", "✕", "Clear all", "Clear every drawing — to remove just one, click it and press its ✕") +
+      actBtn("fit", "⤢", "Fit", "Fit the chart to the bars") +
       '<div class="tsep"></div>' +
       '<button class="tool wide" data-act="step">Step ▸</button>' +
       '<button class="tool wide" data-act="play" id="playBtn">Play ▶</button>' +
@@ -7037,6 +7108,20 @@ var PROG = (function () {
       '<p>Every lesson and every piece of feedback has a <b>&#128266; Read</b> button. Turn on auto-read below and it ' +
       'speaks each one as it appears, so you can watch the chart instead of the text.</p>' +
       '<div class="prefrow"><input type="checkbox" id="autoReadChk"><label for="autoReadChk">Read lessons and feedback aloud automatically</label></div>' +
+      '<h3>Fibonacci levels</h3>' +
+      '<p>Which ratios get drawn, as a comma-separated list. Retracement runs across the leg you ' +
+      'draw; extension projects that leg forward from a third point. Anything you type here applies ' +
+      'to every fib on every chart, new or already drawn.</p>' +
+      '<div class="prefrow"><label for="fibRet">Retracement</label>' +
+      '<input type="text" id="fibRet" style="flex:1;min-width:150px"></div>' +
+      '<div class="prefrow"><label for="fibExt">Extension</label>' +
+      '<input type="text" id="fibExt" style="flex:1;min-width:150px"></div>' +
+      '<div class="prefrow"><button class="btn sm" id="fibReset">Back to defaults</button>' +
+      '<span class="hint" id="fibMsg"></span></div>' +
+      '<p><b>To adjust one you have already drawn:</b> pick the <b>Select</b> tool, click the fib, ' +
+      'and drag the round handles at its ends to re-fit it — drag its body to slide the whole thing. ' +
+      'Press the red ✕ to delete just that one.</p>' +
+
       '<div class="prefrow"><label for="rateSel">Speaking speed</label>' +
       '<select id="rateSel"><option value="0.8">Slower</option><option value="1">Normal</option>' +
       '<option value="1.2">Faster</option><option value="1.4">Fastest</option></select></div>' +
@@ -7061,6 +7146,7 @@ var PROG = (function () {
       '</b> · build ' + esc(APP.build) + ' · ' + esc(APP.basis) + '</p>' +
       '<button class="btn primary" id="okBtn" style="margin-top:6px">Got it</button>');
     $("okBtn").onclick = closeModal;
+    wireFib();
     var chk = $("autoReadChk"), sel = $("rateSel");
     if (chk && sel) {
       if (!Speech.supported) {
@@ -7361,6 +7447,54 @@ var PROG = (function () {
     btStep(Math.max(1, g.i - chB.vis));
   }
 
+  /* ---- Fibonacci preferences ---- */
+  function fibParse(txt) {
+    var out = [];
+    String(txt).split(",").forEach(function (t) {
+      var v = parseFloat(t.trim());
+      /* accept "61.8" as readily as "0.618" — people type both */
+      if (isFinite(v)) { if (v > 3) v = v / 100; if (v >= -5 && v <= 10) out.push(v); }
+    });
+    out.sort(function (a, b) { return a - b; });
+    return out;
+  }
+  function fibFmt(a) { return a.join(", "); }
+  function wireFib() {
+    var r = document.getElementById("fibRet"), e = document.getElementById("fibExt"),
+        rs = document.getElementById("fibReset"), msg = document.getElementById("fibMsg");
+    if (!r || !e) return;
+    r.value = fibFmt(Mkt.FIB.ret);
+    e.value = fibFmt(Mkt.FIB.ext);
+    function apply(which, el) {
+      var v = fibParse(el.value);
+      if (!v.length) { el.value = fibFmt(Mkt.FIB[which]); if (msg) msg.textContent = "Need at least one number"; return; }
+      Mkt.FIB[which] = v;
+      el.value = fibFmt(v);
+      if (msg) msg.textContent = "Saved";
+      try { localStorage.setItem("tt_fib_" + which, JSON.stringify(v)); } catch (err) {}
+      [chD, chP, chB].forEach(function (c) { if (c && c.bars && c.bars.length) c.render(); });
+    }
+    r.onchange = function () { apply("ret", r); };
+    e.onchange = function () { apply("ext", e); };
+    if (rs) rs.onclick = function () {
+      Mkt.FIB.ret = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+      Mkt.FIB.ext = [0, 0.618, 1, 1.272, 1.618, 2, 2.618];
+      r.value = fibFmt(Mkt.FIB.ret); e.value = fibFmt(Mkt.FIB.ext);
+      try { localStorage.removeItem("tt_fib_ret"); localStorage.removeItem("tt_fib_ext"); } catch (err) {}
+      if (msg) msg.textContent = "Back to defaults";
+      [chD, chP, chB].forEach(function (c) { if (c && c.bars && c.bars.length) c.render(); });
+    };
+  }
+  /* restore a saved choice before anything draws */
+  (function () {
+    ["ret", "ext"].forEach(function (k) {
+      try {
+        var v = JSON.parse(localStorage.getItem("tt_fib_" + k) || "null");
+        if (v && v.length) Mkt.FIB[k] = v;
+      } catch (err) {}
+    });
+  })();
+
   function takeSignal() {
     var g = liveSignal();
     if (!g || !g.tradeable) return;
@@ -7517,13 +7651,14 @@ var PROG = (function () {
       '<div class="tsep"></div>';
     TOOLBTN.forEach(function (t) {
       if (t[0] === "pos") return;                 /* replaced by the order tool below */
-      html += '<button class="tool" data-tool="' + t[0] + '" title="' + t[2] + '">' + t[1] + '</button>';
+      html += toolBtn(t);
     });
-    html += '<button class="tool" data-tool="btorder" title="Work an order at a price you click">⊕</button>' +
+    html += '<button class="tool lab" data-tool="btorder" title="Work an order at a price you click">' +
+      '<span class="ic">⊕</span><span class="tl">Order</span></button>' +
       '<div class="tsep"></div>' +
-      '<button class="tool" data-act="undo" title="Undo drawing">↺</button>' +
-      '<button class="tool" data-act="clear" title="Clear every drawing — to remove just one, click it and press its ✕">✕</button>' +
-      '<button class="tool" data-act="fit" title="Fit">⤢</button>' +
+      actBtn("undo", "↺", "Undo", "Undo the last drawing") +
+      actBtn("clear", "✕", "Clear all", "Clear every drawing — to remove just one, click it and press its ✕") +
+      actBtn("fit", "⤢", "Fit", "Fit the chart to the bars") +
       '<div class="tsep"></div>' +
       '<button class="tool wide" data-act="s1">Step ▸</button>' +
       '<button class="tool wide" data-act="s10">+10 ▸▸</button>' +
