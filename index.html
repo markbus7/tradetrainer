@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.29.0 (build 2026-08-01) — Al Brooks price action -->
+<!-- Trade Trainer v3.43.0 (build 2026-09-17) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -323,7 +323,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.42.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.43.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2120,7 +2120,16 @@ Chart.prototype.fitRange = function (fromIdx, toIdx) {
   this.render();
 };
 Chart.prototype.scale = function () {
-  var b = this.box(), lo = Infinity, hi = -Infinity;
+  var b = this.box();
+  /* While a handle or body is being dragged, the price under the pointer is
+     ITSELF one of the inputs to this auto-fit (drawings widen the visible
+     range). Recomputing every frame means moving the mouse a little shifts
+     the very axis that mouse position is measured against — a feedback loop
+     that reads as the line suddenly leaping instead of tracking the cursor.
+     Freezing here keeps the mapping 1:1 for the whole gesture; one more
+     render right after release lets the view settle normally. */
+  if (this._freezeScale) return b;
+  var lo = Infinity, hi = -Infinity;
   if (this.vis > this.bars.length - 1) this.vis = this.bars.length - 1;
   if (this.vis < 0) this.vis = 0;
   var a = Math.max(0, Math.floor(this.i0)), z = Math.min(this.vis, Math.ceil(this.i1));
@@ -2186,6 +2195,19 @@ Chart.prototype._changed = function () { if (this.onChange) this.onChange(this);
 /* how many points each tool needs */
 var TOOL_PTS = { hline: 1, trend: 2, rect: 2, fib: 2, fibext: 3, measure: 3, pos: 1, mark: 1 };
 
+/* A drawing in progress previewed at the cursor, so a fib (or trend, or
+   measure) is visible taking shape as you move toward the next click instead
+   of appearing only once it is fully placed — the two-click gesture stays,
+   but you now see what you are about to commit to before you commit to it. */
+function previewOf(pend, hover) {
+  if (!pend || !hover) return pend;
+  var need = TOOL_PTS[pend.type] || 1;
+  var out = { type: pend.type, a: pend.a, b: pend.b, c: pend.c };
+  if (need >= 2 && !out.b) out.b = hover;
+  else if (need >= 3 && out.b && !out.c) out.c = hover;
+  return out;
+}
+
 /* The Fibonacci ratios, in one place so the hit-test, the selection outline and
    the renderer can never disagree — and so they can be changed. Retracement
    runs 0 to 1 across the leg; extension projects past it from the third point.
@@ -2198,12 +2220,16 @@ var FIB = {
   key: { 0.5: 1, 0.618: 1, 1: 1, 1.272: 1, 1.618: 1 }
 };
 function fibLevels(d) { return d.type === "fibext" ? FIB.ext : FIB.ret; }
-/* price of a ratio on either kind: retracement spans a->b, extension projects
-   the a->b leg forward from c */
+/* price of a ratio on either kind. Extension projects the a->b leg forward
+   from c, 0% sitting at c (the last point placed). Retracement mirrors that:
+   0% sits at b (the last point placed, the recent extreme you pulled back
+   from), 100% at a (where the move started) -- the TradingView/cTrader
+   convention. Anchoring 0% at a instead (the old behaviour here) reads as
+   the whole ladder flipped end-to-end for the exact same two clicks. */
 function fibPrice(d, f) {
   return d.type === "fibext"
     ? d.c.p + (d.b.p - d.a.p) * f
-    : d.a.p + (d.b.p - d.a.p) * f;
+    : d.b.p + (d.a.p - d.b.p) * f;
 }
 
 /* ---------- selection ----------
@@ -2341,11 +2367,12 @@ Chart.prototype._bind = function () {
            priority would turn "grab the corner" into "delete the drawing". */
         var bd = self.badgeDist(p.x, p.y), h = self.hitHandle(p.x, p.y);
         if (bd <= 13 && bd <= (h ? h.dist : Infinity)) { drag = { kind: "badge" }; return; }
-        if (h) { self.select(h.d); drag = { kind: "handle", h: h }; return; }
+        if (h) { self.select(h.d); self._freezeScale = true; drag = { kind: "handle", h: h }; return; }
         var hd = self.hitDrawing(p.x, p.y);
         if (hd) {
           /* grabbing the body slides the whole shape; the endpoints reshape it */
           self.select(hd);
+          self._freezeScale = true;
           drag = { kind: "body", d: hd, i: self.iAt(p.x), p: self.pAt(p.y), moved: false };
           return;
         }
@@ -2365,6 +2392,7 @@ Chart.prototype._bind = function () {
       self.setSpan(sp, mid); return;
     }
     self.cross = { x: p.x, y: p.y };
+    self._hoverPt = { i: Math.round(self.iAt(p.x)), p: self.pAt(p.y) };
     if (drag && drag.kind === "pan") {
       var db = (drag.x - p.x) / Math.max(0.5, self.bw);
       self.i0 = drag.i0 + db; self.i1 = drag.i1 + db;
@@ -2388,7 +2416,12 @@ Chart.prototype._bind = function () {
   function up(e) {
     delete pts[e.pointerId];
     if (Object.keys(pts).length < 2) pinch = null;
-    if (drag) { drag = null; return; }
+    if (drag) {
+      var wasScaleFreeze = drag.kind === "handle" || drag.kind === "body";
+      drag = null;
+      if (wasScaleFreeze) { self._freezeScale = false; self.render(); }
+      return;
+    }
   }
   this.cv.addEventListener("pointerup", function (e) {
     var wasBadge = drag && drag.kind === "badge";
@@ -2410,7 +2443,7 @@ Chart.prototype._bind = function () {
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); self.deleteSelected(); }
     else if (e.key === "Escape") { e.preventDefault(); self.select(null); }
   });
-  this.cv.addEventListener("pointerleave", function () { self.cross = null; self.render(); });
+  this.cv.addEventListener("pointerleave", function () { self.cross = null; self._hoverPt = null; self.render(); });
   this.cv.addEventListener("wheel", function (e) {
     e.preventDefault();
     var p = pos(e), anchor = self.iAt(p.x);
@@ -2551,7 +2584,7 @@ Chart.prototype.render = function () {
   this._markers(c, b);
   var self = this;
   this.drawings.forEach(function (dr) { self._draw(c, b, dr, false); });
-  if (this.pending) this._draw(c, b, this.pending, true);
+  if (this.pending) this._draw(c, b, previewOf(this.pending, this._hoverPt), true);
   c.restore();
   this._selBadge(c);
   this._axes(c, b);
