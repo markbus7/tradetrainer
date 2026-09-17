@@ -295,7 +295,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.30.0", build: "2026-09-16", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.31.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -1863,6 +1863,7 @@ function Chart(canvas) {
   this.vis = 0;                 /* bars visible up to this index (inclusive) */
   this.i0 = 0; this.i1 = 60;    /* view window in bar space (floats) */
   this.drawings = [];
+  this.sel = null;
   this.pending = null;
   this.tool = "cursor";
   this.cross = null;
@@ -1893,7 +1894,7 @@ Chart.prototype.load = function (chart, visIdx) {
   this.bars = chart.bars; this.dec = chart.dec; this.sym = chart.sym; this.tf = chart.tf;
   this.chart = chart;
   this.vis = (visIdx === undefined || visIdx < 0) ? chart.bars.length - 1 : visIdx;
-  this.drawings = []; this.pending = null; this.gt = null; this.markers = []; this.sigBar = null; this.gtMeasure = false;
+  this.drawings = []; this.pending = null; this.sel = null; this.gt = null; this.markers = []; this.sigBar = null; this.gtMeasure = false;
   this.gtLevel = 3;                        /* how much of gt may be drawn; see scaffoldLevel() */
   this.gtKeep = null;                      /* levels kept even at 0 — the drill's own answer */
   this.tool = "cursor";
@@ -1981,20 +1982,130 @@ Chart.prototype.find = function (type) {
 };
 Chart.prototype.clearTool = function (type) {
   this.drawings = this.drawings.filter(function (d) { return d.type !== type; });
-  this.pending = null; this.render(); this._changed();
+  this.pending = null;
+  if (this.drawings.indexOf(this.sel) < 0) this.sel = null;
+  this.render(); this._changed();
 };
 Chart.prototype.undo = function () {
   if (this.pending) this.pending = null; else this.drawings.pop();
+  if (this.drawings.indexOf(this.sel) < 0) this.sel = null;
   this.render(); this._changed();
 };
-Chart.prototype.clearAll = function () { this.drawings = []; this.pending = null; this.render(); this._changed(); };
+Chart.prototype.clearAll = function () {
+  this.drawings = []; this.pending = null; this.sel = null; this.render(); this._changed();
+};
 Chart.prototype._changed = function () { if (this.onChange) this.onChange(this); };
 
 /* how many points each tool needs */
 var TOOL_PTS = { hline: 1, trend: 2, rect: 2, fib: 2, measure: 3, pos: 1, mark: 1 };
 
+/* ---------- selection ----------
+   Only the annotation tools take part. A `pos` is the answer a drill is asking
+   for, and on the Desk it is a live order that owns its own Close/Cancel button
+   — letting either be selected and deleted as scenery would desync them. */
+var SELECTABLE = { hline: 1, trend: 1, rect: 1, fib: 1, measure: 1 };
+Chart.prototype.canSelect = function (d) { return !!(d && SELECTABLE[d.type] && !d._bt); };
+
+/* distance from a point to a segment, for hit-testing lines you can't click exactly */
+function segDist(px, py, x1, y1, x2, y2) {
+  var dx = x2 - x1, dy = y2 - y1, L = dx * dx + dy * dy;
+  var t = L ? Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / L)) : 0;
+  var qx = x1 + t * dx, qy = y1 + t * dy;
+  return Math.sqrt((px - qx) * (px - qx) + (py - qy) * (py - qy));
+}
+
+/* the topmost drawing under the pointer. Generous by design: a 2px line you have
+   to hit dead-on is the difference between a tool you use and one you avoid. */
+Chart.prototype.hitDrawing = function (x, y) {
+  var b = this.box(), tol = 9, self = this;
+  for (var k = this.drawings.length - 1; k >= 0; k--) {
+    var d = this.drawings[k];
+    if (!this.canSelect(d)) continue;
+    if (d.type === "hline") { if (Math.abs(y - this.y(d.p)) <= tol) return d; continue; }
+    if (!d.b) continue;
+    var x1 = this.x(d.a.i), y1 = this.y(d.a.p), x2 = this.x(d.b.i), y2 = this.y(d.b.p);
+    if (d.type === "trend") {
+      var ex = b.r, ey = x2 === x1 ? y2 : y2 + ((y2 - y1) / (x2 - x1)) * (b.r - x2);
+      if (segDist(x, y, x1, y1, x2, y2) <= tol || segDist(x, y, x2, y2, ex, ey) <= tol) return d;
+      continue;
+    }
+    if (d.type === "rect") {
+      /* the whole zone grabs, so you can slide it without aiming at its edge */
+      if (x >= Math.min(x1, x2) - tol && x <= Math.max(x1, x2) + tol &&
+          y >= Math.min(y1, y2) - tol && y <= Math.max(y1, y2) + tol) return d;
+      continue;
+    }
+    if (d.type === "fib") {
+      /* any of its levels, anywhere from the left edge of the leg rightwards */
+      if (x < Math.min(x1, x2) - tol) continue;
+      var hit = false;
+      [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1].forEach(function (f) {
+        if (Math.abs(y - self.y(d.a.p + (d.b.p - d.a.p) * f)) <= tol) hit = true;
+      });
+      if (hit) return d;
+      continue;
+    }
+    if (d.type === "measure") {
+      if (segDist(x, y, x1, y1, x2, y2) <= tol) return d;
+      if (d.c) {
+        var cx = this.x(d.c.i), cy = this.y(d.c.p), ty = this.y(this.measureTarget(d));
+        if (segDist(x, y, cx, cy, cx, ty) <= tol) return d;
+      }
+      continue;
+    }
+  }
+  return null;
+};
+
+/* where the ✕ badge sits: just clear of the drawing's top-left corner */
+Chart.prototype.selAnchor = function (d) {
+  if (!d) return null;
+  var b = this.box(), a;
+  if (d.type === "hline") a = { x: 16, y: this.y(d.p) - 14 };
+  else {
+    if (!d.b) return null;
+    var xs = [this.x(d.a.i), this.x(d.b.i)], ys = [this.y(d.a.p), this.y(d.b.p)];
+    if (d.c) { xs.push(this.x(d.c.i)); ys.push(this.y(d.c.p)); }
+    a = { x: Math.min.apply(null, xs) - 18, y: Math.min.apply(null, ys) - 18 };
+  }
+  /* a badge half off the canvas is a badge you cannot press */
+  a.x = Math.max(11, Math.min(b.r - 11, a.x));
+  a.y = Math.max(11, Math.min(b.t + b.h - 11, a.y));
+  return a;
+};
+Chart.prototype.badgeDist = function (x, y) {
+  if (!this.sel || this.tool !== "cursor" || this.locked) return Infinity;
+  if (this.drawings.indexOf(this.sel) < 0) return Infinity;
+  var a = this.selAnchor(this.sel);
+  if (!a) return Infinity;
+  return Math.sqrt((x - a.x) * (x - a.x) + (y - a.y) * (y - a.y));
+};
+Chart.prototype.hitBadge = function (x, y) { return this.badgeDist(x, y) <= 13; };
+Chart.prototype.select = function (d) {
+  this.sel = this.canSelect(d) ? d : null;
+  this.render(); return this.sel;
+};
+Chart.prototype.deleteDrawing = function (d) {
+  var k = this.drawings.indexOf(d);
+  if (k < 0) return false;
+  this.drawings.splice(k, 1);
+  if (this.sel === d) this.sel = null;
+  this.render(); this._changed(); return true;
+};
+Chart.prototype.deleteSelected = function () {
+  return this.sel ? this.deleteDrawing(this.sel) : false;
+};
+/* shift a whole drawing, keeping its shape */
+Chart.prototype.moveDrawing = function (d, di, dp) {
+  if (d.type === "hline") { d.p += dp; return; }
+  ["a", "b", "c"].forEach(function (f) {
+    if (d[f]) { d[f] = { i: d[f].i + di, p: d[f].p + dp }; }
+  });
+};
+
 Chart.prototype.setTool = function (t) {
   this.tool = t; this.pending = null;
+  if (t !== "cursor") this.sel = null;     /* drawing something new drops the old selection */
   this.cv.style.cursor = t === "cursor" ? "crosshair" : "copy";
   this.render();
 };
@@ -2018,8 +2129,19 @@ Chart.prototype._bind = function () {
     var p = pos(e);
     if (self.tool === "cursor") {
       if (!self.locked) {
-        var h = self.hitHandle(p.x, p.y);
-        if (h) { drag = { kind: "handle", h: h }; return; }
+        /* The ✕ sits near the corner handle, so whichever is nearer wins. A fixed
+           priority would turn "grab the corner" into "delete the drawing". */
+        var bd = self.badgeDist(p.x, p.y), h = self.hitHandle(p.x, p.y);
+        if (bd <= 13 && bd <= (h ? h.dist : Infinity)) { drag = { kind: "badge" }; return; }
+        if (h) { self.select(h.d); drag = { kind: "handle", h: h }; return; }
+        var hd = self.hitDrawing(p.x, p.y);
+        if (hd) {
+          /* grabbing the body slides the whole shape; the endpoints reshape it */
+          self.select(hd);
+          drag = { kind: "body", d: hd, i: self.iAt(p.x), p: self.pAt(p.y), moved: false };
+          return;
+        }
+        if (self.sel) self.select(null);     /* a click on empty chart clears it */
       }
       /* locked only freezes the answer — looking around the chart stays free */
       drag = { kind: "pan", x: p.x, y: p.y, i0: self.i0, i1: self.i1 };
@@ -2041,9 +2163,19 @@ Chart.prototype._bind = function () {
       self.clampView();
     } else if (drag && drag.kind === "handle") {
       self.moveHandle(drag.h, p.x, p.y);
+    } else if (drag && drag.kind === "body") {
+      var ni = self.iAt(p.x), np = self.pAt(p.y);
+      self.moveDrawing(drag.d, ni - drag.i, np - drag.p);
+      drag.i = ni; drag.p = np; drag.moved = true;
+    } else if (!drag && self.tool === "cursor" && !self.locked) {
+      /* tell the pointer what it is over before it commits to a drag */
+      var hb = self.badgeDist(p.x, p.y), hh = self.hitHandle(p.x, p.y);
+      self.cv.style.cursor = (hb <= 13 && hb <= (hh ? hh.dist : Infinity)) ? "pointer"
+        : hh ? "grab"
+        : self.hitDrawing(p.x, p.y) ? "move" : "crosshair";
     }
     self.render();
-    if (drag && drag.kind === "handle") self._changed();
+    if (drag && (drag.kind === "handle" || drag.kind === "body")) self._changed();
   });
   function up(e) {
     delete pts[e.pointerId];
@@ -2051,11 +2183,25 @@ Chart.prototype._bind = function () {
     if (drag) { drag = null; return; }
   }
   this.cv.addEventListener("pointerup", function (e) {
+    var wasBadge = drag && drag.kind === "badge";
     up(e);
     if (self.locked) return;
+    /* deleting on release, not on press, so a mis-tap can still be dragged off */
+    if (wasBadge) { if (self.hitBadge(pos(e).x, pos(e).y)) self.deleteSelected(); return; }
     if (self.tool !== "cursor") { self.addPoint(pos(e)); }
   });
   this.cv.addEventListener("pointercancel", up);
+  /* Delete removes the selected drawing, Escape just lets go of it. Scoped to
+     the chart the pointer is over, so two charts on a page never fight. */
+  this.cv.addEventListener("pointerenter", function () { self._hover = true; });
+  this.cv.addEventListener("pointerleave", function () { self._hover = false; });
+  window.addEventListener("keydown", function (e) {
+    if (!self._hover || self.locked || !self.sel) return;
+    var t = e.target && e.target.tagName;
+    if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT") return;
+    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); self.deleteSelected(); }
+    else if (e.key === "Escape") { e.preventDefault(); self.select(null); }
+  });
   this.cv.addEventListener("pointerleave", function () { self.cross = null; self.render(); });
   this.cv.addEventListener("wheel", function (e) {
     e.preventDefault();
@@ -2142,6 +2288,7 @@ Chart.prototype.hitHandle = function (x, y) {
     if (h.line && Math.abs(dy) > 9) continue;
     if (d < bd) { bd = d; best = h; }
   }
+  if (best) best.dist = Math.sqrt(bd);
   return best;
 };
 Chart.prototype.moveHandle = function (h, x, y) {
@@ -2195,6 +2342,7 @@ Chart.prototype.render = function () {
   this.drawings.forEach(function (dr) { self._draw(c, b, dr, false); });
   if (this.pending) this._draw(c, b, this.pending, true);
   c.restore();
+  this._selBadge(c);
   this._axes(c, b);
   this._crosshair(c, b);
   this._watermark(c, b);
@@ -2543,6 +2691,19 @@ Chart.prototype._gtOverlay = function (c, b) {
 /* ---------- drawing renderers ---------- */
 Chart.prototype._draw = function (c, b, d, ghost) {
   var al = ghost ? 0.6 : 1;
+  /* a halo under the selected shape — it reads as "this one" without recolouring
+     the drawing itself, which would hide what the drawing is telling you */
+  if (!ghost && d === this.sel) {
+    c.save();
+    c.strokeStyle = COL.amber;
+    /* a fib stacks seven parallel lines — a fat halo on each one would smear the
+       level labels it exists to help you read */
+    c.lineWidth = d.type === "fib" ? 4 : 7;
+    c.globalAlpha = d.type === "fib" ? 0.13 : 0.16;
+    c.lineCap = "round"; c.setLineDash([]);
+    this._outline(c, b, d);
+    c.restore();
+  }
   c.globalAlpha = al;
   switch (d.type) {
     case "hline": this._drawH(c, b, d); break;
@@ -2554,13 +2715,56 @@ Chart.prototype._draw = function (c, b, d, ghost) {
   }
   c.globalAlpha = 1;
   if (!ghost && this.tool === "cursor") {
-    var self = this;
+    var on = d === this.sel, r = on ? 5.5 : 4;
     this.handles().filter(function (h) { return h.d === d; }).forEach(function (h) {
       if (h.line) return;
-      c.fillStyle = COL.paper; c.strokeStyle = "#0B0E13"; c.lineWidth = 1.5;
-      c.beginPath(); c.arc(h.x, h.y, 3.5, 0, 6.284); c.fill(); c.stroke();
+      c.fillStyle = on ? COL.amber : COL.paper; c.strokeStyle = "#0B0E13"; c.lineWidth = 1.5;
+      c.beginPath(); c.arc(h.x, h.y, r, 0, 6.284); c.fill(); c.stroke();
     });
   }
+};
+
+/* the bare path of a drawing, used for the selection halo */
+Chart.prototype._outline = function (c, b, d) {
+  c.beginPath();
+  if (d.type === "hline") { var y = this.y(d.p); c.moveTo(0, y); c.lineTo(b.r, y); c.stroke(); return; }
+  if (!d.b) return;
+  var x1 = this.x(d.a.i), y1 = this.y(d.a.p), x2 = this.x(d.b.i), y2 = this.y(d.b.p);
+  if (d.type === "rect") {
+    c.rect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
+    c.stroke(); return;
+  }
+  if (d.type === "fib") {
+    var xl = Math.min(x1, x2), self = this;
+    [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1].forEach(function (f) {
+      var yy = self.y(d.a.p + (d.b.p - d.a.p) * f);
+      c.moveTo(xl, yy); c.lineTo(b.r, yy);
+    });
+    c.stroke(); return;
+  }
+  c.moveTo(x1, y1); c.lineTo(x2, y2);
+  if (d.type === "trend" && x2 !== x1) c.lineTo(b.r, y2 + ((y2 - y1) / (x2 - x1)) * (b.r - x2));
+  if (d.type === "measure" && d.c) {
+    var cx = this.x(d.c.i);
+    c.moveTo(cx, this.y(d.c.p)); c.lineTo(cx, this.y(this.measureTarget(d)));
+  }
+  c.stroke();
+};
+
+/* the delete badge for the selected drawing, drawn last so nothing covers it */
+Chart.prototype._selBadge = function (c) {
+  if (!this.sel || this.tool !== "cursor" || this.locked) return;
+  var a = this.selAnchor(this.sel);
+  if (!a) return;
+  c.save();
+  c.fillStyle = COL.bad; c.strokeStyle = "#0B0E13"; c.lineWidth = 1.5;
+  c.beginPath(); c.arc(a.x, a.y, 9, 0, 6.284); c.fill(); c.stroke();
+  c.strokeStyle = "#fff"; c.lineWidth = 1.8; c.lineCap = "round";
+  c.beginPath();
+  c.moveTo(a.x - 3.2, a.y - 3.2); c.lineTo(a.x + 3.2, a.y + 3.2);
+  c.moveTo(a.x + 3.2, a.y - 3.2); c.lineTo(a.x - 3.2, a.y + 3.2);
+  c.stroke();
+  c.restore();
 };
 Chart.prototype._drawH = function (c, b, d) {
   var y = Math.round(this.y(d.p)) + 0.5, col = d.col || COL.amber;
@@ -5239,7 +5443,7 @@ var PROG = (function () {
   }
 
   var TOOLBTN = [
-    ["cursor", "✛", "Crosshair / move"],
+    ["cursor", "✛", "Crosshair — click a drawing to select it, drag to move, ✕ to delete"],
     ["hline", "─", "Horizontal level"],
     ["trend", "╱", "Trendline"],
     ["rect", "▭", "Zone"],
@@ -5258,7 +5462,7 @@ var PROG = (function () {
     if (!prep.ch) html = '<div class="sym"><b>—</b>mental maths</div>';
     html += '<div class="tsep"></div>' +
       '<button class="tool" data-act="undo" title="Undo">↺</button>' +
-      '<button class="tool" data-act="clear" title="Clear drawings">✕</button>' +
+      '<button class="tool" data-act="clear" title="Clear every drawing — to remove just one, click it and press its ✕">✕</button>' +
       '<button class="tool" data-act="fit" title="Fit chart">⤢</button>';
     if (S.learnBases && S.learnBases.length) {
       html += '<div class="tsep"></div><button class="tool wide" data-act="learn" title="Review the worked examples">Learn</button>';
@@ -6069,7 +6273,7 @@ var PROG = (function () {
     TOOLBTN.forEach(function (t) { html += '<button class="tool" data-tool="' + t[0] + '" title="' + t[2] + '">' + t[1] + '</button>'; });
     html += '<div class="tsep"></div>' +
       '<button class="tool" data-act="undo" title="Undo">↺</button>' +
-      '<button class="tool" data-act="clear" title="Clear">✕</button>' +
+      '<button class="tool" data-act="clear" title="Clear every drawing — to remove just one, click it and press its ✕">✕</button>' +
       '<button class="tool" data-act="fit" title="Fit">⤢</button>' +
       '<div class="tsep"></div>' +
       '<button class="tool wide" data-act="step">Step ▸</button>' +
@@ -6621,7 +6825,29 @@ var PROG = (function () {
 
       '<h3>Controls</h3>' +
       '<li>Scroll or pinch to zoom · drag to pan · double-click to fit.</li>' +
-      '<li>↺ undo · ✕ clear drawings · ⤢ fit.</li>' +
+      '<li>↺ undo · ✕ clear every drawing · ⤢ fit.</li>' +
+
+      '<h3>Editing what you draw</h3>' +
+      '<p>Every drawing — a level, a trendline, a zone, a Fibonacci retracement, a measured move — ' +
+      'can be changed or removed after you place it. Switch back to the crosshair <b>✛</b> first; the ' +
+      'drawing tools are for making new shapes, the crosshair is for editing the ones already there.</p>' +
+      '<li><b>Select</b> — click the drawing anywhere on its body. A Fibonacci counts as hit on any of ' +
+      'its levels, a zone anywhere inside it, a line anywhere along it, so you never have to aim at one ' +
+      'exact pixel. The selected drawing lights up with an amber halo, its corner dots turn amber, and ' +
+      'a red <b>✕</b> appears at its top-left.</li>' +
+      '<li><b>Delete just that one</b> — press the red ✕, or tap the <b>Delete</b> (or Backspace) key ' +
+      'while the pointer is over the chart. The toolbar ✕ is different: it clears <i>everything</i>.</li>' +
+      '<li><b>Move the whole thing</b> — drag it by its body. The shape is kept exactly, so a Fibonacci ' +
+      'slides onto a different leg without you having to redraw it.</li>' +
+      '<li><b>Reshape it</b> — drag one of the round handles at its ends. The other end stays put. ' +
+      'Where the ✕ and a corner handle sit close together, whichever you are nearer to is the one you ' +
+      'get, so grabbing a corner never deletes the drawing by accident.</li>' +
+      '<li><b>Let go</b> — click any empty part of the chart, or press Escape.</li>' +
+      '<p>The pointer tells you what is under it before you press: <b>move</b> over a drawing you can ' +
+      'slide, <b>grab</b> over a handle, <b>pointer</b> over the ✕.</p>' +
+      '<p>Positions and working orders are deliberately not editable this way. On the Desk they are live ' +
+      'orders with their own Close and Cancel buttons, and in a drill the position is the answer you are ' +
+      'giving — deleting either as if it were scenery would quietly desync it. Drag their lines as always.</p>' +
       '<h3>Read aloud</h3>' +
       '<p>Every lesson and every piece of feedback has a <b>&#128266; Read</b> button. Turn on auto-read below and it ' +
       'speaks each one as it appears, so you can watch the chart instead of the text.</p>' +
@@ -6983,7 +7209,7 @@ var PROG = (function () {
     html += '<button class="tool" data-tool="btorder" title="Work an order at a price you click">⊕</button>' +
       '<div class="tsep"></div>' +
       '<button class="tool" data-act="undo" title="Undo drawing">↺</button>' +
-      '<button class="tool" data-act="clear" title="Clear drawings">✕</button>' +
+      '<button class="tool" data-act="clear" title="Clear every drawing — to remove just one, click it and press its ✕">✕</button>' +
       '<button class="tool" data-act="fit" title="Fit">⤢</button>' +
       '<div class="tsep"></div>' +
       '<button class="tool wide" data-act="s1">Step ▸</button>' +
