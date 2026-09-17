@@ -295,7 +295,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.34.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.35.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -6924,6 +6924,12 @@ var PROG = (function () {
       'good outcome is how a backtest ends up lying to you.</li>' +
       '<li><b>R is measured against the risk the trade started with</b>, so scaling out cannot flatter ' +
       'the numbers, and a position that closes in pieces still counts as one trade.</li>' +
+      '<li><b>Pick your market.</b> The two dropdowns at the left of the toolbar choose the instrument ' +
+      'and the timeframe. Leave either on <b>Any</b> and the tape decides — useful for keeping yourself ' +
+      'honest, since you cannot lean on a market you already know. Pick one and every new tape stays ' +
+      'there, so you can grind the same instrument the way you actually trade it. Changing either ' +
+      'starts a fresh tape and keeps the account; anything open at the time is discarded, not closed, ' +
+      'so it never lands in your results.</li>' +
       '<li><b>New tape</b> keeps the account, so your sample can span several stretches of market. ' +
       '<b>Copy results</b> puts the whole run — every trade with its R — on the clipboard.</li>' +
 
@@ -7028,7 +7034,8 @@ var PROG = (function () {
      breakouts and reversals rather than being a random walk.
      ===================================================================== */
   var BT = {
-    ch: null, start: 25000, balance: 25000, lots: 1,
+    ch: null, sym: null, tf: null,       /* null = let the tape pick */
+    start: 25000, balance: 25000, lots: 1,
     pos: [], ord: [], log: [], nextId: 1,
     dir: 1, otype: "market", playing: false, timer: null, speed: 320,
     peak: 25000, maxDD: 0, curve: [25000]
@@ -7039,8 +7046,11 @@ var PROG = (function () {
     var R = Mkt.mkR(seed), bars = [], first = null;
     for (var s = 0; s < segs; s++) {
       var key = R.pick(Mkt.KEYS);
+      /* the first segment fixes the instrument and timeframe; the rest follow it,
+         so a stitched tape stays one market rather than a medley */
       var c = Mkt.gen({ seed: (seed + s * 7919) >>> 0, ctx: key,
-        sym: first ? first.sym : undefined, tf: first ? first.tf : undefined });
+        sym: first ? first.sym : (BT.sym || undefined),
+        tf: first ? first.tf : (BT.tf || undefined) });
       if (!first) first = c;
       var src = c.bars, off = bars.length ? bars[bars.length - 1].c - src[0].o : 0;
       for (var i = 0; i < src.length; i++) {
@@ -7315,7 +7325,20 @@ var PROG = (function () {
   }
   function buildBTTools() {
     var wrap = $("btTools");
-    var html = '<div class="sym"><b>' + BT.ch.sym + '</b>' + BT.ch.tfLbl + '</div><div class="tsep"></div>';
+    var html = '<div class="sym"><b>' + BT.ch.sym + '</b>' + BT.ch.tfLbl + '</div>' +
+      '<select class="tool wide" id="btSym" title="Instrument to trade">' +
+      '<option value=""' + (BT.sym ? '' : ' selected') + '>Any market</option>' +
+      Mkt.INSTR.map(function (x) {
+        return '<option value="' + x.sym + '"' + (BT.sym === x.sym ? ' selected' : '') +
+          '>' + x.sym + '</option>';
+      }).join('') + '</select>' +
+      '<select class="tool wide" id="btTf" title="Timeframe">' +
+      '<option value=""' + (BT.tf ? '' : ' selected') + '>Any TF</option>' +
+      Mkt.TFS.map(function (t) {
+        return '<option value="' + t.k + '"' + (BT.tf === t.k ? ' selected' : '') +
+          '>' + t.k + '</option>';
+      }).join('') + '</select>' +
+      '<div class="tsep"></div>';
     TOOLBTN.forEach(function (t) {
       if (t[0] === "pos") return;                 /* replaced by the order tool below */
       html += '<button class="tool" data-tool="' + t[0] + '" title="' + t[2] + '">' + t[1] + '</button>';
@@ -7359,6 +7382,21 @@ var PROG = (function () {
         chB.render(); paintBT();
       };
     });
+    function reTape(what) {
+      var had = BT.pos.length + BT.ord.length;
+      btNew(true);
+      toast(what + " — " + (had ? had + " open position(s)/order(s) discarded, " : "") + "account kept");
+    }
+    var sy = $("btSym");
+    if (sy) sy.onchange = function () {
+      BT.sym = this.value || null;
+      reTape(BT.sym ? "Now trading " + BT.sym : "Instrument left to chance");
+    };
+    var tfSel = $("btTf");
+    if (tfSel) tfSel.onchange = function () {
+      BT.tf = this.value || null;
+      reTape(BT.tf ? "Switched to the " + BT.tf + " chart" : "Timeframe left to chance");
+    };
     var sp = $("btSpeed");
     if (sp) sp.onchange = function () {
       BT.speed = +this.value || 320;
