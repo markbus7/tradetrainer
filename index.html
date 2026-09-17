@@ -118,6 +118,19 @@
   .chartcol{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
   .chartwrap{flex:1;position:relative;min-height:0;background:#0B0E13;touch-action:none}
   canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+  /* A scrollable toolbar with no hint that it scrolls hides whatever sits past
+     the fold on any screen narrower than its content -- which is exactly what
+     happened to the Coach button. The wrapper is not itself scrollable, so its
+     ::before/::after fades sit fixed over the toolbar's edges regardless of
+     scroll position; JS below toggles them on only when there is somewhere
+     left to scroll TO. */
+  .toolwrap{position:relative;flex:0 0 auto}
+  .toolwrap::before,.toolwrap::after{content:"";position:absolute;top:0;bottom:0;width:22px;
+    pointer-events:none;z-index:2;opacity:0;transition:opacity .15s}
+  .toolwrap::before{left:0;background:linear-gradient(90deg,var(--bg2),transparent)}
+  .toolwrap::after{right:0;background:linear-gradient(270deg,var(--bg2),transparent)}
+  .toolwrap.can-l::before{opacity:1}
+  .toolwrap.can-r::after{opacity:1}
   .toolbar{display:flex;gap:4px;padding:5px 7px;border-bottom:1px solid var(--line);background:var(--bg2);flex:0 0 auto;overflow-x:auto;scrollbar-width:none}
   .toolbar::-webkit-scrollbar{display:none}
   .tool{width:31px;height:29px;border-radius:7px;border:1px solid var(--line);background:var(--bg3);display:grid;place-items:center;font-size:13px;flex:0 0 auto}
@@ -262,7 +275,7 @@
   <section class="view" id="view-drill">
     <div class="stage">
       <div class="chartcol">
-        <div class="toolbar" id="drillTools"></div>
+        <div class="toolwrap"><div class="toolbar" id="drillTools"></div></div>
         <div class="chartwrap"><canvas id="cvDrill"></canvas></div>
       </div>
       <aside class="panel">
@@ -276,7 +289,7 @@
   <section class="view" id="view-practice">
     <div class="stage">
       <div class="chartcol">
-        <div class="toolbar" id="pracTools"></div>
+        <div class="toolwrap"><div class="toolbar" id="pracTools"></div></div>
         <div class="chartwrap"><canvas id="cvPrac"></canvas></div>
       </div>
       <aside class="panel">
@@ -290,7 +303,7 @@
   <section class="view" id="view-desk">
     <div class="stage">
       <div class="chartcol">
-        <div class="toolbar" id="btTools"></div>
+        <div class="toolwrap"><div class="toolbar" id="btTools"></div></div>
         <div class="chartwrap"><canvas id="cvBT"></canvas></div>
       </div>
       <aside class="panel wide">
@@ -310,7 +323,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.40.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.41.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -5054,6 +5067,26 @@ var PROG = (function () {
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
 
+  /* Drives the toolbar scroll-fade. Called after every toolbar rebuild (content
+     width changes when buttons are added/relabelled/swapped) and on resize and
+     scroll. 2px slop absorbs sub-pixel rounding so the fade does not flicker
+     at the exact end of the scroll range. */
+  function scrollFade(bar) {
+    if (!bar) return;
+    var wrap = bar.parentElement;
+    if (!wrap || !wrap.classList.contains("toolwrap")) return;
+    var can = bar.scrollWidth > bar.clientWidth + 2;
+    wrap.classList.toggle("can-l", can && bar.scrollLeft > 2);
+    wrap.classList.toggle("can-r", can && bar.scrollLeft < bar.scrollWidth - bar.clientWidth - 2);
+  }
+  function wireScrollFade(id) {
+    var bar = $(id);
+    if (!bar || bar._fadeWired) return;
+    bar._fadeWired = true;
+    bar.addEventListener("scroll", function () { scrollFade(bar); }, { passive: true });
+    window.addEventListener("resize", function () { scrollFade(bar); });
+  }
+
   /* ---------------- preferences ---------------- */
   var PREF = (function () {
     var KEY = "tt.prefs.v1", p = { autoRead: false, rate: 1 };
@@ -7660,6 +7693,16 @@ var PROG = (function () {
       actBtn("clear", "✕", "Clear all", "Clear every drawing — to remove just one, click it and press its ✕") +
       actBtn("fit", "⤢", "Fit", "Fit the chart to the bars") +
       '<div class="tsep"></div>' +
+      /* Coach sits right up front, immediately after the drawing tools, because
+         it is a mode you leave on for the whole session, not a playback control
+         buried among Step/Play/Speed -- it was getting scrolled off small
+         screens with nothing to show it was there. */
+      '<button class="tool wide" data-act="coach" id="btCoachBtn"' +
+      (BT.coach ? ' style="border-color:var(--amber);background:#241a08;color:var(--amber)"' : '') +
+      ' title="Name the setup the tape is printing and show its entry, stop, target and win rate' +
+      ' — turn it off to read the chart yourself">' +
+      (BT.coach ? '\u25cf Coach: ON' : '\u25cb Coach: off') + '</button>' +
+      '<div class="tsep"></div>' +
       '<button class="tool wide" data-act="s1">Step ▸</button>' +
       '<button class="tool wide" data-act="s10">+10 ▸▸</button>' +
       '<button class="tool wide" data-act="play" id="btPlayBtn">Play ▶</button>' +
@@ -7667,11 +7710,6 @@ var PROG = (function () {
       '<option value="600">Slow</option><option value="320" selected>Normal</option>' +
       '<option value="120">Fast</option><option value="40">Turbo</option></select>' +
       '<div class="tsep"></div>' +
-      '<button class="tool wide" data-act="coach" id="btCoachBtn"' +
-      (BT.coach ? ' style="border-color:var(--amber);background:#241a08;color:var(--amber)"' : '') +
-      ' title="Name the setup the tape is printing and show its entry, stop, target and win rate' +
-      ' — turn it off to read the chart yourself">' +
-      (BT.coach ? '\u25cf Coach: ON' : '\u25cb Coach: off') + '</button>' +
       '<button class="tool wide" data-act="new">New tape</button>';
     wrap.innerHTML = html;
     [].forEach.call(wrap.querySelectorAll("[data-tool]"), function (b) {
@@ -8152,6 +8190,12 @@ var PROG = (function () {
   paintPath();
   if (!PROG.st.placed) setTimeout(showHelp, 400);
   window.addEventListener("resize", function () { chD.render(); chP.render(); if (BT.ch) { chB.render(); drawCurve(); } });
+  /* the toolbars rebuild their innerHTML on every render, which is fine — the
+     listener stays on the same element, only its content and width change */
+  ["drillTools", "pracTools", "btTools"].forEach(wireScrollFade);
+  setInterval(function () {
+    ["drillTools", "pracTools", "btTools"].forEach(function (id) { scrollFade($(id)); });
+  }, 500);   /* cheap catch-all for the rebuilds that don't call it directly */
 })();
 </script>
 </body>
