@@ -304,7 +304,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.37.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.38.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -373,10 +373,11 @@ var Mkt = (function () {
      GBPJPY .00145. Indices, oil and bitcoin from minute bars aggregated to the
      hour: DAX .00276 over 2015-2018 (13.4k hours, 21.5% annualised), S&P .00167
      and Nasdaq .00217 and WTI .00367 over 2017-2019 (17.5k hours each), BTC
-     .00872 over 2016-2017. Only AAPL, NVDA and TSLA remain estimates, because
-     the stock data to hand is daily, and turning a daily figure into an hourly
-     one for a market open 6.5 hours a day needs an assumption none of the
-     others required. */
+     .00872 over 2016-2017. Nothing here is estimated: an instrument whose
+     volatility could not be fitted to real data does not ship. Apple, Nvidia
+     and Tesla were dropped for exactly that reason -- the stock data to hand is
+     daily, and turning a daily figure into an hourly one for a market open six
+     and a half hours a day needs an assumption none of the others required. */
   var INSTR = [
     { sym: "ES",     nm: "S&P 500 Futures",     dec: 2, lo: 6400,  hi: 7800,  sig: 0.00114, kind: "fut",    vbase: 38000 },  /* MEASURED */
     { sym: "NQ",     nm: "Nasdaq 100 Futures",  dec: 2, lo: 24500, hi: 30000, sig: 0.00148, kind: "fut",    vbase: 42000 },  /* MEASURED */
@@ -387,11 +388,29 @@ var Mkt = (function () {
     { sym: "USDJPY", nm: "US Dollar / Yen",     dec: 3, lo: 145,   hi: 160,   sig: 0.00074, kind: "fx",     vbase: 20000 },  /* MEASURED */
     { sym: "GBPJPY", nm: "Pound / Yen",         dec: 3, lo: 195,   hi: 215,   sig: 0.00099, kind: "fx",     vbase: 12000 },  /* MEASURED */
     { sym: "XAUUSD", nm: "Gold Spot",           dec: 2, lo: 3700,  hi: 4500,  sig: 0.00131, kind: "fx",     vbase: 31000 },  /* MEASURED */
-    { sym: "BTCUSD", nm: "Bitcoin / US Dollar", dec: 1, lo: 26000, hi: 98000, sig: 0.00595, kind: "crypto", vbase: 900 },  /* MEASURED */
-    { sym: "AAPL",   nm: "Apple Inc.",          dec: 2, lo: 168,   hi: 258,   sig: 0.0026,  kind: "eq",     vbase: 380000 },
-    { sym: "NVDA",   nm: "NVIDIA Corp.",        dec: 2, lo: 92,    hi: 195,   sig: 0.0049,  kind: "eq",     vbase: 620000 },
-    { sym: "TSLA",   nm: "Tesla Inc.",          dec: 2, lo: 178,   hi: 428,   sig: 0.0056,  kind: "eq",     vbase: 510000 }
+    { sym: "BTCUSD", nm: "Bitcoin / US Dollar", dec: 1, lo: 26000, hi: 98000, sig: 0.00595, kind: "crypto", vbase: 900 }   /* MEASURED */
   ];
+
+  /* Where each instrument's volatility actually came from, so the app can say
+     so out loud instead of asking to be trusted. `ann` is the annualised
+     volatility that measurement implies. `m1` is the measured deviation from
+     square-root-of-time scaling at ONE MINUTE, in percent: the app derives
+     every timeframe from one hourly fit, and that assumption is near-exact from
+     15 minutes upward but frays at one minute, where bid-ask bounce lives.
+     null means no minute data existed to test it, which is not the same as
+     passing — it is stated as untested. */
+  var DATA = {
+    EURUSD: { src: "Broker hourly closes",     span: "2012-2022", n: "57.6k hours", ann: 7.8,  m1: null },
+    GBPUSD: { src: "Broker hourly closes",     span: "2012-2022", n: "57.6k hours", ann: 8.9,  m1: null },
+    USDJPY: { src: "Broker hourly closes",     span: "2012-2022", n: "57.6k hours", ann: 8.5,  m1: null },
+    GBPJPY: { src: "Broker hourly closes",     span: "2012-2022", n: "57.6k hours", ann: 11.3, m1: null },
+    XAUUSD: { src: "Broker hourly closes",     span: "2012-2022", n: "57.6k hours", ann: 14.9, m1: null },
+    GER40:  { src: "HistData DAX minute bars", span: "2015-2018", n: "13.4k hours", ann: 21.5, m1: 5 },
+    ES:     { src: "Oanda S&P minute bars",    span: "2017-2019", n: "17.5k hours", ann: 13.0, m1: 17 },
+    NQ:     { src: "Oanda Nasdaq minute bars", span: "2017-2019", n: "17.5k hours", ann: 16.9, m1: 2 },
+    CL:     { src: "Oanda WTI minute bars",    span: "2017-2019", n: "17.5k hours", ann: 28.5, m1: 7 },
+    BTCUSD: { src: "Bitstamp minute bars",     span: "2016-2017", n: "17.5k hours", ann: 67.8, m1: 21 }
+  };
   /* Brooks works the 5-minute chart, so the pool leans intraday */
   var TFS = [
     { k: "1m",  min: 1,    lbl: "1 min",  w: 1 },
@@ -1524,6 +1543,7 @@ var Mkt = (function () {
     }
 
     /* ---- OHLCV ---- */
+    /* the "eq" branch is kept though no equity currently ships — see INSTR */
     var gapP = inst.kind === "eq" ? (tf.min >= 1440 ? 0.5 : 0.1) : 0.03;
     var step = tf.min * 60000, skipWk = inst.kind !== "crypto";
     var tCur = Date.UTC(2024, R.i(0, 9), R.i(1, 26), 13, 30);
@@ -1927,7 +1947,7 @@ var Mkt = (function () {
   }
 
   return {
-    gen: gen, CTX: CTX, KEYS: KEYS, BASE: BASE, INSTR: INSTR, TFS: TFS,
+    gen: gen, CTX: CTX, KEYS: KEYS, BASE: BASE, INSTR: INSTR, TFS: TFS, DATA: DATA,
     atr: atr, ema: ema, pivots: pivots, brooksCount: brooksCount, correctionCount: correctionCount, hiIn: hiIn, loIn: loIn, mkR: mkR, rng: rng,
     flipWords: flipWords
   };
@@ -6654,14 +6674,33 @@ var PROG = (function () {
       'few points above the market average here, and deliberately so: every chart is built around a setup, ' +
       'with stop runs through swing points and probes through range edges, so it is a sample of moments that ' +
       'matter rather than a sample of all market time.</p>' +
-      '<p>Each instrument\'s <b>volatility</b> is a separate calibration, and nine of the thirteen are ' +
-      'fitted to real hourly closes rather than guessed. Gold and the four FX pairs come from ten ' +
-      'years each; the DAX from four years of minute bars (21.5% annualised), the S&amp;P, Nasdaq and ' +
-      'WTI from three years each, bitcoin from two. So a 5-minute bar spans about the distance it ' +
-      'really does: 4.6 pips on EURUSD, 6.8 on USDJPY, 12.3 on GBPJPY, 5 points on the S&amp;P, 29 on ' +
-      'the DAX, ten cents on crude. Only <b>AAPL, NVDA and TSLA</b> are still estimates — the stock ' +
-      'data to hand is daily, and converting that to an hourly figure for a market open six and a ' +
-      'half hours a day needs an assumption none of the others required.</p>' +
+      '<p>Each instrument\'s <b>volatility</b> is fitted to real market data. <b>Every instrument ' +
+      'that ships is measured — none is guesswork.</b> That is a rule, not a coincidence: Apple, ' +
+      'Nvidia and Tesla used to be here and were removed, because the only stock data available was ' +
+      'daily, and converting a daily figure to an hourly one for a market open six and a half hours ' +
+      'a day needs an assumption none of the others required. An instrument whose number cannot be ' +
+      'measured does not get shipped.</p>' +
+      '<div class="tblwrap"><table><tr><th>Instrument</th><th>Source</th><th>Sample</th>' +
+      '<th>Annualised</th><th>1-min scaling</th></tr>' +
+      Mkt.INSTR.map(function (x) {
+        var d = Mkt.DATA[x.sym]; if (!d) return '';
+        var m1 = d.m1 == null ? '<span style="color:var(--muted)">untested</span>'
+          : d.m1 <= 5 ? '<span style="color:var(--up)">±' + d.m1 + '%</span>'
+            : d.m1 <= 10 ? '±' + d.m1 + '%'
+              : '<span style="color:var(--dn)">±' + d.m1 + '%</span>';
+        return '<tr><td><b>' + x.sym + '</b></td><td>' + d.src + '</td><td>' + d.n +
+          '<br><span style="color:var(--muted)">' + d.span + '</span></td><td>' +
+          d.ann.toFixed(1) + '%</td><td>' + m1 + '</td></tr>';
+      }).join('') + '</table></div>' +
+      '<p>So a 5-minute bar spans about the distance it really does: 4.6 pips on EURUSD, 6.8 on ' +
+      'USDJPY, 12.3 on GBPJPY, 5 points on the S&amp;P, 29 on the DAX, ten cents on crude.</p>' +
+      '<p>The last column is the one to read before dropping to a <b>1-minute</b> chart. Every ' +
+      'timeframe is derived from a single hourly fit by square-root-of-time scaling, which real ' +
+      'markets obey almost exactly from 15 minutes upward — measured at 1–6% error on FX and gold ' +
+      'across 15m, 1h and daily. At one minute it frays, because bid-ask bounce is not modelled. ' +
+      'Nasdaq holds to 2% and the DAX to 5%; the S&amp;P is out by 17% and bitcoin by 21%, so their ' +
+      '1-minute charts are <i>smoother than the real thing</i>. For FX and gold there was no minute ' +
+      'data to test against, which is reported as untested rather than quietly assumed to pass.</p>' +
       '<p>Volatility is a regime, not a constant, so these are long-run averages. The DAX ran at 26.5% ' +
       'in 2015 and 12.5% in 2017; each chart draws its own level from a band around the average, which ' +
       'is closer to how the market actually behaves than one fixed number would be.</p>' +
@@ -7580,6 +7619,34 @@ var PROG = (function () {
     var out = [];
 
     /* account */
+    /* ---- where this instrument's numbers come from ----
+       Stated on screen rather than buried in the help, because "is this real or
+       invented?" is the first thing worth knowing about a practice chart. */
+    var prov = Mkt.DATA[BT.ch.sym];
+    if (prov) {
+      var onOneMin = BT.ch.tf === "1m";
+      var m1txt = prov.m1 == null
+        ? "not testable — no minute data for this instrument"
+        : prov.m1 <= 5 ? "holds to within " + prov.m1 + "%"
+          : prov.m1 <= 10 ? "drifts about " + prov.m1 + "%"
+            : "off by " + prov.m1 + "% — treat 1-minute here with suspicion";
+      out.push('<div class="btsec"><h5>Where these bars come from</h5>' +
+        '<div class="btkv"><span>Volatility</span><b style="color:var(--up)">Measured, not guessed</b></div>' +
+        '<div class="btkv"><span>Source</span><b>' + prov.src + '</b></div>' +
+        '<div class="btkv"><span>Sample</span><b>' + prov.n + ', ' + prov.span + '</b></div>' +
+        '<div class="btkv"><span>Annualised</span><b>' + prov.ann.toFixed(1) + '%</b></div>' +
+        '<div class="btkv"><span>1-minute scaling</span><b class="' +
+          (prov.m1 != null && prov.m1 > 10 ? 'dn' : '') + '">' + m1txt + '</b></div>' +
+        (onOneMin && prov.m1 != null && prov.m1 > 10
+          ? '<div class="hint" style="margin-top:5px;color:var(--dn)">You are on the 1-minute chart, ' +
+            'the one timeframe this instrument is least faithful on. Real 1-minute ' + BT.ch.sym +
+            ' is choppier than this, because bid-ask bounce is not modelled.</div>'
+          : '') +
+        '<div class="hint" style="margin-top:5px">Bar <i>shape</i> is one shared calibration across ' +
+        'every instrument, fitted to 1.15M real bars. Only the <i>size</i> of the move is per-instrument.</div>' +
+        '</div>');
+    }
+
     out.push('<div class="btsec"><h5>Account <span class="mono" style="color:var(--muted)">bar ' +
       (chB.vis + 1) + ' / ' + BT.ch.bars.length + '</span></h5>' +
       '<div class="btgrid">' +
