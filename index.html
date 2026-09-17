@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.43.0 (build 2026-09-17) — Al Brooks price action -->
+<!-- Trade Trainer v3.44.0 (build 2026-09-17) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -323,7 +323,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.43.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.44.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2540,10 +2540,24 @@ Chart.prototype.moveHandle = function (h, x, y) {
   if (h.f === "p" || h.f === "entry" || h.f === "stop" || h.f === "target") {
     h.d[h.f] = p;
     if (h.d.type === "pos") {
-      /* keep stop and target on their proper sides of entry */
       var dir = h.d.dir;
-      if ((h.d.stop - h.d.entry) * dir > 0) h.d.stop = h.d.entry - dir * Math.abs(h.d.entry - h.d.stop || 1e-6);
-      if ((h.d.target - h.d.entry) * dir < 0) h.d.target = h.d.entry + dir * Math.abs(h.d.target - h.d.entry || 1e-6);
+      if (h.d._bt === "pos") {
+        /* a FILLED position (readDraw snaps entry back — a fill can't move).
+           Trailing the stop past entry to lock in profit is normal, everyday
+           risk management, not a broken state, so it must not be clamped to
+           the loss side of entry. The one thing that still has to hold is
+           stop and target not swapping places. */
+        if ((h.d.target - h.d.stop) * dir < 0) {
+          if (h.f === "target") h.d.target = h.d.stop + dir * Math.abs(h.d.target - h.d.stop || 1e-6);
+          else h.d.stop = h.d.target - dir * Math.abs(h.d.target - h.d.stop || 1e-6);
+        }
+      } else {
+        /* still just a plan, or a pending order whose entry itself can move
+           (readDraw lets you drag it) — keep stop/target pinned to the
+           correct side of it so the plan stays coherent while you build it */
+        if ((h.d.stop - h.d.entry) * dir > 0) h.d.stop = h.d.entry - dir * Math.abs(h.d.entry - h.d.stop || 1e-6);
+        if ((h.d.target - h.d.entry) * dir < 0) h.d.target = h.d.entry + dir * Math.abs(h.d.target - h.d.entry || 1e-6);
+      }
     }
   } else { h.d[h.f] = { i: i, p: p }; }
 };
