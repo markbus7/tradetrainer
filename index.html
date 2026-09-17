@@ -10,6 +10,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
+    /* tells the browser its own chrome — select popups, scrollbars, checkboxes —
+       should render dark. Without it a dropdown's closed box takes the page's
+       light text color, but its open list falls back to native light styling,
+       so the options render close to unreadable against a dark background. */
+    color-scheme: dark;
     --bg:#0E1116;--bg2:#141821;--bg3:#1B2029;--line:#2A303C;
     --amber:#F2A93B;--amber-dim:#6E5122;--up:#3FBF7F;--dn:#E5634D;--blue:#5B9BD5;
     --paper:#E8E6E0;--muted:#8A92A2;--grid:#1C222C;
@@ -20,6 +25,10 @@
   button{font-family:inherit;cursor:pointer;border:none;color:inherit;background:none}
   button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
   input,select{font-family:inherit}
+  /* belt-and-suspenders for browsers that only partly honour color-scheme on
+     the popup list (older Firefox, some Linux GTK themes) */
+  select{color:var(--paper)}
+  select option{background:var(--bg3);color:var(--paper)}
   .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
   .up{color:var(--up)}.dn{color:var(--dn)}.am{color:var(--amber)}.mu{color:var(--muted)}
 
@@ -295,7 +304,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.35.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.36.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
