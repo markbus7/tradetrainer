@@ -295,7 +295,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.33.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.34.0", build: "2026-09-17", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -358,20 +358,27 @@ var Mkt = (function () {
   /* ---------------- instruments ---------------- */
   /* `sig` is the per-hour volatility knob; the generator turns it into a realised
      hourly standard deviation 1.465x larger, so sig = (real hourly sd) / 1.465.
-     The five marked MEASURED were fitted to ten years of real hourly closes
-     (2012-2022, ~57.6k bars each): XAUUSD .00192, EURUSD .00100, USDJPY .00109,
-     GBPUSD .00114, GBPJPY .00145. The rest are estimates and are not claimed to
-     be anything else. */
+     The nine marked MEASURED were fitted to real hourly closes, never guessed.
+     FX and gold from ten years each (2012-2022, ~57.6k hourly returns per
+     symbol): XAUUSD .00192, EURUSD .00100, USDJPY .00109, GBPUSD .00114,
+     GBPJPY .00145. Indices, oil and bitcoin from minute bars aggregated to the
+     hour: DAX .00276 over 2015-2018 (13.4k hours, 21.5% annualised), S&P .00167
+     and Nasdaq .00217 and WTI .00367 over 2017-2019 (17.5k hours each), BTC
+     .00872 over 2016-2017. Only AAPL, NVDA and TSLA remain estimates, because
+     the stock data to hand is daily, and turning a daily figure into an hourly
+     one for a market open 6.5 hours a day needs an assumption none of the
+     others required. */
   var INSTR = [
-    { sym: "ES",     nm: "S&P 500 Futures",     dec: 2, lo: 6400,  hi: 7800,  sig: 0.0022,  kind: "fut",    vbase: 38000 },
-    { sym: "NQ",     nm: "Nasdaq 100 Futures",  dec: 2, lo: 24500, hi: 30000, sig: 0.0033,  kind: "fut",    vbase: 42000 },
-    { sym: "CL",     nm: "Crude Oil Futures",   dec: 2, lo: 80,    hi: 105,   sig: 0.0042,  kind: "fut",    vbase: 27000 },
+    { sym: "ES",     nm: "S&P 500 Futures",     dec: 2, lo: 6400,  hi: 7800,  sig: 0.00114, kind: "fut",    vbase: 38000 },  /* MEASURED */
+    { sym: "NQ",     nm: "Nasdaq 100 Futures",  dec: 2, lo: 24500, hi: 30000, sig: 0.00148, kind: "fut",    vbase: 42000 },  /* MEASURED */
+    { sym: "GER40",  nm: "DAX 40 Futures",      dec: 2, lo: 24000, hi: 26500, sig: 0.00188, kind: "fut",    vbase: 33000 },  /* MEASURED */
+    { sym: "CL",     nm: "Crude Oil Futures",   dec: 2, lo: 80,    hi: 105,   sig: 0.00251, kind: "fut",    vbase: 27000 },  /* MEASURED */
     { sym: "EURUSD", nm: "Euro / US Dollar",    dec: 5, lo: 1.08,  hi: 1.19,  sig: 0.00068, kind: "fx",     vbase: 24000 },  /* MEASURED */
     { sym: "GBPUSD", nm: "Pound / US Dollar",   dec: 5, lo: 1.24,  hi: 1.38,  sig: 0.00078, kind: "fx",     vbase: 16000 },  /* MEASURED */
     { sym: "USDJPY", nm: "US Dollar / Yen",     dec: 3, lo: 145,   hi: 160,   sig: 0.00074, kind: "fx",     vbase: 20000 },  /* MEASURED */
     { sym: "GBPJPY", nm: "Pound / Yen",         dec: 3, lo: 195,   hi: 215,   sig: 0.00099, kind: "fx",     vbase: 12000 },  /* MEASURED */
     { sym: "XAUUSD", nm: "Gold Spot",           dec: 2, lo: 3700,  hi: 4500,  sig: 0.00131, kind: "fx",     vbase: 31000 },  /* MEASURED */
-    { sym: "BTCUSD", nm: "Bitcoin / US Dollar", dec: 1, lo: 26000, hi: 98000, sig: 0.0055,  kind: "crypto", vbase: 900 },
+    { sym: "BTCUSD", nm: "Bitcoin / US Dollar", dec: 1, lo: 26000, hi: 98000, sig: 0.00595, kind: "crypto", vbase: 900 },  /* MEASURED */
     { sym: "AAPL",   nm: "Apple Inc.",          dec: 2, lo: 168,   hi: 258,   sig: 0.0026,  kind: "eq",     vbase: 380000 },
     { sym: "NVDA",   nm: "NVIDIA Corp.",        dec: 2, lo: 92,    hi: 195,   sig: 0.0049,  kind: "eq",     vbase: 620000 },
     { sym: "TSLA",   nm: "Tesla Inc.",          dec: 2, lo: 178,   hi: 428,   sig: 0.0056,  kind: "eq",     vbase: 510000 }
@@ -6632,16 +6639,23 @@ var PROG = (function () {
       'than the eye suggests. Sorting real bars by how cleanly price is trending puts the calmest trends at ' +
       '1.52–1.67 and the choppiest stretches at 1.71–1.75, a gap under 10%. Only genuine <b>barbwire</b> — ' +
       'tight, overlapping, range under 2.2 ATR — separates properly, at 1.89–2.00 with bodies down at 40%. ' +
-      'Each family is tuned to what its real-world equivalent measures. Dojis and two-sided bars still run a ' +
+      'Each family is tuned to what its real-world equivalent measures. The same shape holds on an index: ' +
+      'four years of DAX minute bars give body 46.0%, ratio 1.66 and 20.1% dojis at 15 minutes, within a ' +
+      'whisker of gold and FX — so one calibration covers every asset class here. Dojis and two-sided bars still run a ' +
       'few points above the market average here, and deliberately so: every chart is built around a setup, ' +
       'with stop runs through swing points and probes through range edges, so it is a sample of moments that ' +
       'matter rather than a sample of all market time.</p>' +
-      '<p>Each instrument\'s <b>volatility</b> is a separate calibration. Gold, EURUSD, GBPUSD, USDJPY ' +
-      'and GBPJPY are fitted to ten years of real hourly closes, so a 5-minute bar spans about the ' +
-      'number of pips it really does — roughly 4.6 on EURUSD, 6.8 on USDJPY, 12.3 on GBPJPY. ES, NQ, ' +
-      'crude, bitcoin and the three stocks are <b>estimates</b>: no real data was measured for them, ' +
-      'so they likely run a little hot. Their bar <i>shape</i> is calibrated like everything else — ' +
-      'it is only the size of the move that is estimated.</p>' +
+      '<p>Each instrument\'s <b>volatility</b> is a separate calibration, and nine of the thirteen are ' +
+      'fitted to real hourly closes rather than guessed. Gold and the four FX pairs come from ten ' +
+      'years each; the DAX from four years of minute bars (21.5% annualised), the S&amp;P, Nasdaq and ' +
+      'WTI from three years each, bitcoin from two. So a 5-minute bar spans about the distance it ' +
+      'really does: 4.6 pips on EURUSD, 6.8 on USDJPY, 12.3 on GBPJPY, 5 points on the S&amp;P, 29 on ' +
+      'the DAX, ten cents on crude. Only <b>AAPL, NVDA and TSLA</b> are still estimates — the stock ' +
+      'data to hand is daily, and converting that to an hourly figure for a market open six and a ' +
+      'half hours a day needs an assumption none of the others required.</p>' +
+      '<p>Volatility is a regime, not a constant, so these are long-run averages. The DAX ran at 26.5% ' +
+      'in 2015 and 12.5% in 2017; each chart draws its own level from a band around the average, which ' +
+      'is closer to how the market actually behaves than one fixed number would be.</p>' +
       '<p>You start at <b>Tier 0 — the first three setups</b>, and the placement test cannot skip it. Brooks is ' +
       'blunt that a beginner should trade a handful of the strongest setups and pass on everything else, so that ' +
       'tier drills the two-legged pullback, the failed breakout and the major trend reversal end to end — ' +
@@ -7056,7 +7070,7 @@ var PROG = (function () {
      in lots because that is what you actually type into a platform; units are
      what the P/L maths needs, so everything converts through here. */
   var LOT = { EURUSD: 100000, GBPUSD: 100000, USDJPY: 100000, GBPJPY: 100000,
-              XAUUSD: 100, BTCUSD: 1, ES: 50, NQ: 20, CL: 1000 };
+              XAUUSD: 100, BTCUSD: 1, ES: 50, NQ: 20, GER40: 25, CL: 1000 };
   var LOT_KIND = { fx: 100000, crypto: 1, fut: 1, eq: 100 };
   function lotUnits(ch) {
     ch = ch || BT.ch;
@@ -7069,7 +7083,7 @@ var PROG = (function () {
      would come out ~150x too small. */
   /* Profit on a JPY-quoted pair is earned in yen, so it converts at USDJPY —
      the same rate for every JPY cross, not the pair's own price. */
-  var QUOTE = { USDJPY: 1 / 156, GBPJPY: 1 / 156 };
+  var QUOTE = { USDJPY: 1 / 156, GBPJPY: 1 / 156, GER40: 1.146 };   /* DAX pays in euros */
   function qRate(ch) { return QUOTE[(ch || BT.ch || {}).sym] || 1; }
   /** money per 1.00 of price movement, for the given number of units */
   function pointValue(units) { return units * qRate(); }
