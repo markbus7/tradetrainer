@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.45.0 (build 2026-09-18) — Al Brooks price action -->
+<!-- Trade Trainer v3.46.0 (build 2026-09-18) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -323,7 +323,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.45.0", build: "2026-09-18", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.46.0", build: "2026-09-18", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -7803,6 +7803,26 @@ var PROG = (function () {
     btResetAccount(BT.start);
     var wasCoach = BT.coach;
     BT.coach = true;
+
+    /* Lock the instrument and timeframe for the whole run. Each btNew() call
+       below starts a brand new tape, and on "Any market" that re-rolls a
+       fresh random instrument every time -- so a single 100-trade run could
+       silently drift from USDJPY to Bitcoin to an index, each with its own
+       price scale, decimal precision and lot-size convention. Every trade's
+       own dollar P/L and R stay correct regardless (each is computed against
+       whichever instrument was actually live when it happened), but the
+       report's lot size and price formatting always read off the CURRENT
+       tape (lotUnits()/px() default to BT.ch), so a trade from an earlier,
+       already-replaced instrument prints as "0.000 lots" at the wrong
+       decimal precision. Worse, blending unrelated markets into one
+       aggregate win rate answers a question nobody asked -- "is Coach
+       profitable" has to mean one specific market, the way a real edge-check
+       would. Holding sym/tf fixed for the run (and restoring afterward) is
+       what makes the report describe the one market it actually ran on. */
+    var wasSym = BT.sym, wasTf = BT.tf;
+    if (!BT.sym) BT.sym = (BT.ch && BT.ch.sym) || Mkt.INSTR[Math.floor(Math.random() * Mkt.INSTR.length)].sym;
+    if (!BT.tf) BT.tf = (BT.ch && BT.ch.tf) || Mkt.TFS[Math.floor(Math.random() * Mkt.TFS.length)].k;
+
     var guard = 0, MAX = n * 4000;
     while (BT.log.length < n && guard++ < MAX) {
       if (!BT.ch || chB.vis >= BT.ch.bars.length - 1) {
@@ -7836,9 +7856,39 @@ var PROG = (function () {
       }
       chB.vis++;
       btFills(chB.vis);
+
+      /* unitsFor(g.entry, g.stop) above sizes the order BEFORE it fills, off
+         the signal's intended entry -- but a stop or limit order can gap-fill
+         well past that price (btFills' own "or better/or worse" fill logic),
+         which changes the REAL distance from entry to stop without changing
+         the units already committed to. Left alone, a stop-out then loses
+         (actual distance / intended distance) times the 1% that was promised
+         -- confirmed directly: one run gap-filled 3.35x past its intended
+         distance, and on a bad enough gap this compounds into wiping out
+         most of the account while every trade still just reads "-1.00R" in
+         the log (R is computed from the ACTUAL post-fill distance, so it
+         stays blind to how it was mis-sized). Re-deriving units right after
+         a fill, from the price that actually happened, is what makes "1%
+         risk" true instead of aspirational. */
+      if (BT.pos.length === 1 && BT.pos[0].openIdx === chB.vis) {
+        var justFilled = BT.pos[0];
+        var trueUnits = unitsFor(justFilled.entry, justFilled.sl);
+        if (trueUnits > 0) {
+          justFilled.units = justFilled.units0 = trueUnits;
+          justFilled.rpu = Math.abs(justFilled.entry - justFilled.sl) * qRate();
+        } else {
+          /* the fill landed on top of its own stop -- no real trade to size */
+          btClose(justFilled, justFilled.entry, 1, "degenerate");
+        }
+      }
       coachTally();
     }
     BT.coach = wasCoach;
+    /* Restoring BT.sym/BT.tf doesn't touch the tape that was just built (the
+       report reads BT.ch.sym, the actual instrument traded, not BT.sym) --
+       it only lets "Any market" go back to picking randomly for whatever
+       tape comes next, instead of staying pinned to what this run landed on. */
+    BT.sym = wasSym; BT.tf = wasTf;
     /* the toolbar's Coach button is only redrawn by buildBTTools() (called
        from btNew(), which the loop just ran with coach forced on) -- without
        this it would keep showing "Coach: ON" after being restored to off */
