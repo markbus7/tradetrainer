@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.44.0 (build 2026-09-17) — Al Brooks price action -->
+<!-- Trade Trainer v3.45.0 (build 2026-09-18) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -323,7 +323,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.44.0", build: "2026-09-17", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.45.0", build: "2026-09-18", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -7311,7 +7311,7 @@ var PROG = (function () {
     btFills: btFills, btSeries: btSeries, equity: equity, openPL: openPL,
     lotUnits: lotUnits, toLots: toLots, toUnits: toUnits, fmtLots: fmtLots,
     perPoint: perPoint, pipName: pipName,
-    unitsFor: unitsFor, btStats: btStats, btReport: btReport, paintBT: paintBT,
+    unitsFor: unitsFor, btStats: btStats, btReport: btReport, paintBT: paintBT, autoRun: autoRun,
     get session() { return S; }
   };
 
@@ -7782,6 +7782,73 @@ var PROG = (function () {
     syncDraw(); chB.render(); paintBT();
     toast("Account reset to " + money(stake));
   }
+  /* ---------- automated batch run ----------
+     Takes every tradeable Coach signal mechanically -- the same entry, stop,
+     target and 1%-risk sizing a human would use by hand, just without the
+     clicking, so N trades' worth of the method's own numbers can be read off
+     in one go instead of one at a time.
+
+     Important: this is a consistency check on the odds Brooks' teaching
+     encoded into the generator (see the note above COACH_WINDOW), not a test
+     against real market data -- the synthetic bars are shaped to REALISE
+     those documented win rates, not to discover them independently. A green
+     run here shows the method's claimed numbers hold together and that
+     following them mechanically compounds; it is not proof of a real edge. */
+  function autoRun(n) {
+    n = Math.max(1, Math.min(5000, Math.round(n) || 100));
+    if (BT.playing) btPlay();
+    if (BT.log.length && !confirm("Run " + n + " automatic trades? This clears the " +
+      BT.log.length + " trade" + (BT.log.length === 1 ? "" : "s") + " already in this account " +
+      "and starts fresh from " + money(BT.start) + ".")) return;
+    btResetAccount(BT.start);
+    var wasCoach = BT.coach;
+    BT.coach = true;
+    var guard = 0, MAX = n * 4000;
+    while (BT.log.length < n && guard++ < MAX) {
+      if (!BT.ch || chB.vis >= BT.ch.bars.length - 1) {
+        /* btNew() unconditionally wipes BT.pos -- fine for a human, who would
+           never hit "New tape" mid-trade, but this loop runs through tape
+           boundaries constantly. Close out anything still open at the last
+           printed price first, so a trade the tape simply ran out of room to
+           resolve is counted, not silently discarded. */
+        if (BT.pos.length) {
+          var lastPx = BT.ch.bars[BT.ch.bars.length - 1].c;
+          BT.pos.slice().forEach(function (p) { btClose(p, lastPx, 1, "eod"); });
+        }
+        BT.ord.length = 0;
+        btNew(true);
+      }
+
+      /* a working order whose setup aged out unfilled is abandoned -- the
+         same discipline a human is expected to show, not an open-ended bet */
+      if (BT.ord.length && BT.ord[0]._sigI != null && chB.vis - BT.ord[0]._sigI > COACH_WINDOW) {
+        BT.ord.length = 0;
+      }
+
+      if (BT.pos.length === 0 && BT.ord.length === 0) {
+        var g = liveSignal();
+        if (g && g.tradeable && !g._taken && g.entry != null && g.stop != null && g.target != null) {
+          g._taken = true;
+          var u = unitsFor(g.entry, g.stop);
+          if (u > 0) BT.ord.push({ id: BT.nextId++, kind: g.entryType === "limit" ? "limit" : "stop",
+            dir: g.dir, price: g.entry, units: u, sl: g.stop, tp: g.target, _sigI: g.i });
+        }
+      }
+      chB.vis++;
+      btFills(chB.vis);
+      coachTally();
+    }
+    BT.coach = wasCoach;
+    /* the toolbar's Coach button is only redrawn by buildBTTools() (called
+       from btNew(), which the loop just ran with coach forced on) -- without
+       this it would keep showing "Coach: ON" after being restored to off */
+    buildBTTools();
+    syncDraw(); chB.render(); paintBT();
+    var st = btStats();
+    toast(st.n + (st.n < n ? " of " + n : "") + " trades done — " + (st.avgR >= 0 ? "+" : "") +
+      st.avgR.toFixed(2) + "R avg, " + Math.round(st.win * 100) + "% win rate, PF " +
+      (isFinite(st.pf) ? st.pf.toFixed(2) : "∞"));
+  }
   function btStep(n) {
     if (!BT.ch) return;
     for (var k = 0; k < n; k++) {
@@ -8149,6 +8216,17 @@ var PROG = (function () {
       out.push('</div>');
     }
 
+    /* auto-backtest */
+    out.push('<div class="btsec"><h5>Auto-backtest</h5>' +
+      '<div class="hint">Runs Coach\'s setups back to back with no clicking — same entries, ' +
+      'stops, targets and 1% risk sizing you\'d use by hand. This checks whether following Coach ' +
+      'mechanically compounds the way the method\'s own documented odds say it should — the bars ' +
+      'are synthetic, so it is <b>not</b> a test against real market data.</div>' +
+      '<div style="margin-top:7px"><label class="btlab">Trades to run</label>' +
+      '<input class="btin" id="btAutoN" type="number" step="1" min="1" max="5000" value="100"></div>' +
+      '<div class="btbtns" style="margin-top:7px"><button class="btn" id="btAutoRun">Run</button></div>' +
+      '</div>');
+
     /* results */
     out.push('<div class="btsec"><h5>Results</h5><div class="btgrid">' +
       kv("Trades", String(st.n)) +
@@ -8238,6 +8316,12 @@ var PROG = (function () {
         "?\n\nThe " + BT.log.length + " trades already taken were sized against " +
         money(BT.start) + ", so the run resets.")) { paintBT(); return; }
       btResetAccount(v);
+    };
+    var arBtn = $("btAutoRun");
+    if (arBtn) arBtn.onclick = function () {
+      var el = $("btAutoN"), n = el ? +el.value : 100;
+      if (!(n > 0)) { toast("Enter how many trades to run"); return; }
+      autoRun(n);
     };
 
     [].forEach.call(P.querySelectorAll("[data-olot]"), function (el) {
