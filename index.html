@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.47.0 (build 2026-09-19) — Al Brooks price action -->
+<!-- Trade Trainer v3.48.0 (build 2026-09-19) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -222,7 +222,11 @@
   .btin:focus{outline:none;border-color:var(--amber)}
   /* a readout dressed as a field would invite typing into it — so it looks inert */
   .btin[readonly]{background:transparent;border-style:dashed;color:var(--muted);cursor:default}
-  .btlab{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;display:block}
+  .btlab{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;display:flex;align-items:center;justify-content:space-between;gap:4px}
+  .btpin{padding:0 4px;font-size:11px;line-height:16px;border:1px solid var(--line);border-radius:4px;background:var(--bg3);color:var(--muted)}
+  .btpin.on{border-color:var(--amber);background:#241a08;color:var(--amber)}
+  .btuse{padding:1px 6px;font-size:10px;font-weight:600;border:1px solid var(--line);border-radius:5px;background:var(--bg2);color:var(--muted)}
+  .btuse:hover{border-color:var(--amber);color:var(--paper)}
   .btseg{display:flex;gap:4px}
   .btseg button{flex:1;padding:5px 0;font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:6px;background:var(--bg3);color:var(--muted)}
   .btseg button.on{border-color:var(--amber);background:#241a08;color:var(--amber)}
@@ -323,7 +327,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.47.0", build: "2026-09-19", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.48.0", build: "2026-09-19", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -7756,12 +7760,32 @@ var PROG = (function () {
           this.setTool("cursor");
           return;
         }
+        if (this.tool === "btpick" && this._pickField) {
+          var picked = +this.pAt(pt.y).toFixed(BT.ch.dec);
+          if (this._pickField === "entry") BT.tPrice = picked;
+          if (this._pickField === "sl") BT.tSL = picked;
+          if (this._pickField === "tp") BT.tTP = picked;
+          this._pickField = null;
+          this.setTool("cursor");
+          paintBT();
+          return;
+        }
         return proto.call(this, pt);
       };
       chB._btPoint = true;
     }
     buildBTTools();
     paintBT();
+  }
+  /** Arm the chart so the next click sets one of the ticket's own prices --
+      entry, stop loss or take profit -- instead of typing or nudging a number
+      input. The same click used to drag an existing order's lines, just
+      available before the order exists yet. */
+  function armPick(field) {
+    chB.setTool("btpick");
+    chB._pickField = field;
+    toast("Tap a price on the chart to set the " +
+      (field === "entry" ? "entry" : field === "sl" ? "stop loss" : "take profit") + ".");
   }
   /** Click a price on the chart to work an order there. The order type follows
       from where you clicked — behind the current price is a limit, beyond it is
@@ -8221,9 +8245,23 @@ var PROG = (function () {
     var tpDef = +(at + BT.dir * A * 3).toFixed(BT.ch.dec);
     var entryFld = BT.otype === "market" ? at : (BT.tPrice != null ? BT.tPrice : +(at + BT.dir * A).toFixed(BT.ch.dec));
     var sl = BT.tSL != null ? BT.tSL : slDef, tp = BT.tTP != null ? BT.tTP : tpDef;
-    /* Lots are yours. The app reports what that risks — it never resizes for you,
-       because picking the size is the thing worth practising. */
+    /* Lots are yours. The app reports what that risks -- it never resizes for
+       you on its own, because picking the size is the thing worth practising.
+       A one-click "Use" button copies the 1%-risk suggestion in, so matching
+       size to a stop you just dragged is a click, not mental arithmetic. */
     var u = toUnits(BT.lots), riskMoney = Math.abs(entryFld - sl) * u * qRate();
+    var oneEq = +toLots(unitsFor(entryFld, sl)).toFixed(2);
+    /* A small pin button that arms "click the chart to set this price" --
+       the same tool used for dragging an existing order's lines, just
+       available before the order exists yet. Clicking it again (or clicking
+       elsewhere on the chart with cursor/another tool) cancels. */
+    function pinLabel(text, field) {
+      var armed = chB.tool === "btpick" && chB._pickField === field;
+      return '<label class="btlab">' + text +
+        '<button class="btpin' + (armed ? ' on' : '') + '" data-bt="pick" data-v="' + field + '" ' +
+        'title="' + (armed ? "Cancel picking" : "Click, then tap a price on the chart") + '">' +
+        (armed ? "✕" : "⊕") + '</button></label>';
+    }
     out.push('<div class="btsec"><h5>Order ticket</h5>' +
       '<div class="btseg" style="margin-bottom:7px">' +
       '<button class="buy' + (BT.dir > 0 ? " on" : "") + '" data-bt="dir" data-v="1">Buy</button>' +
@@ -8233,15 +8271,21 @@ var PROG = (function () {
         return '<button class="' + (BT.otype === t ? "on" : "") + '" data-bt="otype" data-v="' + t + '">' +
           t.charAt(0).toUpperCase() + t.slice(1) + '</button>';
       }).join("") + '</div>' +
+      (chB.tool === "btpick" && chB._pickField
+        ? '<div class="hint" style="margin-bottom:6px;color:var(--amber)">Tap a price on the chart to set the ' +
+          (chB._pickField === "entry" ? "entry" : chB._pickField === "sl" ? "stop loss" : "take profit") + '.</div>'
+        : '') +
       '<div class="btgrid">' +
       (BT.otype === "market" ? "" :
-        '<div><label class="btlab">Entry</label><input class="btin" id="btPrice" type="number" step="any" value="' + entryFld + '"></div>') +
-      '<div><label class="btlab">Stop loss</label><input class="btin" id="btSL" type="number" step="any" value="' + sl + '"></div>' +
-      '<div><label class="btlab">Take profit</label><input class="btin" id="btTP" type="number" step="any" value="' + tp + '"></div>' +
+        '<div>' + pinLabel("Entry", "entry") + '<input class="btin" id="btPrice" type="number" step="any" value="' + entryFld + '"></div>') +
+      '<div>' + pinLabel("Stop loss", "sl") + '<input class="btin" id="btSL" type="number" step="any" value="' + sl + '"></div>' +
+      '<div>' + pinLabel("Take profit", "tp") + '<input class="btin" id="btTP" type="number" step="any" value="' + tp + '"></div>' +
       '<div><label class="btlab">Lots</label><input class="btin" id="btLots" type="number" step="0.01" value="' + BT.lots + '"></div>' +
-      '<div><label class="btlab">1% of equity is</label><input class="btin" readonly tabindex="-1" ' +
-      'title="What one percent of the account would size to here — shown for reference, not applied" ' +
-      'value="' + (+toLots(unitsFor(entryFld, sl)).toFixed(2)) + ' lots"></div>' +
+      '<div><label class="btlab">1% of equity is</label>' +
+      '<div style="display:flex;gap:5px;align-items:center">' +
+      '<input class="btin" readonly tabindex="-1" style="flex:1" ' +
+      'title="What one percent of the account would size to here" value="' + oneEq + ' lots">' +
+      '<button class="btuse" data-bt="uselots" title="Copy this into Lots">Use</button></div></div>' +
       '</div>' +
       '<div class="btkv" style="margin-top:7px"><span>Risk on this trade</span><b>' + money(riskMoney) +
       '  (' + (eq > 0 ? (riskMoney / eq * 100).toFixed(2) : "0") + '%)</b></div>' +
@@ -8291,6 +8335,12 @@ var PROG = (function () {
       BT.ord.forEach(function (o) {
         var oRisk = Math.abs(o.price - o.sl) * o.units * qRate();
         var oRR = Math.abs(o.price - o.sl) > 0 ? Math.abs(o.tp - o.price) / Math.abs(o.price - o.sl) : 0;
+        /* Dragging the SL line on the chart changes the risk distance, but
+           the lot size you already typed doesn't follow it -- so after a
+           drag, "Risking" alone forces you to work out the new lots by
+           trial and error. Showing what 1% would be, with a one-click Use,
+           turns "drag stop, retype lots" into "drag stop, click Use". */
+        var oneEqO = +toLots(unitsFor(o.price, o.sl)).toFixed(3);
         out.push('<div class="btrow"><div class="top"><b style="color:' +
           (o.dir > 0 ? "var(--up)" : "var(--dn)") + '">' + (o.dir > 0 ? "BUY" : "SELL") + ' ' +
           o.kind.toUpperCase() + ' #' + o.id + '</b>' +
@@ -8304,6 +8354,9 @@ var PROG = (function () {
           '</div>' +
           '<div class="btkv" style="margin-top:4px"><span>Risking</span><b>' + money(oRisk) +
           '  (' + (equity() > 0 ? (oRisk / equity() * 100).toFixed(2) : "0") + '%)</b></div>' +
+          '<div class="btkv" style="margin-top:2px"><span>1% of equity is</span>' +
+          '<span style="display:flex;gap:5px;align-items:center"><b>' + oneEqO + ' lots</b>' +
+          '<button class="btuse" data-bt="uselotso" data-id="' + o.id + '" title="Copy this into Lots">Use</button></span></div>' +
           '<div class="acts"><button data-bt="cancel" data-id="' + o.id + '">Cancel order</button></div></div>');
       });
       out.push('</div>');
@@ -8372,7 +8425,34 @@ var PROG = (function () {
         if (a === "take") { takeSignal(); return; }
         if (a === "skipnext") { skipToNext(); return; }
         if (a === "dir") { BT.dir = +v; BT.tSL = BT.tTP = BT.tPrice = null; }
-        if (a === "otype") { BT.otype = v; BT.tPrice = null; }
+        if (a === "otype") {
+          BT.otype = v; BT.tPrice = null;
+          /* Limit and stop orders need an entry price picked somewhere other
+             than the current market -- arm chart-click for it immediately
+             instead of leaving the user to hunt for a separate tool. */
+          if (v !== "market") { armPick("entry"); } else if (chB.tool === "btpick") { chB.setTool("cursor"); }
+        }
+        if (a === "pick") {
+          if (chB.tool === "btpick" && chB._pickField === v) chB.setTool("cursor");
+          else armPick(v);
+        }
+        if (a === "uselots") {
+          var entryEl = $("btPrice"), slEl = $("btSL");
+          var entryNow = entryEl ? +entryEl.value : btPrice();
+          var slNow = slEl ? +slEl.value : null;
+          if (slNow != null && isFinite(slNow) && isFinite(entryNow)) {
+            var suggested = unitsFor(entryNow, slNow);
+            if (suggested > 0) BT.lots = +toLots(suggested).toFixed(3);
+            else toast("Set a stop loss first — there's no risk distance to size against");
+          }
+        }
+        if (a === "uselotso") {
+          var ordU = BT.ord.filter(function (x) { return x.id === id; })[0];
+          if (ordU) {
+            var suggestedO = unitsFor(ordU.price, ordU.sl);
+            if (suggestedO > 0) ordU.units = suggestedO;
+          }
+        }
         if (a === "close" && pos) btClose(pos, btPrice(), +v, "manual");
         if (a === "be" && pos) { pos.sl = pos.entry; syncDraw(); }
         if (a === "cancel") { BT.ord = BT.ord.filter(function (x) { return x.id !== id; }); syncDraw(); }
