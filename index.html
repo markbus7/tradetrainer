@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.48.0 (build 2026-09-19) — Al Brooks price action -->
+<!-- Trade Trainer v3.49.0 (build 2026-09-19) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -327,7 +327,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.48.0", build: "2026-09-19", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.49.0", build: "2026-09-19", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -7516,6 +7516,42 @@ var PROG = (function () {
     syncDraw();
   }
 
+  /** How many more units would bring this position's total risk up to 1% of
+      equity, priced off adding at the CURRENT market price against its
+      EXISTING stop. Zero if it's already at or above 1%, or if price has
+      somehow ended up on the wrong side of its own stop (should already be
+      closed by then, but a position with no real risk distance left has
+      nothing sane to size against either way). */
+  function topUpUnits(p) {
+    var targetRisk = equity() * 0.01, currentRisk = p.rpu * p.units;
+    /* A relative margin, not currentRisk >= targetRisk outright -- a position
+       just topped up to exactly 1% can land a hair under it from ordinary
+       floating-point noise, and that noise scales with the position's own
+       numbers (price, equity), so a fixed absolute cutoff would need to be
+       different for every instrument. Within 0.1% of budget counts as there. */
+    if (currentRisk >= targetRisk * 0.999) return 0;
+    var priceNow = btPrice();
+    if ((priceNow - p.sl) * p.dir <= 0) return 0;
+    var riskPerUnitNow = Math.abs(priceNow - p.sl) * qRate();
+    if (!(riskPerUnitNow > 0)) return 0;
+    return (targetRisk - currentRisk) / riskPerUnitNow;
+  }
+  /** Add units to an open position at the current price -- the same thing a
+      broker does when you buy more of something you already hold: the two
+      fills net into one blended entry, weighted by size. The stop and target
+      stay exactly where they were; only the entry moves (toward the current
+      price) and the risk-per-unit is re-derived from that new entry, so the
+      position's total risk-if-stopped genuinely reflects the size it is now,
+      not the size it was at the original fill. */
+  function btAddUnits(p, addUnits) {
+    if (!(addUnits > 0)) return;
+    var priceNow = btPrice(), newUnits = p.units + addUnits;
+    p.entry = (p.entry * p.units + priceNow * addUnits) / newUnits;
+    p.units = p.units0 = newUnits;
+    p.rpu = Math.abs(p.entry - p.sl) * qRate();
+    syncDraw();
+  }
+
   /** fills for the bar that was just revealed — pending orders first, then exits */
   function btFills(i) {
     var b = BT.ch.bars[i];
@@ -8304,6 +8340,7 @@ var PROG = (function () {
     if (!BT.pos.length) out.push('<div class="hint">Nothing open. Levels you place are draggable right on the chart.</div>');
     BT.pos.forEach(function (p) {
       var pl = posPL(p, at), r = p.rpu > 0 ? pl / (p.rpu * p.units0) : 0;
+      var posRisk = p.rpu * p.units, addUnits = topUpUnits(p);
       out.push('<div class="btrow"><div class="top">' +
         '<b style="color:' + (p.dir > 0 ? "var(--up)" : "var(--dn)") + '">' +
         (p.dir > 0 ? "LONG" : "SHORT") + ' #' + p.id + '</b>' +
@@ -8312,6 +8349,8 @@ var PROG = (function () {
         '<div class="mono">entry ' + px(p.entry) + ' · ' + fmtLots(p.units) +
         (p.units < p.units0 - 1e-9 ? ' of ' + fmtLots(p.units0) : '') +
         ' · SL ' + (p.sl == null ? "—" : px(p.sl)) + ' · TP ' + (p.tp == null ? "—" : px(p.tp)) + '</div>' +
+        '<div class="btkv" style="margin-top:3px"><span>Risking</span><b>' + money(posRisk) +
+        '  (' + (eq > 0 ? (posRisk / eq * 100).toFixed(2) : "0") + '%)</b></div>' +
         (p.partials.length ? '<div class="acts" style="margin-top:4px">' + p.partials.map(function (x, n) {
           return x.done
             ? '<button disabled style="opacity:.5">✓ ' + x.pct + '% @ ' + px(x.price) + '</button>'
@@ -8325,6 +8364,12 @@ var PROG = (function () {
         '<button data-bt="close" data-id="' + p.id + '" data-v="0.25">25%</button>' +
         '<button data-bt="be" data-id="' + p.id + '">SL to entry</button>' +
         '<button data-bt="addpart" data-id="' + p.id + '">+ partial TP</button>' +
+        /* Only offered when there's genuinely room to add -- the stop turned
+           out tighter than planned, so the position is sitting under 1% risk
+           and there's headroom to size up to the budget it was meant to use. */
+        (addUnits > 1e-9 ? '<button data-bt="topup" data-id="' + p.id +
+          '" title="Add units at the current price so total risk reaches 1% of equity">' +
+          'Top up to 1%</button>' : '') +
         '</div></div>');
     });
     out.push('</div>');
@@ -8455,6 +8500,13 @@ var PROG = (function () {
         }
         if (a === "close" && pos) btClose(pos, btPrice(), +v, "manual");
         if (a === "be" && pos) { pos.sl = pos.entry; syncDraw(); }
+        if (a === "topup" && pos) {
+          var add = topUpUnits(pos);
+          if (add > 0) {
+            btAddUnits(pos, add);
+            toast("Added " + fmtLots(add) + " at " + px(btPrice()) + " — now risking 1% at the new average entry");
+          }
+        }
         if (a === "cancel") { BT.ord = BT.ord.filter(function (x) { return x.id !== id; }); syncDraw(); }
         if (a === "addpart" && pos) {
           /* land it at 1R and let them drag it — faster than a prompt, and the
