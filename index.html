@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.46.0 (build 2026-09-18) — Al Brooks price action -->
+<!-- Trade Trainer v3.47.0 (build 2026-09-19) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -323,7 +323,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.46.0", build: "2026-09-18", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.47.0", build: "2026-09-19", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -7872,13 +7872,56 @@ var PROG = (function () {
          risk" true instead of aspirational. */
       if (BT.pos.length === 1 && BT.pos[0].openIdx === chB.vis) {
         var justFilled = BT.pos[0];
-        var trueUnits = unitsFor(justFilled.entry, justFilled.sl);
-        if (trueUnits > 0) {
-          justFilled.units = justFilled.units0 = trueUnits;
-          justFilled.rpu = Math.abs(justFilled.entry - justFilled.sl) * qRate();
+        /* A gap severe enough can fill a stop or limit order not just far
+           from its intended entry, but past one of the order's OWN levels --
+           confirmed directly, both directions:
+           - an ADVERSE gap can fill past the order's own STOP: a long limit
+             meant to fill near 104.94 with a stop at 104.70 instead filled at
+             104.40, putting the stop ABOVE the entry it was supposed to
+             protect. btFills' exit check only tests "has price reached sl",
+             so the very next check closes it -- at a price on the
+             FAVOURABLE side of the actual entry, logged as "stop" with a
+             positive R and a real profit.
+           - a FAVOURABLE gap (much more common -- 103 cases in one sweep vs.
+             1-2 for the stop side) can fill past the order's own TARGET: a
+             breakout meant to fill near 26,251 instead filled at 37,626,
+             already well beyond its own 27,738 target before the trade even
+             began. The very next check closes it "at target" -- for a LOSS,
+             because the target is now behind the actual entry.
+           Either way, a level swapping sides with entry is not a rare bad
+           outcome, it is a mislabelled one: the trade's whole premise (a
+           defined risk-to-reward from THIS entry) no longer means anything
+           once one of its levels sits on the wrong side of it, so it isn't
+           sized or scored as a normal trade -- it's closed flat,
+           immediately, tagged distinctly from a real stop or a real
+           target. */
+        var wrongSide = (justFilled.entry - justFilled.sl) * justFilled.dir <= 0;
+        var wrongTarget = justFilled.tp != null &&
+          (justFilled.tp - justFilled.entry) * justFilled.dir <= 0;
+        if (wrongSide || wrongTarget) {
+          btClose(justFilled, justFilled.entry, 1, "invalid-fill");
         } else {
-          /* the fill landed on top of its own stop -- no real trade to size */
-          btClose(justFilled, justFilled.entry, 1, "degenerate");
+          /* unitsFor(g.entry, g.stop) above sizes the order BEFORE it fills,
+             off the signal's intended entry -- but a stop or limit order can
+             gap-fill well past that price, changing the REAL distance from
+             entry to stop without changing the units already committed to.
+             Left alone, a stop-out then loses (actual distance / intended
+             distance) times the 1% that was promised -- confirmed directly:
+             one run gap-filled 3.35x past its intended distance, and on a
+             bad enough gap this compounds into wiping out most of the
+             account while every trade still just reads "-1.00R" in the log
+             (R is computed from the ACTUAL post-fill distance, so it stays
+             blind to how it was mis-sized). Re-deriving units right after a
+             fill, from the price that actually happened, is what makes "1%
+             risk" true instead of aspirational. */
+          var trueUnits = unitsFor(justFilled.entry, justFilled.sl);
+          if (trueUnits > 0) {
+            justFilled.units = justFilled.units0 = trueUnits;
+            justFilled.rpu = Math.abs(justFilled.entry - justFilled.sl) * qRate();
+          } else {
+            /* the fill landed exactly on its own stop -- no real trade to size */
+            btClose(justFilled, justFilled.entry, 1, "degenerate");
+          }
         }
       }
       coachTally();
