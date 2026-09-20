@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.49.1 (build 2026-09-20) — Al Brooks price action -->
+<!-- Trade Trainer v3.50.0 (build 2026-09-20) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -327,7 +327,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.49.1", build: "2026-09-20", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.50.0", build: "2026-09-20", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2523,6 +2523,7 @@ Chart.prototype.handles = function () {
 
     if (d.type === "pos") {
       ["entry", "stop", "target"].forEach(function (f) {
+        if (f === "entry" && d._noEntryDrag) return; /* a market fill isn't a price you choose */
         out.push({ d: d, k: k, f: f, x: self.x(d.i) + 26, y: self.y(d[f]), line: true });
       });
     }
@@ -2601,7 +2602,7 @@ Chart.prototype.render = function () {
   if (this.gt) this._gtOverlay(c, b);
   this._markers(c, b);
   var self = this;
-  this.drawings.forEach(function (dr) { self._draw(c, b, dr, false); });
+  this.drawings.forEach(function (dr) { self._draw(c, b, dr, dr._bt === "ticket"); });
   if (this.pending) this._draw(c, b, previewOf(this.pending, this._hoverPt), true);
   c.restore();
   this._selBadge(c);
@@ -7746,6 +7747,27 @@ var PROG = (function () {
         dir: o.dir, entry: o.price, stop: o.sl,
         target: o.tp == null ? o.price + o.dir * btATR() * 2 : o.tp });
     });
+    /* The ticket's own not-yet-placed order, previewed on the chart with the
+       same draggable lines a real order gets -- so entry (for limit/stop),
+       stop and target can be set by dragging instead of typing or tapping.
+       Drawn a touch translucent (ghost=true at render time) since nothing
+       has actually been placed yet. For a market order there is no entry to
+       choose -- it fills at whatever price is current -- so that line is
+       shown for reference but not draggable. */
+    var lv = ticketLevels();
+    chB.drawings.push({ type: "pos", _bt: "ticket", i: chB.vis, dir: BT.dir,
+      entry: lv.entry, stop: lv.sl, target: lv.tp, _noEntryDrag: BT.otype === "market" });
+  }
+  /** The ticket's current entry/stop/target -- the same defaults paintBT()
+      shows in the number fields, factored out so the chart preview and the
+      ticket panel always agree on what "the next order" currently looks
+      like. */
+  function ticketLevels() {
+    var at = btPrice(), A = btATR();
+    var slDef = +(at - BT.dir * A * 1.5).toFixed(BT.ch.dec);
+    var tpDef = +(at + BT.dir * A * 3).toFixed(BT.ch.dec);
+    var entryFld = BT.otype === "market" ? at : (BT.tPrice != null ? BT.tPrice : +(at + BT.dir * A).toFixed(BT.ch.dec));
+    return { entry: entryFld, sl: BT.tSL != null ? BT.tSL : slDef, tp: BT.tTP != null ? BT.tTP : tpDef };
   }
   /** A drag moved a line — write it back to the account object it belongs to.
       This deliberately mutates the existing drawing objects instead of calling
@@ -7767,6 +7789,14 @@ var PROG = (function () {
         o.price = d.entry; o.sl = d.stop; o.tp = d.target;
         /* dragging the entry across the current price flips limit <-> stop */
         o.kind = (o.price - btPrice()) * o.dir > 0 ? "stop" : "limit";
+      }
+      if (d._bt === "ticket") {
+        BT.tSL = d.stop; BT.tTP = d.target;
+        if (BT.otype !== "market") {
+          BT.tPrice = d.entry;
+          /* same rule as picking a price by tap: the level decides the type */
+          BT.otype = (d.entry - btPrice()) * BT.dir > 0 ? "stop" : "limit";
+        }
       }
     });
   }
@@ -7825,6 +7855,7 @@ var PROG = (function () {
       chB._btPoint = true;
     }
     buildBTTools();
+    syncDraw();
     paintBT();
   }
   /** Arm the chart so the next click sets one of the ticket's own prices --
@@ -8024,8 +8055,12 @@ var PROG = (function () {
       btFills(chB.vis);
       if (chB.vis > chB.i1 - 4) { chB.i0 += 1; chB.i1 += 1; }
     }
-    /* the live setup changes as bars arrive, so its lines have to be rebuilt */
-    if (BT.coach) syncDraw();
+    /* the live setup changes as bars arrive, so its lines have to be rebuilt --
+       also true of the ticket preview even with Coach off: its entry line
+       (for a market order) and defaults track the current price, and its
+       anchor bar needs to keep pace with the tape instead of drifting stale
+       behind it. */
+    syncDraw();
     chB.render(); paintBT();
   }
   function btPlay() {
@@ -8108,7 +8143,7 @@ var PROG = (function () {
             : "New tape — account kept");
           return;
         }
-        chB.render(); paintBT();
+        syncDraw(); chB.render(); paintBT();
       };
     });
     function reTape(what) {
@@ -8290,11 +8325,9 @@ var PROG = (function () {
       out.push('</div>');
     }
 
-    /* ticket */
-    var slDef = +(at - BT.dir * A * 1.5).toFixed(BT.ch.dec);
-    var tpDef = +(at + BT.dir * A * 3).toFixed(BT.ch.dec);
-    var entryFld = BT.otype === "market" ? at : (BT.tPrice != null ? BT.tPrice : +(at + BT.dir * A).toFixed(BT.ch.dec));
-    var sl = BT.tSL != null ? BT.tSL : slDef, tp = BT.tTP != null ? BT.tTP : tpDef;
+    /* ticket -- same numbers the chart preview draws, from ticketLevels() */
+    var ticketLv = ticketLevels();
+    var entryFld = ticketLv.entry, sl = ticketLv.sl, tp = ticketLv.tp;
     /* Lots are yours. The app reports what that risks -- it never resizes for
        you on its own, because picking the size is the thing worth practising.
        A one-click "Use" button copies the 1%-risk suggestion in, so matching
@@ -8535,12 +8568,19 @@ var PROG = (function () {
           var cur = pos.partials[+v].pct;
           pos.partials[+v].pct = cur >= 75 ? 25 : cur >= 50 ? 75 : 50;
         }
-        chB.render(); paintBT();
+        /* A click here is never mid-drag, so rebuilding the ticket preview
+           (and everything else) is safe -- this is what keeps the chart
+           preview in step with dir/otype/lots changes made in the panel
+           rather than by dragging its own lines. */
+        syncDraw(); chB.render(); paintBT();
       };
     });
     function num(id, set) {
       var el = $(id);
-      if (el) el.onchange = function () { var v = +this.value; if (isFinite(v)) set(v); chB.render(); paintBT(); };
+      if (el) el.onchange = function () {
+        var v = +this.value; if (isFinite(v)) set(v);
+        syncDraw(); chB.render(); paintBT();
+      };
     }
     num("btPrice", function (v) { BT.tPrice = v; });
     num("btSL", function (v) { BT.tSL = v; });
