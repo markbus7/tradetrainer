@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.49.0 (build 2026-09-19) — Al Brooks price action -->
+<!-- Trade Trainer v3.49.1 (build 2026-09-20) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -327,7 +327,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.49.0", build: "2026-09-19", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.49.1", build: "2026-09-20", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -7798,7 +7798,21 @@ var PROG = (function () {
         }
         if (this.tool === "btpick" && this._pickField) {
           var picked = +this.pAt(pt.y).toFixed(BT.ch.dec);
-          if (this._pickField === "entry") BT.tPrice = picked;
+          if (this._pickField === "entry") {
+            BT.tPrice = picked;
+            /* Whichever type was selected before the tap, the tapped price
+               itself decides whether it can only work as a stop or a limit --
+               same rule the "Order" toolbar tool already uses. Without this,
+               tapping a price on the "wrong" side for the type shown left the
+               price set correctly but Place silently refused it, which reads
+               as "picking doesn't work" when picking was never the problem. */
+            var atNow = btPrice(), corrected = (picked - atNow) * BT.dir > 0 ? "stop" : "limit";
+            if (corrected !== BT.otype) {
+              BT.otype = corrected;
+              toast("Set as a " + corrected + " — that price is " +
+                (corrected === "stop" ? "beyond" : "behind") + " the current price");
+            }
+          }
           if (this._pickField === "sl") BT.tSL = picked;
           if (this._pickField === "tp") BT.tTP = picked;
           this._pickField = null;
