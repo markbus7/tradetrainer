@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.50.0 (build 2026-09-20) — Al Brooks price action -->
+<!-- Trade Trainer v3.51.0 (build 2026-09-24) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -327,7 +327,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.50.0", build: "2026-09-20", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.51.0", build: "2026-09-24", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2601,6 +2601,7 @@ Chart.prototype.render = function () {
   if (this.sigBar !== undefined && this.sigBar !== null) this._sigMark(c, b);
   if (this.gt) this._gtOverlay(c, b);
   this._markers(c, b);
+  if (this.overlayFn) this.overlayFn(c, b, this);
   var self = this;
   this.drawings.forEach(function (dr) { self._draw(c, b, dr, dr._bt === "ticket"); });
   if (this.pending) this._draw(c, b, previewOf(this.pending, this._hoverPt), true);
@@ -7316,7 +7317,7 @@ var PROG = (function () {
     btFills: btFills, btSeries: btSeries, equity: equity, openPL: openPL,
     lotUnits: lotUnits, toLots: toLots, toUnits: toUnits, fmtLots: fmtLots,
     perPoint: perPoint, pipName: pipName,
-    unitsFor: unitsFor, btStats: btStats, btReport: btReport, paintBT: paintBT, autoRun: autoRun,
+    unitsFor: unitsFor, btStats: btStats, btReport: btReport, paintBT: paintBT, autoRun: autoRun, structRead: structRead, tradeCheck: tradeCheck, ticketLevels: ticketLevels,
     get session() { return S; }
   };
 
@@ -7654,6 +7655,179 @@ var PROG = (function () {
     btStep(Math.max(1, g.i - chB.vis));
   }
 
+  /* ---------- live structure read ----------
+     Coach used to say nothing between setups, and nothing about WHY the tape
+     is a trend or a range. This reads the swings you can already see -- only
+     revealed bars, so it never peeks ahead -- and names the structure the way
+     Brooks does: higher highs and higher lows are a bull trend, lower highs
+     and lower lows a bear trend, anything that overlaps is a range. It then
+     draws the lines that prove it, so the claim can be checked on the chart
+     rather than taken on trust. */
+  var READ_LOOKBACK = 150;
+  var _readCache = { ch: null, vis: -1, r: null };
+  function zigzag(bars, from, to, th) {
+    var piv = [], dir = 0, ext = null, hiI = from, loI = from;
+    for (var i = from; i <= to; i++) {
+      var b = bars[i];
+      if (dir === 0) {
+        if (b.h > bars[hiI].h) hiI = i;
+        if (b.l < bars[loI].l) loI = i;
+        if (bars[hiI].h - bars[loI].l >= th) {
+          if (hiI > loI) { piv.push({ i: loI, p: bars[loI].l, t: "L" }); dir = 1; ext = { i: hiI, p: bars[hiI].h }; }
+          else { piv.push({ i: hiI, p: bars[hiI].h, t: "H" }); dir = -1; ext = { i: loI, p: bars[loI].l }; }
+        }
+      } else if (dir > 0) {
+        if (b.h >= ext.p) ext = { i: i, p: b.h };
+        else if (ext.p - b.l >= th) { piv.push({ i: ext.i, p: ext.p, t: "H" }); dir = -1; ext = { i: i, p: b.l }; }
+      } else {
+        if (b.l <= ext.p) ext = { i: i, p: b.l };
+        else if (b.h - ext.p >= th) { piv.push({ i: ext.i, p: ext.p, t: "L" }); dir = 1; ext = { i: i, p: b.h }; }
+      }
+    }
+    /* the leg still in progress: its extreme isn't a confirmed swing yet */
+    var last = dir === 0 || !ext ? null : { i: ext.i, p: ext.p, t: dir > 0 ? "H" : "L", tentative: true };
+    return { piv: piv, last: last };
+  }
+  function lineAt(a, bpt, i) { return a.p + (bpt.p - a.p) * (i - a.i) / ((bpt.i - a.i) || 1); }
+  function structRead() {
+    if (!BT.ch || !chB) return null;
+    if (_readCache.ch === BT.ch && _readCache.vis === chB.vis) return _readCache.r;
+    var bars = BT.ch.bars, v = Math.min(chB.vis, bars.length - 1);
+    var from = Math.max(0, v - READ_LOOKBACK);
+    var A = Mkt.atr(bars, 14, v) || 1, tol = A * 0.3;
+    var z = zigzag(bars, from, v, A * 2.5), piv = z.piv.slice();
+    /* How far a high has to clear the previous high to count as "higher" is
+       judged against the swings themselves, not just ATR: a second high one
+       point under a first, on swings six points tall, is the two sides
+       overlapping -- a range -- not a bear trend. Brooks' distinction between
+       a trend and a range is exactly that overlap. */
+    var legs = [];
+    /* recent legs only -- a triangle's swings shrink by design, and older,
+       bigger legs would make its real higher lows look "equal" */
+    for (var q = Math.max(1, piv.length - 3); q < piv.length; q++) legs.push(Math.abs(piv[q].p - piv[q - 1].p));
+    var amp = legs.length ? legs.reduce(function (a, x) { return a + x; }, 0) / legs.length : A * 3;
+    tol = Math.max(tol, amp * 0.2);
+    /* the unfinished leg counts once it has already gone past the previous
+       swing of its kind -- "lower low" is then a fact, not a forecast */
+    if (z.last) {
+      var prevSame = null;
+      for (var k = piv.length - 1; k >= 0; k--) if (piv[k].t === z.last.t) { prevSame = piv[k]; break; }
+      if (prevSame && (z.last.t === "H" ? z.last.p > prevSame.p + tol : z.last.p < prevSame.p - tol)) piv.push(z.last);
+    }
+    /* label each swing against the previous one of its own kind */
+    var lastH = null, lastL = null;
+    piv.forEach(function (p) {
+      var prev = p.t === "H" ? lastH : lastL;
+      if (!prev) p.lab = p.t;
+      else if (p.t === "H") p.lab = p.p > prev.p + tol ? "HH" : p.p < prev.p - tol ? "LH" : "=H";
+      else p.lab = p.p < prev.p - tol ? "LL" : p.p > prev.p + tol ? "HL" : "=L";
+      if (p.t === "H") lastH = p; else lastL = p;
+    });
+    var hs = piv.filter(function (p) { return p.t === "H"; }), ls = piv.filter(function (p) { return p.t === "L"; });
+    var r = { piv: piv, atr: A, lines: [], box: null, pos: null, name: "Not enough swings yet", kind: "none", why: "" };
+    if (hs.length >= 2 && ls.length >= 2) {
+      var H1 = hs[hs.length - 2], H2 = hs[hs.length - 1], L1 = ls[ls.length - 2], L2 = ls[ls.length - 1];
+      var hd = H2.lab, ld = L2.lab, end = v + 12, close = bars[v].c;
+      var ext = function (a, bpt) { return { a: a, b: { i: end, p: lineAt(a, bpt, end) } }; };
+      var hiNow = lineAt(H1, H2, v), loNow = lineAt(L1, L2, v);
+      if (hd === "HH" && ld === "HL") {
+        r.kind = "bull"; r.name = "Bull trend"; r.why = "higher high + higher low";
+        var top = hs.filter(function (p) { return p.i >= L1.i; }).reduce(function (m, p) { return p.p > m.p ? p : m; }, H2);
+        r.lines.push(ext(L1, L2));
+        r.lines.push({ a: { i: top.i, p: top.p }, b: { i: end, p: top.p + (L2.p - L1.p) * (end - top.i) / ((L2.i - L1.i) || 1) } });
+        loNow = lineAt(L1, L2, v); hiNow = top.p + (L2.p - L1.p) * (v - top.i) / ((L2.i - L1.i) || 1);
+      } else if (hd === "LH" && ld === "LL") {
+        r.kind = "bear"; r.name = "Bear trend"; r.why = "lower high + lower low";
+        var bot = ls.filter(function (p) { return p.i >= H1.i; }).reduce(function (m, p) { return p.p < m.p ? p : m; }, L2);
+        r.lines.push(ext(H1, H2));
+        r.lines.push({ a: { i: bot.i, p: bot.p }, b: { i: end, p: bot.p + (H2.p - H1.p) * (end - bot.i) / ((H2.i - H1.i) || 1) } });
+        hiNow = lineAt(H1, H2, v); loNow = bot.p + (H2.p - H1.p) * (v - bot.i) / ((H2.i - H1.i) || 1);
+      } else if (hd === "HH" && ld === "LL") {
+        r.kind = "expanding"; r.name = "Expanding triangle (trading range)"; r.why = "higher high + lower low";
+        r.lines.push(ext(H1, H2)); r.lines.push(ext(L1, L2));
+      } else if (hd === "LH" && ld === "HL") {
+        r.kind = "triangle"; r.name = "Triangle (breakout mode)"; r.why = "lower high + higher low";
+        r.lines.push(ext(H1, H2)); r.lines.push(ext(L1, L2));
+      } else {
+        r.kind = "range"; r.name = "Trading range";
+        r.why = (hd === "=H" && ld === "=L") ? "highs and lows at about the same levels"
+          : "swings overlapping (" + hd + " + " + ld + ") — no side making real progress";
+        hiNow = Math.max(H1.p, H2.p); loNow = Math.min(L1.p, L2.p);
+        r.box = { i0: Math.min(H1.i, L1.i), i1: end, hi: hiNow, lo: loNow };
+      }
+      if (hiNow > loNow) r.pos = (close - loNow) / (hiNow - loNow);
+    }
+    _readCache = { ch: BT.ch, vis: chB.vis, r: r };
+    return r;
+  }
+  /** Where the structure read says the ticket's trade stands -- a rule-of-thumb
+      check against Brooks' logic, plus the break-even arithmetic, so a plan
+      that fights the structure or can't pay for its own risk says so before
+      you place it. */
+  function tradeCheck(r, lv) {
+    if (!r || r.kind === "none") return null;
+    var d = BT.dir, risk = Math.abs(lv.entry - lv.sl), rr = risk > 0 ? Math.abs(lv.tp - lv.entry) / risk : 0;
+    var be = rr > 0 ? 1 / (1 + rr) : 1, pos = r.pos, good = null, msg = "";
+    var edge = pos === null ? "" : pos < 0.35 ? "low" : pos > 0.65 ? "high" : "mid";
+    if (r.kind === "bull" || r.kind === "bear") {
+      var withT = (r.kind === "bull") === (d > 0);
+      good = withT;
+      msg = withT ? "With the trend." + (edge === (d > 0 ? "low" : "high") ? " Entering on a pullback toward the trendline — the good side of a trend." : " Better still on a pullback toward the trendline than on a move away from it.")
+        : "Against the trend. Most reversal attempts in a trend fail — Brooks wants a trendline break and a second entry before trading the other way.";
+    } else if (r.kind === "triangle") {
+      good = edge !== "mid" && ((edge === "low") === (d > 0));
+      msg = edge === "mid" ? "Middle of a triangle — breakout mode. Wait for a breakout bar with follow-through, or trade the edges small."
+        : good ? "At the " + (edge === "low" ? "bottom" : "top") + " edge, trading back toward the middle — the range trade."
+          : "Trading into the " + (edge === "low" ? "bottom" : "top") + " edge — that bets on the breakout, and most breakout attempts fail.";
+    } else {
+      /* range or expanding triangle: buy low, sell high */
+      if (edge === "mid") { good = false; msg = "Middle of the range — Brooks' worst place to enter. Wait for price to reach an edge."; }
+      else {
+        good = (edge === "low") === (d > 0);
+        msg = good ? (d > 0 ? "Buying near the low of the range" : "Selling near the high of the range") + " — buy low, sell high."
+          : (d > 0 ? "Buying near the top of the range" : "Selling near the bottom of the range") +
+            " — that needs a breakout, and about 80% of breakout attempts from a range fail." +
+            (r.kind === "expanding" ? " In an expanding triangle the new extreme is usually where it reverses." : "");
+      }
+    }
+    return { good: good, msg: msg, rr: rr, be: be };
+  }
+  /* drawn on the Desk chart itself when Coach is on */
+  function drawRead(c, b, ch) {
+    if (!BT.coach) return;
+    var r = structRead();
+    if (!r || !r.piv.length) return;
+    var col = "rgba(91,155,213,.9)";
+    c.save();
+    if (r.box) {
+      var x0 = ch.x(r.box.i0), x1 = ch.x(r.box.i1), yh = ch.y(r.box.hi), yl = ch.y(r.box.lo);
+      c.fillStyle = "rgba(91,155,213,.07)"; c.fillRect(x0, yh, x1 - x0, yl - yh);
+      c.strokeStyle = col; c.lineWidth = 1.3; c.setLineDash([5, 4]);
+      c.beginPath(); c.moveTo(x0, yh); c.lineTo(x1, yh); c.moveTo(x0, yl); c.lineTo(x1, yl); c.stroke();
+      /* labelled at the right end, clear of the swing labels on the left */
+      var xl = Math.min(x1, b.r) - 6;
+      c.font = "10px 'IBM Plex Mono',monospace"; c.fillStyle = col; c.textAlign = "right"; c.textBaseline = "bottom";
+      c.fillText("RANGE HIGH", xl, yh - 2); c.textBaseline = "top"; c.fillText("RANGE LOW", xl, yl + 2);
+    }
+    c.strokeStyle = col; c.lineWidth = 1.5; c.setLineDash([6, 4]);
+    r.lines.forEach(function (L) {
+      c.beginPath(); c.moveTo(ch.x(L.a.i), ch.y(L.a.p)); c.lineTo(ch.x(L.b.i), ch.y(L.b.p)); c.stroke();
+    });
+    c.setLineDash([]);
+    c.font = "700 9.5px 'IBM Plex Mono',monospace"; c.textAlign = "center";
+    r.piv.forEach(function (p) {
+      var x = ch.x(p.i), y = ch.y(p.p), up = p.t === "H";
+      c.fillStyle = col;
+      c.beginPath(); c.arc(x, y, 3, 0, 6.284); c.fill();
+      c.textBaseline = up ? "bottom" : "top";
+      c.fillText(p.lab + (p.tentative ? "?" : ""), x, up ? y - 5 : y + 5);
+    });
+    c.font = "700 11px Archivo,sans-serif"; c.textAlign = "left"; c.textBaseline = "top";
+    c.fillStyle = col;
+    c.fillText("READ: " + r.name + (r.why ? " — " + r.why : ""), 8, b.t + 20);
+    c.restore();
+  }
+
   /* ---- Fibonacci preferences ---- */
   function fibParse(txt) {
     var out = [];
@@ -7816,6 +7990,7 @@ var PROG = (function () {
     chB.gt = null; chB.sigBar = null;
     chB.setSpan(150, 110);
     chB.onChange = function () { readDraw(); paintBT(); };
+    chB.overlayFn = drawRead;
     if (!chB._btPoint) {
       /* the stock 'pos' tool clears every pos drawing on the chart, which would
          wipe the open positions — so the desk gets its own placement tool */
@@ -8273,6 +8448,44 @@ var PROG = (function () {
       var cg = liveSignal();
       out.push('<div class="btsec"><h5>Coach <span class="mono">' +
         BT.coachTaken + ' taken / ' + BT.coachSeen + ' seen</span></h5>');
+      /* what the swings you can see say the tape IS, and how the ticket's
+         trade sits against it -- always on with Coach, not just at a setup */
+      var rd = structRead();
+      if (rd) {
+        out.push('<div class="btrow" style="border-color:rgba(91,155,213,.6)">' +
+          '<div class="top"><b style="color:var(--blue,#5B9BD5)">READ</b>' +
+          '<span class="mono">' + rd.name + '</span></div>' +
+          (rd.why ? '<div class="hint" style="margin-top:3px">Why: ' + rd.why +
+            (rd.pos !== null && rd.kind !== "none" ? ' · price is ' +
+              (rd.pos < 0.35 ? 'near the low' : rd.pos > 0.65 ? 'near the high' : 'in the middle') + ' of it' : '') +
+            '. The swings are labelled on the chart.</div>' :
+            '<div class="hint" style="margin-top:3px">Needs two swing highs and two swing lows before it can say trend or range.</div>'));
+        /* a reversal setup is by definition against the trend the swings
+           show -- say so, rather than leave two cards that look like they
+           disagree */
+        var lsg = liveSignal();
+        if (lsg && lsg.tradeable && (rd.kind === "bull" || rd.kind === "bear") &&
+            (lsg.dir > 0) !== (rd.kind === "bull")) {
+          out.push('<div class="hint" style="margin-top:4px;color:var(--amber)">Coach\'s setup below trades against this ' +
+            rd.kind + ' trend. That is what a reversal setup is — it only works when the trend is failing ' +
+            '(a final flag, a wedge, a climax), which is why its odds are lower than a with-trend trade.</div>');
+        }
+        var tc = tradeCheck(rd, ticketLevels());
+        if (tc) {
+          out.push('<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">' +
+            '<div class="btkv"><span>Your ticket (' + (BT.dir > 0 ? 'buy' : 'sell') + ')</span><b class="' +
+            (tc.good ? 'up' : 'dn') + '">' + (tc.good ? 'Fits the read' : 'Fights the read') + '</b></div>' +
+            '<div class="hint" style="margin-top:3px">' + tc.msg + '</div>' +
+            '<div class="btkv" style="margin-top:4px"><span>Break-even win rate at ' + tc.rr.toFixed(2) + 'R</span><b>' +
+            Math.round(tc.be * 100) + '%</b></div>' +
+            '<div class="hint" style="margin-top:3px">' +
+            (tc.good && tc.rr >= 1.5 ? 'Fits the structure and pays enough to be wrong often — the shape of a positive-EV trade.'
+              : tc.good ? 'Fits the structure, but at ' + tc.rr.toFixed(2) + 'R it only pays if you win over ' + Math.round(tc.be * 100) + '% of the time.'
+              : 'Fighting the structure' + (tc.rr < 1.5 ? ' with a thin reward' : '') + ' — likely negative EV by the method.') +
+            '</div></div>');
+        }
+        out.push('</div>');
+      }
       if (!cg) {
         var nx = nextSignal();
         if (nx) {
