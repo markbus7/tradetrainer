@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.56.0 (build 2026-09-24) — Al Brooks price action -->
+<!-- Trade Trainer v3.57.0 (build 2026-09-24) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -358,7 +358,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.56.0", build: "2026-09-24", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.57.0", build: "2026-09-24", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -1600,11 +1600,12 @@ var Mkt = (function () {
     /* the "eq" branch is kept though no equity currently ships — see INSTR */
     var gapP = inst.kind === "eq" ? (tf.min >= 1440 ? 0.5 : 0.1) : 0.03;
     var step = tf.min * 60000, skipWk = inst.kind !== "crypto";
-    var tCur = Date.UTC(2024, R.i(0, 9), R.i(1, 26), 13, 30);
+    var tCur = Date.UTC(2024, R.i(0, 9), R.i(1, 26), 13, 30), wkGap = false;
     function nextT() {
+      wkGap = false;
       if (skipWk) {
         var dw = new Date(tCur).getUTCDay();
-        while (dw === 6 || dw === 0) { tCur += 86400000; dw = new Date(tCur).getUTCDay(); }
+        while (dw === 6 || dw === 0) { tCur += 86400000; dw = new Date(tCur).getUTCDay(); wkGap = true; }
       }
       var out = tCur; tCur += step; return out;
     }
@@ -1658,7 +1659,16 @@ var Mkt = (function () {
 
     function candle(c, f, swp) {
       var o = bars.length === 0 ? c - R.t() * sig * P0 : bars[bars.length - 1].c;
-      if (bars.length && R.chance(gapP)) o += R.t() * sig * P0 * R.f(0.5, 1.8);
+      /* A bar opens where the last one closed. FX, gold, crypto and index
+         futures trade round the clock, so the only real gap is over the
+         weekend -- this used to gap 3% of ALL bars by a heavy-tailed amount
+         (up to ~10 ATR), printing bear bars that closed above the prior close
+         and fills far past a stop. Equity sessions (kind "eq") still gap. */
+      var tNow = nextT();
+      /* (weekend gaps only where a bar spans days -- intraday tapes on the
+         Desk are re-timed continuously, so one would land mid-week there) */
+      if (bars.length && (wkGap && tf.min >= 240 ? R.chance(0.85) : inst.kind === "eq" && R.chance(gapP)))
+        o += Math.max(-2.5, Math.min(2.5, R.t())) * sig * P0 * (wkGap ? R.f(0.1, 0.45) : R.f(0.4, 1.2));
       /* Where price actually went inside the bar. The old formula drew each
          wick from its own draw scaled to GLOBAL volatility, independent of the
          bar's own move, so a quiet bar with a tiny body still sprouted a
@@ -1697,7 +1707,7 @@ var Mkt = (function () {
       if (swp) { if (swp > 0) h += swp; else l += swp; }
       var mv = Math.abs(c - o) / (sig * P0);
       bars.push({
-        t: nextT(), o: o, h: Math.max(h, o, c), l: Math.min(l, o, c), c: c,
+        t: tNow, o: o, h: Math.max(h, o, c), l: Math.min(l, o, c), c: c,
         v: Math.round(inst.vbase * (0.45 + 0.85 * mv + 0.5 * R.u()) * f)
       });
     }
@@ -7403,7 +7413,7 @@ var PROG = (function () {
     btFills: btFills, btSeries: btSeries, equity: equity, openPL: openPL,
     lotUnits: lotUnits, toLots: toLots, toUnits: toUnits, fmtLots: fmtLots,
     perPoint: perPoint, pipName: pipName,
-    unitsFor: unitsFor, btStats: btStats, btReport: btReport, paintBT: paintBT, autoRun: autoRun, structRead: structRead, tradeCheck: tradeCheck, ticketLevels: ticketLevels,
+    unitsFor: unitsFor, btStats: btStats, btReport: btReport, btChartText: btChartText, paintBT: paintBT, autoRun: autoRun, structRead: structRead, tradeCheck: tradeCheck, ticketLevels: ticketLevels,
     get session() { return S; },
     get HIST() { return HIST; }, histReview: histReview, preGrade: preGrade, paintHist: paintHist, histSave: histSave, get chH() { return chH; }
   };
@@ -8930,6 +8940,7 @@ var PROG = (function () {
       actBtn("undo", "↺", "Undo", "Undo the last drawing") +
       actBtn("clear", "✕", "Clear all", "Clear every drawing — to remove just one, click it and press its ✕") +
       actBtn("fit", "⤢", "Fit", "Fit the chart to the bars") +
+      actBtn("copy", "⧉", "Copy", "Copy what's on screen as text — the bars, the read, the setup and your orders — to paste into a chat") +
       '<div class="tsep"></div>' +
       /* Coach sits right up front, immediately after the drawing tools, because
          it is a mode you leave on for the whole session, not a playback control
@@ -8959,6 +8970,7 @@ var PROG = (function () {
         if (a === "undo") { chB.undo(); syncDraw(); }
         if (a === "clear") { chB.drawings = chB.drawings.filter(function (d) { return d._bt; }); }
         if (a === "fit") chB.fit();
+        if (a === "copy") { copyText(btChartText()); return; }
         if (a === "s1") btStep(1);
         if (a === "s10") btStep(10);
         if (a === "play") btPlay();
@@ -9533,6 +9545,51 @@ var PROG = (function () {
     if (cp) cp.onclick = function () { copyText(btReport()); };
   }
 
+  /** The chart as it stands, as text: enough for someone else to see exactly
+      what you see -- the recent bars with each one's shape spelled out, the
+      structure read, the live setup and your levels. Only revealed bars. */
+  function btChartText(nBars) {
+    nBars = nBars || 40;
+    var ch = BT.ch, v = chB.vis, bars = ch.bars, dec = ch.dec, L = [];
+    var f = function (x) { return fmtN(x, dec); }, A = Mkt.atr(bars, 14, v);
+    L.push("TRADE TRAINER v" + APP.version + " — chart " + ch.sym + " " + ch.tfLbl +
+      "   seed=" + ch.seed + "   bar " + (v + 1) + " of " + bars.length + "   ATR(14) " + f(A));
+    var rd = structRead();
+    if (rd) L.push("Read: " + rd.name + (rd.why ? " — " + rd.why : ""));
+    var g = liveSignal();
+    if (g) L.push("Live setup: " + g.name + (g.tradeable ? "  entry " + f(g.entry) + "  stop " + f(g.stop) + "  target " + f(g.target) +
+      (g.prob != null ? "  ~" + Math.round(g.prob * 100) + "%" : "") : ""));
+    else if (!BT.coach) L.push("Coach: off");
+    L.push("");
+    L.push("Last " + Math.min(nBars, v + 1) + " bars (oldest first). gap = open minus previous close.");
+    L.push("  #     time    open        high        low         close       bar");
+    for (var i = Math.max(0, v - nBars + 1); i <= v; i++) {
+      var b = bars[i], rng = b.h - b.l, body = Math.abs(b.c - b.o);
+      var kind = body < rng * 0.15 ? "doji" : b.c > b.o ? "bull" : "bear";
+      var up = b.h - Math.max(b.o, b.c), dn = Math.min(b.o, b.c) - b.l;
+      var desc = kind + " " + Math.round(body / (rng || 1) * 100) + "% body" +
+        (up > rng * 0.4 ? ", long top tail" : "") + (dn > rng * 0.4 ? ", long bottom tail" : "") +
+        (rng > A * 1.8 ? ", big bar" : "");
+      var gp = i > 0 ? b.o - bars[i - 1].c : 0;
+      if (Math.abs(gp) > A * 0.05) desc += ", gap " + (gp > 0 ? "+" : "") + f(gp);
+      var d = new Date(b.t);
+      L.push("  " + String(i + 1).padEnd(5) + " " + ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2) + "   " +
+        [b.o, b.h, b.l, b.c].map(function (x) { return f(x).padEnd(11); }).join(" ") + " " + desc);
+    }
+    if (BT.pos.length || BT.ord.length) L.push("");
+    BT.pos.forEach(function (p) {
+      L.push("Open " + (p.dir > 0 ? "long " : "short ") + fmtLots(p.units) + " at " + f(p.entry) + "  stop " + f(p.sl) +
+        (p.tp != null ? "  target " + f(p.tp) : "") + "  P/L " + money(posPL(p, btPrice())));
+    });
+    BT.ord.forEach(function (o) {
+      L.push("Working " + (o.dir > 0 ? "buy " : "sell ") + o.kind + " " + fmtLots(o.units) + " at " + f(o.price) + "  stop " + f(o.sl) +
+        (o.tp != null ? "  target " + f(o.tp) : ""));
+    });
+    var lv = ticketLevels();
+    L.push("Ticket (not placed): " + (BT.dir > 0 ? "buy " : "sell ") + BT.otype + " " + BT.lots + " lots  entry " + f(lv.entry) +
+      "  stop " + f(lv.sl) + "  target " + f(lv.tp));
+    return L.join("\n");
+  }
   /** the run, as text you can paste into a chat and pick apart */
   function btReport() {
     var st = btStats(), L = [];
