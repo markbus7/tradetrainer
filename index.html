@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.58.1 (build 2026-09-24) — Al Brooks price action -->
+<!-- Trade Trainer v3.58.2 (build 2026-09-24) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -358,7 +358,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.58.1", build: "2026-09-24", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.58.2", build: "2026-09-24", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -8251,6 +8251,54 @@ var PROG = (function () {
   }
 
   /* ---------- lifecycle ---------- */
+  /** Keep the tape going: generate k more segments of the same market and
+      stitch them on from the last close, setups and all. A trade still open
+      when the bars run out then ends at its own stop or target, instead of
+      at whatever price the tape happened to stop on. */
+  function extendTape(ch, k) {
+    var keepS = BT.sym, keepT = BT.tf;
+    BT.sym = ch.sym; BT.tf = ch.tf;
+    var more = btSeries((ch.seed * 31 + ch.bars.length * 7919) >>> 0, k || 6);
+    BT.sym = keepS; BT.tf = keepT;
+    var base = ch.bars.length, last = ch.bars[base - 1], off = last.c - more.bars[0].o;
+    var step = base > 1 ? ch.bars[base - 1].t - ch.bars[base - 2].t : 60000;
+    more.bars.forEach(function (b, j) {
+      ch.bars.push({ t: last.t + (j + 1) * step, o: b.o + off, h: b.h + off, l: b.l + off, c: b.c + off, v: b.v });
+    });
+    var seen = [];
+    more.sigs.forEach(function (g) {
+      g.i += base;
+      ["entry", "stop", "invalid", "target"].forEach(function (f) { if (g[f] != null) g[f] += off; });
+      var t = g.st;
+      if (t && seen.indexOf(t) < 0) {      /* a first entry shares its main signal's structure */
+        seen.push(t);
+        t.from += base; t.to += base;
+        t.labels.forEach(function (L) { L[0].i += base; L[0].p += off; });
+        if (t.rangeTop != null) t.rangeTop += off;
+        if (t.rangeBot != null) t.rangeBot += off;
+        if (t.trendline) {
+          t.trendline.a.i += base; t.trendline.a.p += off;
+          t.trendline.b.i += base; t.trendline.b.p += off;
+          if (t.trendline.thru != null) t.trendline.thru += base;
+        }
+      }
+      ch.sigs.push(g);
+    });
+    (more.parts || []).forEach(function (q) { ch.parts.push({ from: q.from + base, to: q.to + base, name: q.name }); });
+  }
+  /** Leaving this tape (new tape, other market or timeframe) with trades open:
+      ask, then close them at the current price and book them like any other
+      exit. Discarding them would let a losing trade vanish from the account,
+      the stats and the History -- a flattering lie about your results. */
+  function okToLeaveTape() {
+    if (!BT.pos.length) return true;
+    var n = BT.pos.length, pl = openPL();
+    if (!confirm("You have " + n + " open position" + (n === 1 ? "" : "s") + " (" + (pl >= 0 ? "+" : "") + money(pl) +
+      ").\n\nClose " + (n === 1 ? "it" : "them") + " at the current price and book the result?")) return false;
+    var at = btPrice();
+    BT.pos.slice().forEach(function (p) { btClose(p, at, 1, "new tape"); });
+    return true;
+  }
   function btNew(keepAccount) {
     if (BT.timer) { clearInterval(BT.timer); BT.timer = null; }
     if (BT.ch) histDetach();
@@ -8393,17 +8441,12 @@ var PROG = (function () {
   /** one bar of the mechanical run: new tape if needed, place Coach's order, reveal a bar, fill */
   function autoTick(S) {
     S.guard++;
-    if (!BT.ch || chB.vis >= BT.ch.bars.length - 1) {
-      /* btNew() unconditionally wipes BT.pos -- fine for a human, who would
-         never hit "New tape" mid-trade, but this loop runs through tape
-         boundaries constantly. Close out anything still open at the last
-         printed price first, so a trade the tape simply ran out of room to
-         resolve is counted, not silently discarded. */
-      if (BT.pos.length) {
-        var lastPx = BT.ch.bars[BT.ch.bars.length - 1].c;
-        BT.pos.slice().forEach(function (p) { btClose(p, lastPx, 1, "eod"); });
-      }
-      BT.ord.length = 0;
+    if (BT.ch && chB.vis >= BT.ch.bars.length - 1 && BT.pos.length) {
+      /* a trade still open when the bars run out: keep the tape going so it
+         ends at its own stop or target, never at an arbitrary last price */
+      extendTape(BT.ch, 6);
+    } else if (!BT.ch || chB.vis >= BT.ch.bars.length - 1) {
+      BT.ord.length = 0;               /* nothing open: an unfilled order just lapses */
       btNew(true);
     }
 
@@ -8869,6 +8912,8 @@ var PROG = (function () {
     } else if (why === "target") {
       good("Target hit: " + fmtR(rec.r) + ".");
       if (run >= 1) info("Price ran another " + fmtR(run) + " past your target. In a strong trend Brooks takes part off at the target and swings the rest.");
+    } else if (why === "new tape") {
+      info("Closed at " + fmtR(rec.r) + " when you switched to a new tape — what price did next was never shown.");
     } else if (why === "manual" || why === "partial" || why === "eod") {
       if (first === "target") bad("early", "You closed at " + fmtR(rec.r) + "; the target was hit " + after(firstIdx - rec.closeIdx) +
         " — holding would have made " + fmtR(tpR) + " (missed " + (tpR - rec.r).toFixed(2) + "R).", 15);
@@ -9053,7 +9098,7 @@ var PROG = (function () {
   function btStep(n) {
     if (!BT.ch) return;
     for (var k = 0; k < n; k++) {
-      if (chB.vis >= BT.ch.bars.length - 1) { if (BT.playing) btPlay(); break; }
+      if (chB.vis >= BT.ch.bars.length - 1) extendTape(BT.ch, 6);   /* the tape never runs out under you */
       chB.vis++;
       btFills(chB.vis);
       if (chB.vis > chB.i1 - 4) { chB.i0 += 1; chB.i1 += 1; }
@@ -9146,27 +9191,30 @@ var PROG = (function () {
         if (a === "new") {
           /* the account carries over on purpose: a sample of trades is only
              meaningful once it spans more than one stretch of market */
-          var had = BT.pos.length + BT.ord.length;
+          var nPos = BT.pos.length, nOrd = BT.ord.length;
+          if (!okToLeaveTape()) return;
           btNew(true);
-          toast(had ? "New tape — " + had + " open position(s)/order(s) discarded, account kept"
-            : "New tape — account kept");
+          toast("New tape — " + (nPos ? nPos + " position(s) closed and booked, " : "") +
+            (nOrd ? nOrd + " order(s) cancelled, " : "") + "account kept");
           return;
         }
         syncDraw(); chB.render(); paintBT();
       };
     });
     function reTape(what) {
-      var had = BT.pos.length + BT.ord.length;
+      var nOrd = BT.ord.length;
       btNew(true);
-      toast(what + " — " + (had ? had + " open position(s)/order(s) discarded, " : "") + "account kept");
+      toast(what + " — " + (nOrd ? nOrd + " order(s) cancelled, " : "") + "account kept");
     }
     var sy = $("btSym");
     if (sy) sy.onchange = function () {
+      if (!okToLeaveTape()) { this.value = BT.sym || ""; return; }
       BT.sym = this.value || null;
       reTape(BT.sym ? "Now trading " + BT.sym : "Instrument left to chance");
     };
     var tfSel = $("btTf");
     if (tfSel) tfSel.onchange = function () {
+      if (!okToLeaveTape()) { this.value = BT.tf || ""; return; }
       BT.tf = this.value || null;
       reTape(BT.tf ? "Switched to the " + BT.tf + " chart" : "Timeframe left to chance");
     };
