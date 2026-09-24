@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.58.3 (build 2026-09-24) — Al Brooks price action -->
+<!-- Trade Trainer v3.59.0 (build 2026-09-24) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -358,7 +358,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.58.3", build: "2026-09-24", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.59.0", build: "2026-09-24", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -7286,18 +7286,24 @@ var PROG = (function () {
       'and the timeframe. Leave either on <b>Any</b> and the tape decides — useful for keeping yourself ' +
       'honest, since you cannot lean on a market you already know. Pick one and every new tape stays ' +
       'there, so you can grind the same instrument the way you actually trade it. Changing either ' +
-      'starts a fresh tape and keeps the account; anything open at the time is discarded, not closed, ' +
-      'so it never lands in your results.</li>' +
+      'starts a fresh tape and keeps the account. If a trade is open it asks first, then closes it at ' +
+      'the current price and books it, so a loser can never vanish from your results.</li>' +
       '<li><b>Where to find it.</b> <b>Coach</b> is the toggle in the Desk toolbar, between Play and ' +
       'New tape. It reads <b>Coach: off</b> until you switch it on. Setups are roughly a hundred bars ' +
-      'apart, so when nothing is live the panel tells you how many bars away the next one is and ' +
-      'offers <b>Skip ahead to it</b> — the tape still fills bar by bar on the way, so nothing jumps ' +
-      'past a stop you had working.</li>' +
+      'apart, so when nothing is live the panel offers to step ahead to the next one (with the answer key ' +
+      'it also says how many bars away it is; the reading Coach cannot know) — the tape still fills bar ' +
+      'by bar on the way, so nothing jumps past a stop you had working.</li>' +
+      '<li><b>Two Coaches.</b> <b>Reads the chart</b> (the default) finds every taught setup from the ' +
+      'bars already on screen, the way you have to, so it can be wrong — its trades and its backtest are ' +
+      'the honest ones. <b>Answer key</b> shows the setups the chart was built from, so it is always ' +
+      'right: the best way to learn what each setup looks like, but not a fair trader. <b>Compare</b> in ' +
+      'the Auto-backtest runs both on the same charts and shows how much of the edge survives reading.</li>' +
       '<li><b>Coach</b> shows you what the tape is actually printing. The Desk stitches its tape ' +
       'from the same fourteen contexts the drills use, so every stretch has a known setup — and the ' +
       'coach surfaces it the moment its signal bar prints, which is the real decision point. You get ' +
-      'the name, the entry, the stop beyond the signal bar, the target, the reward-to-risk and the ' +
-      'win rate that context is calibrated to. <b>Fill the ticket with this</b> loads it into the ' +
+      'the name, the entry, the stop beyond the structure the setup rests on (never inside the signal ' +
+      'bar), the target, the reward-to-risk and the win rate that context is calibrated to — measured ' +
+      'with that same stop. <b>Fill the ticket with this</b> loads it into the ' +
       'order ticket — direction, entry, stop and target — and then stops. It never picks your lot ' +
       'size, because that is the part worth practising.</li>' +
       '<li><b>Some setups show a first entry too.</b> Brooks counts attempts: the first often fails, ' +
@@ -7419,7 +7425,7 @@ var PROG = (function () {
     lotUnits: lotUnits, toLots: toLots, toUnits: toUnits, fmtLots: fmtLots,
     perPoint: perPoint, pipName: pipName,
     unitsFor: unitsFor, btStats: btStats, btReport: btReport, btChartText: btChartText,
-    paintBT: paintBT, autoRun: autoRun, autoWatch: autoWatch, autoStop: autoStop, autoCtl: autoCtl, structRead: structRead, tradeCheck: tradeCheck, ticketLevels: ticketLevels,
+    paintBT: paintBT, autoRun: autoRun, readSigs: readSigs, detectAt: detectAt, get RD() { return RD; }, compareCoaches: compareCoaches, rdFrame: rdFrame, autoWatch: autoWatch, autoStop: autoStop, autoCtl: autoCtl, structRead: structRead, tradeCheck: tradeCheck, ticketLevels: ticketLevels,
     get session() { return S; },
     get HIST() { return HIST; }, histReview: histReview, preGrade: preGrade, paintHist: paintHist, histSave: histSave, get chH() { return chH; }
   };
@@ -7444,6 +7450,10 @@ var PROG = (function () {
     dir: 1, otype: "market", playing: false, timer: null, speed: 320,
     draft: false,                         /* user is working the ticket: preview it */
     dealMap: true,                        /* closed trades drawn entry -> exit on the chart */
+    /* "read": Coach finds setups from the bars on screen only (trades and
+       backtests). "key": it shows the setups the generator planted (teaching). */
+    coachMode: (function () { try { return localStorage.getItem("tt_coachmode") === "key" ? "key" : "read"; } catch (e) { return "read"; } })(),
+    seedQueue: null,                      /* fixed tapes, for comparing both Coaches on the same charts */
     autoVis: null, autoTimer: null,       /* a visual auto-backtest in progress */
     peak: 25000, maxDD: 0, curve: [25000]
   };
@@ -7498,10 +7508,14 @@ var PROG = (function () {
           i: base + g.sigIdx, key: g.key, name: g.name, cycle: g.cycle,
           dir: g.dir, tradeable: !!g.tradeable,
           entry: g.entry != null ? g.entry + off : null,
-          /* the stop just beyond the signal bar, which is the one Brooks takes;
-             `invalid` is the wider structural level, kept for reference.
-             `stopLevel` is prose, not a price — do not put it on a chart. */
-          stop: g.sigStop != null ? g.sigStop + off : null,
+          /* The stop beyond the STRUCTURE (the wedge's third push, the failed
+             breakout's low...), which always clears the signal bar too. It is
+             the stop each setup's win rate was measured against, and the level
+             the card names (stopDesc). Trading the tighter signal-bar stop
+             with these odds overstated them badly -- measured: a failed
+             breakout won 18% of the time against a stated 65%. */
+          stop: g.invalid != null ? g.invalid + off : (g.sigStop != null ? g.sigStop + off : null),
+          sigStop: g.sigStop != null ? g.sigStop + off : null,
           invalid: g.invalid != null ? g.invalid + off : null,
           stopDesc: g.stopLevel,
           target: g.target != null ? g.target + off : null,
@@ -7523,7 +7537,12 @@ var PROG = (function () {
         sigs.push({ st: st,
           i: base + fa.i, key: g.key, name: g.name + " — first entry", cycle: g.cycle,
           dir: g.dir, tradeable: true,
-          entry: fa.entry + off, stop: fa.stop + off, invalid: g.invalid != null ? g.invalid + off : null,
+          /* the structural stop, which is what probFirst was measured against
+             (see firstAttempt: fiH tests `invalid`); the attempt's own bar
+             stop only if the structure is not below this earlier entry */
+          entry: fa.entry + off,
+          stop: g.invalid != null && (fa.entry - g.invalid) * g.dir > 0 ? g.invalid + off : fa.stop + off,
+          sigStop: fa.stop + off, invalid: g.invalid != null ? g.invalid + off : null,
           stopDesc: "the first attempt's own bar", target: fa.target + off,
           prob: g.probFirst, rr: faRr, entryType: g.entryType,
           attempt: "first", style: g.style,
@@ -7548,7 +7567,7 @@ var PROG = (function () {
       /* the setups' prices have to move with the bars, or Coach's lines sit
          `lift` away from the structure they describe */
       sigs.forEach(function (sg) {
-        ["entry", "stop", "invalid", "target"].forEach(function (k) { if (sg[k] != null) sg[k] += lift; });
+        ["entry", "stop", "sigStop", "invalid", "target"].forEach(function (k) { if (sg[k] != null) sg[k] += lift; });
       });
       var lifted = [];
       sigs.forEach(function (sg) {
@@ -7654,7 +7673,7 @@ var PROG = (function () {
       /* R is measured against the risk the WHOLE trade started with — dividing a
          partial by its own slice risk would make scaling out look better than it is */
       pl: pl, r: p.rpu > 0 ? pl / (p.rpu * p.units0) : 0,
-      why: why || "manual", idx: chB.vis, openIdx: p.openIdx, ch: BT.ch, sl: p.sl, tp: p.tp });
+      why: why || "manual", idx: chB.vis, openIdx: p.openIdx, ch: BT.ch, sl: p.sl, tp: p.tp, setup: p.setup || null });
     if (p.exits) p.exits.push({ idx: chB.vis, price: price, why: why || "manual", pl: pl,
       r: p.rpu > 0 ? pl / (p.rpu * p.units0) : 0 });
     if (p.units <= 1e-9) {
@@ -7723,7 +7742,8 @@ var PROG = (function () {
       }
       if (hit) {
         BT.ord.splice(k, 1);
-        btOpen(o.dir, fill, o.units, o.sl, o.tp, i, o.meta);
+        var np = btOpen(o.dir, fill, o.units, o.sl, o.tp, i, o.meta);
+        if (o.setup) np.setup = o.setup;
         toast((o.dir > 0 ? "Buy" : "Sell") + " " + o.kind + " filled — " + fmtLots(o.units) + " at " + px(fill));
       }
     }
@@ -7787,22 +7807,432 @@ var PROG = (function () {
      size you chose, over and over, without flinching or improvising. */
   var COACH_WINDOW = 6;        /* bars a signal stays actionable after it prints */
 
+  /* =====================================================================
+     READING COACH — finds every taught setup from the bars on screen only.
+     The answer-key Coach reads the setups the generator planted; that is a
+     fine teacher and an unfair trader. This one has to recognise them the
+     way you do: at each bar it looks only at that bar and the ones before it,
+     and applies the setup's own rules (the same signal bar, entry, stop just
+     beyond the signal bar, and target the context teaches). It can be wrong
+     -- that is the point: its record measures recognition, not the key.
+
+     Everything is written in the bull frame. A bear setup is the same code
+     run on a mirrored copy of the chart (high <-> -low), which is exactly how
+     the generator builds its bearish twins.
+     ===================================================================== */
+  var READ_KEYS = ["failedBo", "successBo", "mtr", "finalFlag", "wedgeBottom", "climax",
+    "spikeChannel", "twoLegPullback", "tightChannel", "broadChannel", "rangeLow"];
+
+  /** bull-frame arrays for a tape, extended lazily. Each value at bar i uses
+      only bars 0..i, so computing ahead of the revealed bar leaks nothing. */
+  function rdFrame(ch, m) {
+    var k = m > 0 ? "_rfU" : "_rfD", f = ch[k];
+    if (!f) f = ch[k] = { m: m, H: [], L: [], O: [], C: [], E: [], TR: [], A: [], piv: [], pivTo: 2 };
+    var B = ch.bars;
+    for (var i = f.H.length; i < B.length; i++) {
+      var b = B[i];
+      f.H.push(m > 0 ? b.h : -b.l); f.L.push(m > 0 ? b.l : -b.h);
+      f.O.push(m * b.o); f.C.push(m * b.c);
+      f.E.push(i ? f.C[i] * (2 / 21) + f.E[i - 1] * (19 / 21) : f.C[i]);
+      f.TR.push(i ? Math.max(f.H[i] - f.L[i], Math.abs(f.H[i] - f.C[i - 1]), Math.abs(f.L[i] - f.C[i - 1])) : f.H[i] - f.L[i]);
+      var s = 0, n = 0;
+      for (var j = Math.max(0, i - 13); j <= i; j++) { s += f.TR[j]; n++; }
+      f.A.push(s / n || 1e-9);
+    }
+    return f;
+  }
+  /* swing points, 3 bars each side -- confirmed only once 3 more bars exist */
+  function rdPivots(f, v) {
+    for (var i = f.pivTo + 1; i <= v - 3; i++) {
+      var isH = true, isL = true;
+      for (var j = i - 3; j <= i + 3; j++) {
+        if (j === i) continue;
+        if (f.H[j] >= f.H[i]) isH = false;
+        if (f.L[j] <= f.L[i]) isL = false;
+      }
+      if (isH) f.piv.push({ i: i, p: f.H[i], d: 1 });
+      if (isL) f.piv.push({ i: i, p: f.L[i], d: -1 });
+      f.pivTo = i;
+    }
+    return f.piv;
+  }
+  /** confirmed swings of one kind (d = 1 highs, -1 lows) with index in [a, v-3] */
+  function pv(f, v, a, d) {
+    var P = rdPivots(f, v), lo = 0, hi = P.length;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (P[mid].i < a) lo = mid + 1; else hi = mid; }
+    var out = [];
+    for (var k = lo; k < P.length && P[k].i <= v - 3; k++) if (P[k].d === d) out.push(P[k]);
+    return out;
+  }
+  function hiF(f, a, z) {
+    a = Math.max(0, a); var bi = a, bv = -Infinity;
+    for (var i = a; i <= z; i++) if (f.H[i] > bv) { bv = f.H[i]; bi = i; }
+    return { i: bi, p: bv };
+  }
+  function loF(f, a, z) {
+    a = Math.max(0, a); var bi = a, bv = Infinity;
+    for (var i = a; i <= z; i++) if (f.L[i] < bv) { bv = f.L[i]; bi = i; }
+    return { i: bi, p: bv };
+  }
+  /** a signal bar for a buy. Strong: a bull bar closing in its top quarter
+      with a real body and real size -- what the method calls a good signal
+      bar. Weak: closes in its upper half (a range edge, where bad bars are
+      normal and the second attempt replaces bar quality). */
+  function sigBar(f, v, strong) {
+    var r = f.H[v] - f.L[v];
+    if (!(r > 0)) return false;
+    var pos = (f.C[v] - f.L[v]) / r, body = f.C[v] - f.O[v];
+    return strong ? (body >= 0.35 * r && pos >= 0.75 && r >= 0.6 * f.A[v]) : (body >= 0 && pos >= 0.5);
+  }
+  /** the first good signal bar since bar `from` -- a setup is read once, on
+      the bar that completes it, not again on every bar after */
+  function firstSig(f, from, v, strong) {
+    for (var j = from + 1; j < v; j++) if (sigBar(f, j, strong)) return false;
+    return true;
+  }
+  /** A reversal has to have actually turned: the extreme is at least two bars
+      old, nothing has gone lower since, and the signal bar closes above the
+      extreme bar's high. Firing on the first bounce off a low is how you buy
+      push 2 of a wedge and get stopped by push 3. */
+  function turned(f, ext, v) {
+    return v - ext.i >= 2 && loF(f, ext.i + 1, v).p > ext.p && f.C[v] > f.H[ext.i];
+  }
+  /** the first CONFIRMED signal off an extreme: no earlier bar since it both
+      was a good signal bar and showed the turn */
+  function firstTurn(f, ext, v, strong) {
+    for (var j = ext.i + 1; j < v; j++) if (sigBar(f, j, strong) && turned(f, ext, j)) return false;
+    return true;
+  }
+  /** Brooks' count in a pullback from bar `from`: attempts up, each needing a
+      lower-high bar before it (High 1, High 2...). `armed` = ready for the next. */
+  function hCount(f, from, v) {
+    var tries = 0, armed = true;
+    for (var j = from + 1; j <= v; j++) {
+      if (f.H[j] > f.H[j - 1]) { if (armed) { tries++; armed = false; } }
+      else armed = true;
+    }
+    return { tries: tries, armed: armed };
+  }
+  /** a trading range over [a, z]: 3-12 ATR tall, a flat average that price
+      keeps crossing, and at least two swing tests of each edge */
+  function rangeAt(f, a, z, v) {
+    a = Math.max(1, a);
+    if (z - a < 40) return null;
+    var top = hiF(f, a, z), bot = loF(f, a, z), h = top.p - bot.p, A = f.A[v];
+    if (h < 3 * A || h > 10 * A) return null;
+    if (Math.abs(f.E[z] - f.E[a]) > 0.25 * h) return null;             /* flat: going nowhere */
+    var cross = 0;
+    for (var i = a + 1; i <= z; i++) if ((f.C[i] - f.E[i]) * (f.C[i - 1] - f.E[i - 1]) < 0) cross++;
+    if (cross < 6) return null;                                          /* and back and forth */
+    /* each edge tested at least twice, the tests at least 10 bars apart */
+    var tt = pv(f, v, a, 1).filter(function (p) { return p.i <= z && p.p >= top.p - 0.2 * h; });
+    var tb = pv(f, v, a, -1).filter(function (p) { return p.i <= z && p.p <= bot.p + 0.2 * h; });
+    if (tt.length < 2 || tb.length < 2) return null;
+    if (tt[tt.length - 1].i - tt[0].i < 10 || tb[tb.length - 1].i - tb[0].i < 10) return null;
+    return { top: top, bot: bot, h: h };
+  }
+
+  /* ---- the detectors, one per taught setup (bull frame) ---- */
+  /* which rule turned a bar down, for tuning (RD._why) */
+  function no(code) { RD._why = code; return null; }
+  /* ---- the detectors, one per taught setup (bull frame) ----
+     Each reads only bars up to v, and fires once per structure: on the first
+     good signal bar after the structure's defining extreme. */
+  var RD = {
+    /* price probes below the range, finds no follow-through, and the first
+       good bull bar closes back inside */
+    failedBo: function (f, v) {
+      if (!sigBar(f, v, true)) return no(1);
+      var fail = loF(f, v - 7, v), A = f.A[v];
+      var r = rangeAt(f, v - 90, fail.i - 2, v); if (!r) return no(2);
+      if (!(fail.p < r.bot.p - 0.15 * A) || fail.p < r.bot.p - 0.35 * r.h) return no(3);
+      if (!(f.C[v] > r.bot.p)) return no(4);
+      if (!turned(f, fail, v)) return no(4);
+      if (!firstTurn(f, fail, v, true)) return no(5);
+      return { target: r.top.p, rangeTop: r.top.p, rangeBot: r.bot.p, from: v - 90, anchor: fail.i, stopAt: fail.p, stopName: "failed breakout low",
+        lab: [[r.top, "range high"], [r.bot, "range low"], [fail, "failed breakout low"]] };
+    },
+    /* the breakout: closes clear of the range over a few bars and holds; the
+       first pullback stays outside and a good bull bar ends it */
+    successBo: function (f, v) {
+      if (!sigBar(f, v, true)) return no(6);
+      var A = f.A[v], bo = -1, r = null;
+      for (var i = v - 3; i >= v - 14 && bo < 0; i--) {
+        var rr = rangeAt(f, i - 90, i - 1, v);
+        if (rr && f.C[i] > rr.top.p && f.C[i - 1] <= rr.top.p) { bo = i; r = rr; }
+      }
+      if (bo < 0) return no(7);
+      var peak = hiF(f, bo, v - 1);
+      if (peak.p < r.top.p + 0.15 * r.h || peak.i >= v - 1) return no(8);     /* it went somewhere, then paused */
+      var pb = loF(f, peak.i, v);
+      if (pb.p < r.top.p - 0.1 * r.h) return no(9);                            /* the pullback held outside */
+      if (!firstSig(f, peak.i, v, true)) return no(10);
+      return { target: r.top.p + r.h, rangeTop: r.top.p, rangeBot: r.bot.p, from: bo - 90, anchor: bo, stopAt: pb.p, stopName: "breakout pullback low",
+        lab: [[r.top, "range high"], [r.bot, "range low"], [pb, "breakout pullback low"]] };
+    },
+    /* a real bear trend, its trendline broken by a rally, and a test of the
+       low that holds: the first good bull bar off that test */
+    mtr: function (f, v) {
+      if (!sigBar(f, v, true)) return no(11);
+      var A = f.A[v], test = loF(f, v - 6, v);
+      var legHi = hiF(f, test.i - 25, test.i - 2);
+      var low = loF(f, legHi.i - 35, legHi.i);
+      if (low.i >= legHi.i - 2) return no(12);
+      var st = hiF(f, low.i - 70, low.i), trend = st.p - low.p, leg = legHi.p - low.p;
+      if (trend < 5 * A || leg < 2 * A || leg > 0.8 * trend) return no(13);   /* a trend, and a rally inside it */
+      var phs = pv(f, v, st.i, 1).filter(function (p) { return p.i < low.i; });
+      if (phs.length < 2) return no(14);
+      var a = phs[phs.length - 2], b = phs[phs.length - 1];
+      if (!(b.p < a.p) || b.i - a.i < 4) return no(15);
+      var slope = (b.p - a.p) / (b.i - a.i), brk = null;
+      for (var i = low.i + 1; i <= legHi.i; i++) { if (f.H[i] > b.p + slope * (i - b.i) + 0.2 * A) { brk = { i: i, p: f.H[i] }; break; } }
+      if (!brk) return no(16);
+      if (legHi.p - test.p < 0.4 * leg) return no(17);                       /* a real pullback */
+      if (test.p < low.p - 0.8 * A || test.p > low.p + 0.6 * leg) return no(18);
+      if (hiF(f, legHi.i + 1, v).p > legHi.p) return no(19);
+      if (!turned(f, test, v)) return no(19);
+      if (!firstTurn(f, test, v, true)) return no(20);
+      return { target: test.p + leg, from: a.i, anchor: low.i, stopAt: test.p, stopName: test.p > low.p ? "higher low" : "lower low test",
+        trendline: { a: a, b: b, slope: slope, thru: brk.i },
+        lab: [[low, "trend low"], [brk, "trendline break"], [test, test.p > low.p ? "higher low" : "lower low test"], [legHi, "first leg high"]] };
+    },
+    /* late in a bear trend a small flag breaks down, and the breakout fails
+       straight back above the flag's low */
+    finalFlag: function (f, v) {
+      if (!sigBar(f, v, true)) return no(21);
+      var A = f.A[v], fail = loF(f, v - 6, v);
+      var legLo = loF(f, fail.i - 18, fail.i - 3);
+      var flagTop = hiF(f, legLo.i, fail.i), flagH = flagTop.p - legLo.p;
+      if (flagH < 0.8 * A) return no(22);
+      if (!(fail.p < legLo.p - 0.1 * A) || fail.p < legLo.p - 2 * A) return no(23);
+      if (!(f.C[v] > legLo.p) || !turned(f, fail, v)) return no(24);
+      var st = hiF(f, legLo.i - 45, legLo.i), trend = st.p - legLo.p;
+      if (trend < 2.5 * flagH || trend < 4 * A) return no(25);
+      if (flagTop.p > legLo.p + 0.5 * trend) return no(26);                    /* small, late */
+      var lhs = pv(f, v, st.i, 1).filter(function (p) { return p.i < legLo.i - 2; });
+      if (lhs.length < 2 || !(lhs[lhs.length - 1].p < lhs[lhs.length - 2].p)) return no(26);   /* lower highs: a trend */
+      if (fail.i - legLo.i < 4 || fail.i - legLo.i > 16) return no(26);       /* a flag is a few bars */
+      if (!firstTurn(f, fail, v, true)) return no(27);
+      return { target: flagTop.p + (flagTop.p - fail.p), from: st.i, anchor: fail.i, stopAt: fail.p, stopName: "failed breakout low",
+        lab: [[flagTop, "final flag"], [fail, "failed breakout low"]] };
+    },
+    /* three pushes down, each a lower low, with lower highs between them and
+       the last push no stronger than the one before */
+    wedgeBottom: function (f, v) {
+      if (!sigBar(f, v, true)) return no(28);
+      var A = f.A[v], p3 = loF(f, v - 6, v);
+      var pls = pv(f, v, p3.i - 45, -1).filter(function (p) { return p.i < p3.i - 3; });
+      if (pls.length < 2) return no(29);
+      var p2 = pls[pls.length - 1], p1 = pls[pls.length - 2];
+      if (!(p2.p < p1.p - 0.3 * A && p3.p < p2.p - 0.2 * A)) return no(30);
+      if (p2.i - p1.i < 5 || p3.i - p2.i < 5) return no(31);
+      var b1 = hiF(f, p1.i, p2.i), b2 = hiF(f, p2.i, p3.i);
+      if (!(b2.p < b1.p) || b1.p - p1.p < 0.8 * A || b2.p - p2.p < 0.8 * A) return no(32);
+      var org = hiF(f, p1.i - 25, p1.i);
+      if (org.p - p3.p < 4 * A || org.p <= b1.p) return no(33);
+      if (b2.p - p3.p > 1.3 * (b1.p - p2.p)) return no(34);
+      /* the wedge's own signature: each push extends less than the one before,
+         and the first push comes out of a real decline from the origin */
+      if (!(p2.p - p3.p < p1.p - p2.p) || org.p - p1.p < 1.2 * (b1.p - p1.p)) return no(34);
+      /* converging: the lows fall more slowly than the highs (a falling wedge) */
+      if (!((p1.p - p3.p) / Math.max(1, p3.i - p1.i) < (b1.p - b2.p) / Math.max(1, b2.i - b1.i))) return no(34);
+      if (!turned(f, p3, v)) return no(34);
+      if (!firstTurn(f, p3, v, true)) return no(35);
+      return { target: org.p, from: org.i, anchor: p3.i, stopAt: p3.p, stopName: "push 3 low",
+        lab: [[org, "wedge origin = target"], [p1, "push 1"], [p2, "push 2"], [p3, "push 3 low"]] };
+    },
+    /* one accelerating leg down -- further and faster each stretch, bigger
+       bars -- then the first good bull bar off the low */
+    climax: function (f, v) {
+      if (!sigBar(f, v, true)) return no(36);
+      var A = f.A[v], low = loF(f, v - 6, v), top = hiF(f, low.i - 22, low.i - 6);
+      var h = top.p - low.p;
+      if (h < 4 * A) return no(37);
+      var mid = Math.round((top.i + low.i) / 2);
+      var d1 = f.C[top.i] - f.C[mid], d2 = f.C[mid] - f.C[low.i];
+      var r1 = 0, r2 = 0;
+      for (var i = top.i; i < mid; i++) r1 += f.H[i] - f.L[i];
+      for (var j = mid; j <= low.i; j++) r2 += f.H[j] - f.L[j];
+      r1 /= Math.max(1, mid - top.i); r2 /= Math.max(1, low.i - mid + 1);
+      if (!(d2 > 1.15 * d1) || !(r2 > 1.1 * r1)) return no(38);
+      if (!turned(f, low, v)) return no(38);
+      if (!firstTurn(f, low, v, true)) return no(39);
+      return { target: low.p + 0.62 * h, from: top.i, anchor: low.i, stopAt: low.p, stopName: "climax low", lab: [[top, "climax start"], [low, "climax low"]] };
+    },
+    /* a spike (a burst of mostly bull bars covering 2.5+ ATR), a channel that
+       makes a higher high after it, and the first pullback in that channel */
+    spikeChannel: function (f, v) {
+      if (!sigBar(f, v, true)) return no(40);
+      var A = f.A[v], sp = null;
+      for (var s = v - 10; s >= v - 45 && !sp; s--) {
+        for (var len = 3; len <= 6 && !sp; len++) {
+          var e = s + len - 1; if (e > v - 8) break;
+          var bulls = 0, up = true;
+          for (var j = s; j <= e; j++) { if (f.C[j] > f.O[j]) bulls++; if (j > s && f.C[j] < f.C[j - 1]) up = false; }
+          if (up && bulls >= len - 1 && f.C[e] - f.O[s] >= 2.5 * A && f.C[e] - f.O[s] >= 1.2 * len * A * 0.5) sp = { s: s, e: e };
+        }
+      }
+      if (!sp) return no(41);
+      var lo = loF(f, sp.s - 3, sp.s), hi = hiF(f, sp.s, sp.e + 1);
+      var base = hiF(f, sp.s - 15, sp.s - 1).p - loF(f, sp.s - 15, sp.s - 1).p;
+      if (base > 0.8 * (hi.p - lo.p)) return no(41);                        /* out of a quiet base, not mid-trend */
+      var chanHi = hiF(f, sp.e + 2, v - 1);
+      if (!(chanHi.p > hi.p)) return no(42);
+      var pb1 = loF(f, sp.e + 1, chanHi.i);
+      if (pb1.p <= lo.p || v - chanHi.i < 2 || v - chanHi.i > 10) return no(43);
+      var pb = loF(f, chanHi.i, v);
+      if (pb.p <= pb1.p || !turned(f, pb, v)) return no(44);
+      if (!firstTurn(f, pb, v, true)) return no(45);
+      return { target: hi.p + (hi.p - lo.p), from: lo.i, anchor: chanHi.i, stopAt: pb.p, stopName: "last pullback low",
+        lab: [[lo, "spike low"], [hi, "spike high"], [pb, "last pullback low"]] };
+    },
+    /* an established bull trend pulls back in two legs -- down, a bounce that
+       fails below the high, down again -- and a good bull bar ends leg two */
+    twoLegPullback: function (f, v) {
+      if (!sigBar(f, v, true)) return no(46);
+      var A = f.A[v], th = hiF(f, v - 35, v - 8);
+      var pls = pv(f, v, th.i - 60, -1).filter(function (p) { return p.i < th.i; });
+      if (pls.length < 2) return no(47);
+      var hl = pls[pls.length - 1], hl0 = pls[pls.length - 2];
+      if (!(hl.p > hl0.p) || th.p - hl.p < 2 * A) return no(48);               /* higher lows into the high */
+      var l1 = pv(f, v, th.i + 1, -1)[0];
+      if (!l1 || l1.i > v - 4) return no(49);                                   /* leg one down */
+      var bp = hiF(f, l1.i + 1, v - 2);
+      if (bp.p >= th.p || bp.p - l1.p < 0.3 * (th.p - l1.p)) return no(50);    /* a real bounce that failed */
+      var l2 = loF(f, bp.i + 1, v);
+      if (l2.p > l1.p + 0.4 * (bp.p - l1.p) || l2.p <= hl.p) return no(51);     /* leg two, above the higher low */
+      if (th.p - l2.p > 0.95 * (th.p - hl.p) || !turned(f, l2, v)) return no(52);
+      if (!firstTurn(f, l2, v, true)) return no(53);
+      return { target: l2.p + (th.p - hl.p), from: hl.i, anchor: th.i, stopAt: l2.p, stopName: "second leg low",
+        lab: [[hl, "last higher low"], [th, "trend high"], [l1, "first leg low"], [l2, "second leg low"]] };
+    },
+    /* nearly every bar closing above the average, pullbacks under half the
+       channel, and the first good bull bar after a small pullback */
+    tightChannel: function (f, v) {
+      if (!sigBar(f, v, true)) return no(54);
+      var A = f.A[v], cs = loF(f, v - 45, v - 20), top = hiF(f, cs.i, v - 1), h = top.p - cs.p;
+      if (v - top.i < 1 || v - top.i > 8 || h < 5 * A) return no(55);
+      var above = 0, n = 0, dd = 0, run = -Infinity;
+      for (var j = cs.i + 3; j <= v; j++) {
+        n++; if (f.C[j] > f.E[j]) above++;
+        run = Math.max(run, f.H[j]); dd = Math.max(dd, run - f.L[j]);
+      }
+      if (above < 0.85 * n || dd > 0.35 * h || dd > 4 * A) return no(56);
+      if (h / Math.max(1, top.i - cs.i) < 0.2 * A) return no(56);          /* it has to be going somewhere */
+      var pl = loF(f, top.i, v);
+      if (!turned(f, pl, v) || !firstTurn(f, pl, v, true)) return no(57);
+      var fh = pv(f, v, cs.i + 1, 1)[0], legH = fh && fh.i < top.i ? fh : hiF(f, cs.i, cs.i + 10);
+      return { target: pl.p + (legH.p - cs.p), from: cs.i, anchor: top.i, stopAt: pl.p, stopName: "pullback low",
+        lab: [[cs, "first leg low"], [legH, "first leg high"], [pl, "pullback low"]] };
+    },
+    /* rising highs and lows in big, two-sided swings; a deep pullback toward
+       the channel low; the second attempt back up */
+    broadChannel: function (f, v) {
+      if (!sigBar(f, v, true)) return no(58);
+      var A = f.A[v], phs = pv(f, v, v - 90, 1);
+      if (phs.length < 2) return no(59);
+      var c2 = phs[phs.length - 1], c1 = null;
+      for (var k = phs.length - 2; k >= 0; k--) if (c2.i - phs[k].i >= 8) { c1 = phs[k]; break; }
+      if (!c1) return no(60);
+      var l2 = loF(f, c1.i, c2.i), l1 = loF(f, c1.i - 25, c1.i);
+      if (!(c2.p > c1.p + 0.3 * A && l2.p > l1.p + 0.3 * A)) return no(61);
+      var leg = c2.p - l2.p;
+      if (leg < 2.5 * A || v - c2.i < 4) return no(62);
+      var pb = loF(f, c2.i, v);
+      if (pb.p <= l2.p || c2.p - pb.p < 0.4 * leg || hiF(f, c2.i + 1, v).p > c2.p) return no(63);
+      if (hCount(f, c2.i, v - 1).tries < 1 || !turned(f, pb, v)) return no(64);
+      if (!firstTurn(f, pb, v, true)) return no(65);
+      return { target: c2.p, from: l1.i, anchor: c2.i, stopAt: pb.p, stopName: "channel low",
+        lab: [[l2, "prior leg low"], [c2, "channel high"], [pb, "channel low"]] };
+    },
+    /* at the bottom of an established range, the second attempt up */
+    rangeLow: function (f, v) {
+      if (!sigBar(f, v, false)) return no(66);
+      var r = rangeAt(f, v - 90, v - 1, v); if (!r) return no(67);
+      if (!(f.L[v] <= r.bot.p + 0.2 * r.h && f.C[v] > r.bot.p) || f.C[v] > r.bot.p + 0.4 * r.h) return no(68);
+      var vs = v;
+      while (vs > v - 40 && f.H[vs - 1] < r.bot.p + 0.5 * r.h) vs--;
+      var lowNow = loF(f, vs, v);
+      if (hCount(f, lowNow.i - 1, v - 1).tries < 1 && hCount(f, vs, v - 1).tries < 1) return no(69);
+      if (!turned(f, lowNow, v) || !firstTurn(f, lowNow, v, false)) return no(70);
+      return { entryType: "limit", target: r.top.p, rangeTop: r.top.p, rangeBot: r.bot.p, from: v - 90, anchor: lowNow.i, stopAt: r.bot.p, stopName: "range low",
+        lab: [[r.top, "range high"], [r.bot, "range low"]] };
+    }
+  };
+  /* bull-frame words -> the mirrored chart's words */
+  function flipLab(s) {
+    var map = { high: "low", low: "high", higher: "lower", lower: "higher", top: "bottom", bottom: "top", bull: "bear", bear: "bull", up: "down", down: "up" };
+    return s.replace(/\b(high|low|higher|lower|top|bottom|bull|bear|up|down)\b/g, function (w) { return map[w]; });
+  }
+  /** What the reading Coach sees at bar v, or null. The first setup in
+      READ_KEYS order wins (the most specific patterns first). A setup whose
+      target does not pay for its risk at its taught odds is not a trade. */
+  function detectAt(ch, v) {
+    if (v < 60 || v >= ch.bars.length) return null;
+    for (var k = 0; k < READ_KEYS.length; k++) {
+      for (var mi = 0; mi < 2; mi++) {
+        var m = mi ? -1 : 1, f = rdFrame(ch, m), key = READ_KEYS[k];
+        var r = RD[key](f, v);
+        if (!r) continue;
+        var def = Mkt.CTX[m > 0 ? key : key + "_D"] || Mkt.CTX[key], A = f.A[v];
+        var entryType = r.entryType || def.entryType;
+        var entry = entryType === "limit" ? f.C[v] : f.H[v] + 0.08 * A;
+        /* beyond the structure the setup rests on, and never inside the signal
+           bar -- the same rule, and the same stop, its odds were measured with */
+        var tick = Math.pow(10, -(ch.dec || 2));
+        var stop = Math.min(r.stopAt != null ? r.stopAt : f.L[v], f.L[v]) - 4 * tick, risk = entry - stop;
+        var rr = risk > 0 ? (r.target - entry) / risk : 0;
+        if (!(rr > 0) || def.pWin * rr - (1 - def.pWin) <= 0) continue;
+        var P = function (pt) { return { i: pt.i, p: m * pt.p }; };
+        var st = { from: Math.max(0, r.from), to: v,
+          labels: r.lab.map(function (L) { return [P(L[0]), m > 0 ? L[1] : flipLab(L[1])]; }),
+          rangeTop: r.rangeTop == null ? null : (m > 0 ? r.rangeTop : -r.rangeBot),
+          rangeBot: r.rangeBot == null ? null : (m > 0 ? r.rangeBot : -r.rangeTop),
+          trendline: r.trendline ? { a: P(r.trendline.a), b: P(r.trendline.b), slope: m * r.trendline.slope, thru: r.trendline.thru } : null };
+        return { st: st, i: v, key: m > 0 ? key : key + "_D", name: def.name, cycle: def.cycle, dir: m, tradeable: true,
+          entry: m * entry, stop: m * stop, invalid: m * stop,
+          stopDesc: r.stopAt != null && r.stopAt <= f.L[v] ? (m > 0 ? r.stopName : flipLab(r.stopName)) : "signal bar " + (m > 0 ? "low" : "high"),
+          target: m * r.target, prob: def.pWin, rr: rr, entryType: entryType, attempt: def.attempt, style: def.style,
+          brooks: def.brooks, sigKind: "read", read: true, isFirstAttempt: false, _anchor: r.anchor };
+      }
+    }
+    return null;
+  }
+  /** the reading Coach's setups on a tape, up to bar `upto` -- found one bar
+      at a time, each from the bars up to it. A setup read again within 5 bars
+      is the same setup, not a new one. */
+  function readSigs(ch, upto) {
+    if (!ch.rsigs) { ch.rsigs = []; ch._readTo = 59; }
+    upto = Math.min(upto, ch.bars.length - 1);
+    for (var v = ch._readTo + 1; v <= upto; v++) {
+      var g = detectAt(ch, v);
+      if (g && !ch.rsigs.some(function (x) { return x.key === g.key && (v - x.i <= 5 || x._anchor === g._anchor); })) ch.rsigs.push(g);
+      ch._readTo = v;
+    }
+    return ch.rsigs;
+  }
+  /** the setups the Coach works from: what it reads, or the answer key */
+  function activeSigs(ch, upto) {
+    if (!ch) return [];
+    return BT.coachMode === "key" ? (ch.sigs || []) : readSigs(ch, upto);
+  }
+
   function liveSignal() {
-    if (!BT.coach || !BT.ch || !BT.ch.sigs) return null;
+    if (!BT.coach || !BT.ch) return null;
     var v = chB.vis, out = null;
     /* the MOST RECENT signal wins, not simply the last one pushed — a first
        attempt and its own second entry can fall inside the window together
        near a fast pattern, and it is the newer one that just printed */
-    BT.ch.sigs.forEach(function (g) {
+    activeSigs(BT.ch, v).forEach(function (g) {
       if (g.i <= v && v - g.i <= COACH_WINDOW && (!out || g.i > out.i)) out = g;
     });
     return out;
   }
   /* count each setup once, the first time its bar is revealed */
   function coachTally() {
-    if (!BT.coach || !BT.ch || !BT.ch.sigs) return;
+    if (!BT.coach || !BT.ch) return;
     var v = chB.vis;
-    BT.ch.sigs.forEach(function (g) {
+    activeSigs(BT.ch, v).forEach(function (g) {
       if (g.i <= v && !g._seen) { g._seen = true; BT.coachSeen++; }
       /* a tradeable setup that aged out untaken is a skip, and skipping is a
          real decision — a no-trade context is not, so it never counts */
@@ -7814,9 +8244,10 @@ var PROG = (function () {
   }
   /* the next setup still ahead of the revealed tape, if any */
   function nextSignal() {
-    if (!BT.ch || !BT.ch.sigs) return null;
+    if (!BT.ch) return null;
+    /* reading ahead is still causal: each bar is read from the bars up to it */
     var v = chB.vis, best = null;
-    BT.ch.sigs.forEach(function (g) {
+    activeSigs(BT.ch, Math.min(BT.ch.bars.length - 1, v + 1500)).forEach(function (g) {
       if (g.i > v && (!best || g.i < best.i)) best = g;
     });
     return best;
@@ -8298,7 +8729,7 @@ var PROG = (function () {
     var seen = [];
     more.sigs.forEach(function (g) {
       g.i += base;
-      ["entry", "stop", "invalid", "target"].forEach(function (f) { if (g[f] != null) g[f] += off; });
+      ["entry", "stop", "sigStop", "invalid", "target"].forEach(function (f) { if (g[f] != null) g[f] += off; });
       var t = g.st;
       if (t && seen.indexOf(t) < 0) {      /* a first entry shares its main signal's structure */
         seen.push(t);
@@ -8335,7 +8766,7 @@ var PROG = (function () {
     /* the ticket's prices belonged to the old tape -- often a different market */
     BT.tPrice = BT.tSL = BT.tTP = null;
     BT.playing = false;
-    BT.ch = btSeries((Date.now() ^ (Math.random() * 1e9)) >>> 0, 22);
+    BT.ch = btSeries(BT.seedQueue && BT.seedQueue.length ? BT.seedQueue.shift() : (Date.now() ^ (Math.random() * 1e9)) >>> 0, 22);
     BT.pos = []; BT.ord = [];
     if (!keepAccount) {
       BT.balance = BT.start; BT.log = []; BT.peak = BT.start; BT.maxDD = 0; BT.curve = [BT.start];
@@ -8490,9 +8921,16 @@ var PROG = (function () {
       var g = liveSignal();
       if (g && g.tradeable && !g._taken && g.entry != null && g.stop != null && g.target != null) {
         g._taken = true;
-        var u = unitsFor(g.entry, g.stop);
+        /* a stop entry the market has already run through while the last trade
+           was still on is a setup that triggered without you -- chasing it fills
+           at once, often past its own target. A trader lets it go. */
+        /* (a limit the market has already fallen through is the same story:
+           it would fill at once, far below the plan, right on top of the stop) */
+        var gone = g.entryType !== "limit" ? (btPrice() - g.entry) * g.dir >= 0
+                                           : (btPrice() - g.entry) * g.dir < 0;
+        var u = gone ? 0 : unitsFor(g.entry, g.stop);
         if (u > 0) BT.ord.push({ id: BT.nextId++, kind: g.entryType === "limit" ? "limit" : "stop",
-          dir: g.dir, price: g.entry, units: u, sl: g.stop, tp: g.target, _sigI: g.i });
+          dir: g.dir, price: g.entry, units: u, sl: g.stop, tp: g.target, _sigI: g.i, setup: g.key });
       }
     }
     chB.vis++;
@@ -8536,7 +8974,11 @@ var PROG = (function () {
          sized or scored as a normal trade -- it's closed flat,
          immediately, tagged distinctly from a real stop or a real
          target. */
-      var wrongSide = (justFilled.entry - justFilled.sl) * justFilled.dir <= 0;
+      var wrongSide = (justFilled.entry - justFilled.sl) * justFilled.dir <= 0 ||
+        /* a fill sitting almost on its own stop is not a trade with a defined
+           risk either: sized to 1%, a stop 0.05 ATR away turned one range
+           trade into +457R and half of a 1,000-trade backtest */
+        Math.abs(justFilled.entry - justFilled.sl) < 0.2 * btATR();
       var wrongTarget = justFilled.tp != null &&
         (justFilled.tp - justFilled.entry) * justFilled.dir <= 0;
       if (wrongSide || wrongTarget) {
@@ -8581,9 +9023,75 @@ var PROG = (function () {
     buildBTTools();
     syncDraw(); chB.render(); paintBT();
     var st = btStats();
-    toast(st.n + (st.n < S.n ? " of " + S.n : "") + " trades done — " + (st.avgR >= 0 ? "+" : "") +
+    toast((BT.coachMode === "key" ? "Answer-key Coach: " : "Reading Coach: ") + st.n + (st.n < S.n ? " of " + S.n : "") + " trades done — " + (st.avgR >= 0 ? "+" : "") +
       st.avgR.toFixed(2) + "R avg, " + Math.round(st.win * 100) + "% win rate, PF " +
       (isFinite(st.pf) ? st.pf.toFixed(2) : "∞"));
+  }
+  /** Both Coaches, the same number of trades, on the same sequence of charts:
+      how much of the answer key's result survives reading the bars. Plus how
+      well the reader recognises setups at all, checked against the key on
+      those same charts. */
+  function compareCoaches(n) {
+    if (BT.log.length && !confirm("Compare runs " + n + " trades twice and clears the " + BT.log.length +
+      " trade(s) in this account. Go ahead?")) return;
+    var keepMode = BT.coachMode, seeds = [];
+    for (var i = 0; i < 4000; i++) seeds.push(((Date.now() ^ (Math.random() * 1e9)) + i * 7919) >>> 0);
+    var one = function (mode) {
+      BT.coachMode = mode; BT.seedQueue = seeds.slice();
+      var ok = confirm; window.confirm = function () { return true; };
+      try { btNew(true); autoRun(n); } finally { window.confirm = ok; }
+      var st = btStats(), by = {};
+      BT.log.forEach(function (t) {
+        var k = t.setup || "?"; by[k] = by[k] || { n: 0, w: 0, r: 0 };
+        by[k].n++; if (t.r > 0) by[k].w++; by[k].r += t.r;
+      });
+      return { st: st, by: by, sym: BT.ch.sym, tf: BT.ch.tfLbl, tfk: BT.ch.tf, dd: BT.maxDD };
+    };
+    var key = one("key"), read = one("read");
+    /* recognition on the first charts of the same list: does the reader find
+       the key's setups, and are the setups it finds real ones? */
+    var found = 0, keyN = 0, real = 0, readN = 0;
+    var wasS = BT.sym, wasT = BT.tf; BT.sym = key.sym; BT.tf = key.tfk;   /* the market both runs traded */
+    for (var t = 0; t < 12; t++) {
+      var ch = btSeries(seeds[t], 22);
+      var ks = ch.sigs.filter(function (g) { return g.tradeable && !g.isFirstAttempt; }), rs = readSigs(ch, ch.bars.length - 1);
+      /* the reader waits for the turn to confirm, so it enters a few bars
+         after the key's signal bar: same setup = same name, from 3 bars
+         before to 8 bars after */
+      var near = function (r, g) { return r.key === g.key && r.i - g.i >= -3 && r.i - g.i <= 8; };
+      keyN += ks.length; readN += rs.length;
+      ks.forEach(function (g) { if (rs.some(function (r) { return near(r, g); })) found++; });
+      rs.forEach(function (r) { if (ks.some(function (g) { return near(r, g); })) real++; });
+    }
+    BT.sym = wasS; BT.tf = wasT; BT.seedQueue = null; BT.coachMode = keepMode;
+    var row = function (lab, a) {
+      return '<tr><td>' + lab + '</td><td>' + a.st.n + '</td><td>' + Math.round(a.st.win * 100) + '%</td><td class="' + (a.st.avgR >= 0 ? 'up' : 'dn') + '">' +
+        (a.st.avgR >= 0 ? '+' : '') + a.st.avgR.toFixed(2) + 'R</td><td>' + (isFinite(a.st.pf) ? a.st.pf.toFixed(2) : '∞') + '</td><td>' + (a.dd * 100).toFixed(1) + '%</td></tr>';
+    };
+    var names = Object.keys(read.by).sort(function (a, b) { return read.by[b].n - read.by[a].n; });
+    var taught = function (k) { var c = Mkt.CTX[k]; return c ? Math.round(c.pWin * 100) + '%' : '—'; };
+    var setupName = function (k) {
+      var c = Mkt.CTX[k] || {}, base = Mkt.CTX[k.replace('_D', '')] || {};
+      /* a few bear twins share their bull name -- say which side it was */
+      return (c.name || k) + (/_D$/.test(k) && c.name === base.name ? ' (bear)' : '');
+    };
+    modal('<div style="display:flex;justify-content:space-between;align-items:center"><h3>Reading Coach vs answer key</h3>' +
+      '<button class="btn" id="cmpCloseTop">Close</button></div>' +
+      '<p>' + n + ' trades each, on the same sequence of ' + key.sym + ' ' + key.tf + ' charts, 1% risk per trade.</p>' +
+      '<div class="tblwrap"><table><tr><th>Coach</th><th>Trades</th><th>Win</th><th>Avg</th><th>PF</th><th>Max DD</th></tr>' +
+      row('Answer key', key) + row('Reads the chart', read) + '</table></div>' +
+      '<p style="margin-top:10px"><b>Recognition</b> (first 12 charts): it found <b>' + found + ' of ' + keyN +
+      '</b> real setups (' + (keyN ? Math.round(found / keyN * 100) : 0) + '%), and <b>' + real + ' of ' + readN +
+      '</b> setups it took were real ones (' + (readN ? Math.round(real / readN * 100) : 0) + '%). The rest were patterns it read that the chart was not built as.</p>' +
+      '<div class="tblwrap"><table><tr><th>Setup the reader took</th><th>Trades</th><th>Win</th><th>Taught</th><th>Avg R</th></tr>' +
+      names.map(function (k) { var b = read.by[k];
+        return '<tr><td>' + esc(setupName(k)) + '</td><td>' + b.n + '</td><td>' + Math.round(b.w / b.n * 100) + '%</td><td>' + taught(k) +
+          '</td><td class="' + (b.r >= 0 ? 'up' : 'dn') + '">' + (b.r / b.n >= 0 ? '+' : '') + (b.r / b.n).toFixed(2) + '</td></tr>'; }).join('') + '</table></div>' +
+      '<p class="hint" style="margin-top:8px">Both run on generated charts, so neither number is real-market evidence. The gap between them is what matters: it is how much of the edge depends on already knowing where the setups are.</p>' +
+      '<div style="margin-top:10px"><button class="btn" id="cmpClose">Close</button></div>');
+    var cb = $("cmpClose"); if (cb) cb.onclick = closeModal;
+    var cbt = $("cmpCloseTop"); if (cbt) cbt.onclick = closeModal;
+    syncDraw(); chB.render(); paintBT();
   }
   function autoRun(n) {
     var S = autoBegin(n);
@@ -8717,7 +9225,7 @@ var PROG = (function () {
   /** the setup the tape was printing at bar v, whether or not Coach is showing it */
   function sigAt(ch, v) {
     var out = null;
-    (ch.sigs || []).forEach(function (g) {
+    activeSigs(ch, v).forEach(function (g) {
       if (g.i <= v && v - g.i <= COACH_WINDOW && (!out || g.i > out.i)) out = g;
     });
     return out;
@@ -9360,7 +9868,13 @@ var PROG = (function () {
     if (BT.coach) {
       var cg = liveSignal();
       out.push('<div class="btsec"><h5>Coach <span class="mono">' +
-        BT.coachTaken + ' taken / ' + BT.coachSeen + ' seen</span></h5>');
+        BT.coachTaken + ' taken / ' + BT.coachSeen + ' seen</span></h5>' +
+        '<div class="btseg" style="margin-bottom:5px">' +
+        '<button class="' + (BT.coachMode !== "key" ? "on" : "") + '" data-bt="cmode" data-v="read" title="Finds setups from the bars on screen, like you have to">Reads the chart</button>' +
+        '<button class="' + (BT.coachMode === "key" ? "on" : "") + '" data-bt="cmode" data-v="key" title="Shows the setups the chart was built from -- always right, for learning">Answer key</button></div>' +
+        '<div class="hint" style="margin-bottom:6px;font-size:10.5px">' + (BT.coachMode === "key"
+          ? 'Answer key: shows the setups this chart was built from, so it is always right. Good for learning what each one looks like; not a fair trader.'
+          : 'Reads the chart: finds each setup from the bars already on screen, like you have to. It can be wrong; its record is the honest one.') + '</div>');
       /* what the swings you can see say the tape IS, and how the ticket's
          trade sits against it -- always on with Coach, not just at a setup */
       var rd = structRead();
@@ -9390,9 +9904,11 @@ var PROG = (function () {
         var nx = nextSignal();
         if (nx) {
           var away = nx.i - chB.vis;
-          out.push('<div class="btkv"><span>Next setup</span><b>' + away +
+          out.push((BT.coachMode === "key" ? '<div class="btkv"><span>Next setup</span><b>' + away +
             ' bar' + (away === 1 ? '' : 's') + ' away</b></div>' +
-            '<div class="acts"><button data-bt="skipnext">Skip ahead to it</button></div>' +
+            '<div class="acts"><button data-bt="skipnext">Skip ahead to it</button></div>'
+            : '<div class="btkv"><span>Next setup</span><b>not seen yet</b></div>' +
+            '<div class="acts"><button data-bt="skipnext">Step until Coach reads one</button></div>') +
             '<div class="hint" style="margin-top:5px">Setups are roughly a hundred bars apart, ' +
             'so stepping there by hand takes a while. A setup appears the moment its signal bar ' +
             'prints and stays live for ' + COACH_WINDOW + ' bars.</div>');
@@ -9429,7 +9945,7 @@ var PROG = (function () {
           (cg.isFirstAttempt ? '<div class="hint" style="margin-top:3px">' + cg.brooks + '</div>' : '') +
           '<div class="mono" style="margin-top:4px">entry ' + px(cg.entry) +
           ' · stop ' + px(cg.stop) + ' · target ' + px(cg.target) + '</div>' +
-          '<div class="btkv" style="margin-top:5px"><span>Win rate for this setup</span><b>' +
+          '<div class="btkv" style="margin-top:5px"><span>' + (cg.read ? 'Taught win rate (if it is the real thing)' : 'Win rate for this setup') + '</span><b>' +
           Math.round(cg.prob * 100) + '%</b></div>' +
           '<div class="btkv"><span>Expectancy</span><b class="' + (edge >= 0 ? 'up' : 'dn') + '">' +
           (edge >= 0 ? '+' : '') + edge.toFixed(2) + 'R per trade</b></div>' +
@@ -9437,9 +9953,9 @@ var PROG = (function () {
           '<div class="acts"><button data-bt="take">Fill the ticket with this</button></div>' +
           '</div>');
       }
-      out.push('<div class="hint" style="margin-top:6px">These odds are Brooks\' method ' +
-        'encoded and checked against the generator — not a backtest of live markets. ' +
-        'What they drill is execution.</div>');
+      out.push('<div class="hint" style="margin-top:6px">' + (BT.coachMode === "key"
+        ? 'These odds are Brooks\' method encoded and checked against the generator — not a backtest of live markets. What they drill is execution.'
+        : 'The odds are the taught odds for the real setup. Whether Coach reads setups well enough to earn them is what Compare in the Auto-backtest measures.') + '</div>');
       out.push('</div>');
     }
 
@@ -9594,8 +10110,10 @@ var PROG = (function () {
       (BT.autoVis ? autoPanel() :
       '<div style="margin-top:7px"><label class="btlab">Trades to run</label>' +
       '<input class="btin" id="btAutoN" type="number" step="1" min="1" max="5000" value="' + (BT.autoN || 100) + '"></div>' +
+      '<div class="hint" style="margin-top:6px">Coach trading: <b>' + (BT.coachMode === "key" ? 'answer key' : 'reads the chart') + '</b> (switch it in the Coach card).</div>' +
       '<div class="btbtns" style="margin-top:7px"><button class="btn" id="btAutoWatch" title="Play it on the chart bar by bar, like a visual backtest">Watch it trade ▶</button>' +
       '<button class="btn" id="btAutoRun" title="Run every trade instantly">Run instantly</button></div>' +
+      '<div class="btbtns"><button class="btn" id="btCompare" title="Run both Coaches on the same charts and compare">Compare: reading vs answer key</button></div>' +
       '<div class="hint" style="margin-top:5px;font-size:10.5px">Watch plays on the chart at the toolbar speed and fast-forwards between setups. Closed trades stay drawn on the chart (Deals).</div>') +
       '</div>');
 
@@ -9650,6 +10168,11 @@ var PROG = (function () {
         var pos = BT.pos.filter(function (x) { return x.id === id; })[0];
         if (BT.autoVis && a !== "hist") { toast("The backtest is trading — stop it to trade by hand"); return; }
         if (a === "take") { takeSignal(); return; }
+        if (a === "cmode") {
+          BT.coachMode = v === "key" ? "key" : "read";
+          try { localStorage.setItem("tt_coachmode", BT.coachMode); } catch (e) { }
+          toast(BT.coachMode === "key" ? "Coach: answer key — the setups the chart was built from" : "Coach: reads the chart — only the bars on screen");
+        }
         if (a === "hist") { setView("history"); return; }
         if (a === "grade") BT.gradeAsk = true;
         if (a === "skipnext") { skipToNext(); return; }
@@ -9743,6 +10266,13 @@ var PROG = (function () {
       if (!(n > 0)) { toast("Enter how many trades to run"); return; }
       BT.autoN = n;
       autoRun(n);
+    };
+    var cmpBtn = $("btCompare");
+    if (cmpBtn) cmpBtn.onclick = function () {
+      var el = $("btAutoN"), n = el ? +el.value : 100;
+      if (!(n > 0)) { toast("Enter how many trades to run"); return; }
+      BT.autoN = n;
+      compareCoaches(Math.min(n, 1000));
     };
     var awBtn = $("btAutoWatch");
     if (awBtn) awBtn.onclick = function () {
@@ -9849,6 +10379,7 @@ var PROG = (function () {
   function btReport() {
     var st = btStats(), L = [];
     L.push("TRADE TRAINER v" + APP.version + " — desk run");
+    L.push("Coach: " + (BT.coachMode === "key" ? "answer key (setups the chart was built from)" : "reads the chart (bars on screen only)"));
     L.push("Tape: " + BT.ch.sym + " " + BT.ch.tfLbl + "   seed=" + BT.ch.seed +
       "   bar " + (chB.vis + 1) + " of " + BT.ch.bars.length);
     L.push("Instrument: 1 lot = " + lotUnits().toLocaleString("en-US") + " units, " +
