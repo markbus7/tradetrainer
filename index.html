@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.55.0 (build 2026-09-24) — Al Brooks price action -->
+<!-- Trade Trainer v3.56.0 (build 2026-09-24) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -234,6 +234,7 @@
   .hn{display:flex;gap:7px;font-size:11.5px;line-height:1.45;color:#cfd4dd}
   .hn i{font-style:normal;font-weight:700;flex:0 0 12px;text-align:center}
   .hn.good i{color:var(--up)} .hn.bad i{color:var(--dn)} .hn.info i{color:var(--muted)}
+  .pregrade{margin-top:8px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg3)}
   .hlist{display:flex;flex-direction:column;gap:3px;max-height:320px;overflow-y:auto}
   .hrow{display:grid;grid-template-columns:34px 1fr 62px 70px 22px;gap:4px;align-items:center;text-align:left;
     padding:4px 6px;font-size:11px;border:1px solid var(--line);border-radius:6px;background:var(--bg3);color:var(--paper)}
@@ -357,7 +358,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.55.0", build: "2026-09-24", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.56.0", build: "2026-09-24", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -7404,7 +7405,7 @@ var PROG = (function () {
     perPoint: perPoint, pipName: pipName,
     unitsFor: unitsFor, btStats: btStats, btReport: btReport, paintBT: paintBT, autoRun: autoRun, structRead: structRead, tradeCheck: tradeCheck, ticketLevels: ticketLevels,
     get session() { return S; },
-    get HIST() { return HIST; }, histReview: histReview, paintHist: paintHist, histSave: histSave, get chH() { return chH; }
+    get HIST() { return HIST; }, histReview: histReview, preGrade: preGrade, paintHist: paintHist, histSave: histSave, get chH() { return chH; }
   };
 
 
@@ -8210,6 +8211,8 @@ var PROG = (function () {
   function btNew(keepAccount) {
     if (BT.timer) { clearInterval(BT.timer); BT.timer = null; }
     if (BT.ch) histDetach();
+    /* the ticket's prices belonged to the old tape -- often a different market */
+    BT.tPrice = BT.tSL = BT.tTP = null;
     BT.playing = false;
     BT.ch = btSeries((Date.now() ^ (Math.random() * 1e9)) >>> 0, 22);
     BT.pos = []; BT.ord = [];
@@ -8560,6 +8563,88 @@ var PROG = (function () {
   window.addEventListener("pagehide", function () { histSave(); });
   document.addEventListener("visibilitychange", function () { if (document.hidden) histSave(); });
 
+  /** The half of the grade that is settled before the trade exists: where
+      it gets in against the structure and the live setup, what it risks and
+      what it asks for. Shared by the History review and the ticket's
+      pre-trade grade, so the two can never disagree. `pre` = the trade is
+      still only a plan (present tense, and no hindsight about the tape). */
+  function judgeEntry(rec, R0, A, bad, good, info, pre) {
+    var d = rec.dir, fmtR = function (x) { return (x >= 0 ? "+" : "") + x.toFixed(2) + "R"; };
+    A.rr0 = R0 > 0 ? Math.abs(rec.tp0 - rec.entry) / R0 : 0;
+    var rdName = rec.read ? rec.read.name : "structure", g = rec.sig;
+    /* The swing read is a broad look back over ~150 bars; a live setup is the
+       specific call about THIS spot, with odds that already include the
+       times the broad read wins (a reversal setup is against the trend by
+       definition). Taking the setup is not "fighting the read". */
+    var withSetup = g && g.tradeable && g.dir === d;
+    if (rec.check && rec.check.good === true) good((pre ? "Fits the read (" : "Fit the read (") + rdName + "): " + rec.check.msg);
+    else if (rec.check && rec.check.good === false && withSetup)
+      info("The broad swing read (" + rdName + ") disagrees: " + rec.check.msg + " The live setup is the more specific call here" +
+        (rec.read && (rec.read.kind === "bull" || rec.read.kind === "bear") && g.dir !== (rec.read.kind === "bull" ? 1 : -1)
+          ? " — a setup for the trend ending" : "") + ", and its odds already include the times the broad read wins.");
+    else if (rec.check && rec.check.good === false) bad("read", (pre ? "Fights the read (" : "Fought the read (") + rdName + "): " + rec.check.msg, 25);
+    if (g && g.tradeable) {
+      if (g.dir === d) {
+        good((pre ? "Matches the setup that is live: " : "Matched the setup that was live: ") + g.name +
+          (!pre && !rec.coachOn ? " (Coach was off — you read it yourself)" : "") + ".");
+        var gR = Math.abs(g.entry - g.stop);
+        if (gR > 0 && R0 < gR * 0.7) info("Your stop is tighter than the setup's (" + fmtN(g.stop, rec.dec) +
+          "). The setup's stop sits where the idea is proven wrong; a tighter one gets hit by noise more often.");
+        if (g.prob != null && A.rr0 > 0) {
+          var ev = g.prob * A.rr0 - (1 - g.prob);
+          A.ev = ev;
+          info("At about " + Math.round(g.prob * 100) + "% odds for this setup, a " + A.rr0.toFixed(2) + "R target is worth " + fmtR(ev) + " per trade" +
+            (ev < 0 ? " — negative. The target needs to be further, or the entry better." : "."));
+          if (ev < 0) { A.score -= 10; A.tags.push("ev"); }
+        }
+      } else bad("coach", (pre ? "Against the setup that is live: " : "Against the setup that was live: ") + g.name +
+        " (" + (g.dir > 0 ? "buy" : "sell") + "). You're " + (d > 0 ? "buying" : "selling") + ".", 20);
+    } else if (pre) info("No Coach setup is live — this is your own read. Most of the edge in the method comes from waiting for one.");
+    else info("No Coach setup was live here — this was your own read." + (rec.ctx ? " In hindsight this stretch of tape was: " + rec.ctx + "." : ""));
+    if (!pre && g && g.tradeable && rec.ctx) info("In hindsight this stretch of tape was: " + rec.ctx + ".");
+    if (A.rr0 > 0 && A.rr0 < 1) bad("rr", "Reward is only " + A.rr0.toFixed(2) + "R for 1R risk — it needs to win more than " + Math.round(100 / (1 + A.rr0)) + "% of the time.", 10);
+    else if (A.rr0 >= 1) good("Reward " + A.rr0.toFixed(2) + "R for 1R risk (break-even at " + Math.round(100 / (1 + A.rr0)) + "% wins).");
+
+    if (rec.riskPct > 2) bad("size", "Risk " + rec.riskPct.toFixed(2) + "% of the account — double your 1% rule or more.", 25);
+    else if (rec.riskPct > 1.3) bad("size", "Risk " + rec.riskPct.toFixed(2) + "% — over the 1% rule." + (pre ? " Press Use next to 1% of equity." : " Use the 1% button before placing."), 15);
+    else if (rec.riskPct < 0.6) info("Risk only " + rec.riskPct.toFixed(2) + "% — fine if deliberate, but it shrinks the winners as much as the losers.");
+    else good("Risk " + rec.riskPct.toFixed(2) + "% — on plan.");
+  }
+  /** The ticket's grade, live with Coach on; on request with it off, so
+      reading the chart yourself stays the default. */
+  function preGradeHTML() {
+    if (!BT.coach && !BT.gradeAsk)
+      return '<div class="btkv" style="margin-top:7px;align-items:center"><span>Check it before you place it</span>' +
+        '<button class="btuse" data-bt="grade">Grade this trade</button></div>';
+    var A = preGrade();
+    if (!A) return '<div class="hint" style="margin-top:7px">Set a stop on the losing side of the entry to get a grade.</div>';
+    return '<div class="pregrade"><div class="btkv" style="align-items:center"><span>Coach\'s grade before you place it</span>' +
+      '<span class="hgrade g' + A.grade + '">' + A.grade + '</span></div>' +
+      '<div class="hnotes">' + A.notes.map(function (x) {
+        return '<div class="hn ' + x.k + '"><i>' + (x.k === "good" ? "✓" : x.k === "bad" ? "✗" : "•") + '</i><span>' + esc(x.t) + '</span></div>';
+      }).join("") + '</div>' +
+      '<div class="hint" style="margin-top:5px;font-size:10.5px">The entry, size and plan only. How you manage it is graded in History once it closes.</div></div>';
+  }
+  /** Grade the ticket as it stands, before it is placed. */
+  function preGrade() {
+    if (!BT.ch) return null;
+    var lv = ticketLevels(), d = BT.dir, R0 = Math.abs(lv.entry - lv.sl);
+    if (!(R0 > 0) || (lv.sl - lv.entry) * d >= 0) return null;
+    var m = tradeMeta(BT.otype, d, lv.entry, lv.sl, lv.tp) || {};
+    var u = toUnits(BT.lots), eq = equity();
+    var rec = { dir: d, entry: lv.entry, sl0: lv.sl, tp0: lv.tp, dec: BT.ch.dec,
+      riskPct: eq > 0 ? R0 * qRate() * u / eq * 100 : 0,
+      read: m.read, check: m.check, sig: m.sig, coachOn: BT.coach };
+    var A = { notes: [], score: 100, tags: [] };
+    judgeEntry(rec, R0, A,
+      function (tag, txt, pen) { A.notes.push({ k: "bad", t: txt }); A.tags.push(tag); A.score -= pen || 0; },
+      function (txt) { A.notes.push({ k: "good", t: txt }); },
+      function (txt) { A.notes.push({ k: "info", t: txt }); }, true);
+    A.score = Math.max(0, A.score);
+    A.grade = A.score >= 85 ? "A" : A.score >= 70 ? "B" : A.score >= 50 ? "C" : "D";
+    return A;
+  }
+
   /** The judgement. Numbers first (excursions, what the plan would have done
       after the exit), then written feedback, then a process grade. */
   function histReview(rec) {
@@ -8596,31 +8681,7 @@ var PROG = (function () {
     A.after = { first: first, idx: firstIdx, run: run, seen: seen };
     var after = function (n) { return n + " bar" + (n === 1 ? "" : "s") + " later"; };
 
-    /* ---- the entry ---- */
-    if (rec.check && rec.check.good === true) good("Fit the read (" + (rec.read ? rec.read.name : "structure") + "): " + rec.check.msg);
-    else if (rec.check && rec.check.good === false) bad("read", "Fought the read (" + (rec.read ? rec.read.name : "structure") + "): " + rec.check.msg, 25);
-    var g = rec.sig;
-    if (g && g.tradeable) {
-      if (g.dir === d) {
-        good("Matched the setup that was live: " + g.name + (rec.coachOn ? "" : " (Coach was off — you read it yourself)") + ".");
-        var gR = Math.abs(g.entry - g.stop);
-        if (gR > 0 && R0 < gR * 0.7) info("Your stop was tighter than the setup's (" + fmtN(g.stop, rec.dec) + "). The setup's stop sits where the idea is proven wrong; a tighter one gets hit by noise more often.");
-        if (g.prob != null && A.rr0 > 0) {
-          var ev = g.prob * A.rr0 - (1 - g.prob);
-          info("At about " + Math.round(g.prob * 100) + "% odds for this setup, a " + A.rr0.toFixed(2) + "R target is worth " + fmtR(ev) + " per trade" +
-            (ev < 0 ? " — negative. The target needed to be further, or the entry better." : "."));
-        }
-      } else bad("coach", "Against the setup that was live: " + g.name + " (" + (g.dir > 0 ? "buy" : "sell") + "). You " + (d > 0 ? "bought" : "sold") + ".", 20);
-    } else info("No Coach setup was live here — this was your own read." + (rec.ctx ? " In hindsight this stretch of tape was: " + rec.ctx + "." : ""));
-    if (g && g.tradeable && rec.ctx) info("In hindsight this stretch of tape was: " + rec.ctx + ".");
-    if (A.rr0 > 0 && A.rr0 < 1) bad("rr", "Reward was only " + A.rr0.toFixed(2) + "R for 1R risk — you needed to win more than " + Math.round(100 / (1 + A.rr0)) + "% of the time.", 10);
-    else if (A.rr0 >= 1) good("Planned reward " + A.rr0.toFixed(2) + "R for 1R risk (break-even at " + Math.round(100 / (1 + A.rr0)) + "% wins).");
-
-    /* ---- size ---- */
-    if (rec.riskPct > 2) bad("size", "Risked " + rec.riskPct.toFixed(2) + "% of the account — double your 1% rule or more.", 25);
-    else if (rec.riskPct > 1.3) bad("size", "Risked " + rec.riskPct.toFixed(2) + "% — over the 1% rule. Use the 1% button before placing.", 15);
-    else if (rec.riskPct < 0.6) info("Risked only " + rec.riskPct.toFixed(2) + "% — fine if deliberate, but it shrinks the winners as much as the losers.");
-    else good("Risk " + rec.riskPct.toFixed(2) + "% — on plan.");
+    judgeEntry(rec, R0, A, bad, good, info, false);
 
     /* ---- management ---- */
     if (rec.widened) bad("widen", "You moved the stop further away. That turns a 1R loss into a bigger one — never widen a stop.", 30);
@@ -9070,20 +9131,7 @@ var PROG = (function () {
             rd.kind + ' trend. That is what a reversal setup is — it only works when the trend is failing ' +
             '(a final flag, a wedge, a climax), which is why its odds are lower than a with-trend trade.</div>');
         }
-        var tc = tradeCheck(rd, ticketLevels());
-        if (tc) {
-          out.push('<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">' +
-            '<div class="btkv"><span>Your ticket (' + (BT.dir > 0 ? 'buy' : 'sell') + ')</span><b class="' +
-            (tc.good ? 'up' : 'dn') + '">' + (tc.good ? 'Fits the read' : 'Fights the read') + '</b></div>' +
-            '<div class="hint" style="margin-top:3px">' + tc.msg + '</div>' +
-            '<div class="btkv" style="margin-top:4px"><span>Break-even win rate at ' + tc.rr.toFixed(2) + 'R</span><b>' +
-            Math.round(tc.be * 100) + '%</b></div>' +
-            '<div class="hint" style="margin-top:3px">' +
-            (tc.good && tc.rr >= 1.5 ? 'Fits the structure and pays enough to be wrong often — the shape of a positive-EV trade.'
-              : tc.good ? 'Fits the structure, but at ' + tc.rr.toFixed(2) + 'R it only pays if you win over ' + Math.round(tc.be * 100) + '% of the time.'
-              : 'Fighting the structure' + (tc.rr < 1.5 ? ' with a thin reward' : '') + ' — likely negative EV by the method.') +
-            '</div></div>');
-        }
+        /* how the ticket sits against this read is graded in the ticket itself */
         out.push('</div>');
       }
       if (!cg) {
@@ -9201,6 +9249,7 @@ var PROG = (function () {
       money(perPoint()) + ' per ' + pipName() + '</b></div>' +
       '<div class="btkv"><span>Reward : risk</span><b>' +
       (Math.abs(entryFld - sl) > 0 ? (Math.abs(tp - entryFld) / Math.abs(entryFld - sl)).toFixed(2) + "R" : "—") + '</b></div>' +
+      preGradeHTML() +
       '<div class="btbtns">' +
       '<button class="' + (BT.dir > 0 ? "btbuy" : "btsell") + '" id="btPlace">' +
       (BT.otype === "market" ? (BT.dir > 0 ? "Buy at market" : "Sell at market")
@@ -9345,6 +9394,7 @@ var PROG = (function () {
         var pos = BT.pos.filter(function (x) { return x.id === id; })[0];
         if (a === "take") { takeSignal(); return; }
         if (a === "hist") { setView("history"); return; }
+        if (a === "grade") BT.gradeAsk = true;
         if (a === "skipnext") { skipToNext(); return; }
         if (a === "draft") BT.draft = v === "1";
         if (a === "dir" || a === "otype" || a === "pick") BT.draft = true;
@@ -9469,6 +9519,7 @@ var PROG = (function () {
       }
       BT.tSL = BT.tTP = BT.tPrice = null;
       BT.draft = false;                /* it's a real order now -- drop the draft */
+      BT.gradeAsk = false;             /* the next trade gets asked about afresh */
       syncDraw(); chB.render(); paintBT();
     };
 
