@@ -172,8 +172,8 @@ namespace cAlgo.Robots
             working = plan;
             TradeResult res = market
                 ? ExecuteMarketOrder(type, SymbolName, volume, OrderLabel, slPips, tpPips)
-                : g.Limit ? PlaceLimitOrder(type, SymbolName, volume, g.Entry, OrderLabel, slPips, tpPips)
-                          : PlaceStopOrder(type, SymbolName, volume, g.Entry, OrderLabel, slPips, tpPips);
+                : g.Limit ? PlaceLimitOrder(type, SymbolName, volume, g.Entry, OrderLabel, g.Stop, g.Target, ProtectionType.Absolute)
+                          : PlaceStopOrder(type, SymbolName, volume, g.Entry, OrderLabel, g.Stop, g.Target, ProtectionType.Absolute);
             if (!res.IsSuccessful) { working = null; Print("Order for {0} rejected: {1}", g.Name, res.Error); return; }
             Print("{0} {1} {2} at {3}, stop {4} ({5}), target {6}, risking {7:0.00}",
                 market ? "Market" : g.Limit ? "Limit" : "Stop", type, volume, Fmt(reference), Fmt(g.Stop), g.StopName, Fmt(g.Target), risk);
@@ -196,7 +196,7 @@ namespace cAlgo.Robots
                 return;
             }
             // stop and target exactly on the structure, not pips from the fill
-            ModifyPosition(p, plan.Sig.Stop, plan.Sig.Target);
+            ModifyPosition(p, plan.Sig.Stop, plan.Sig.Target, ProtectionType.Absolute);
             open[p.Id] = plan;
         }
 
