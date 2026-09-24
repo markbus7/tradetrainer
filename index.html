@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.52.0 (build 2026-09-24) — Al Brooks price action -->
+<!-- Trade Trainer v3.53.0 (build 2026-09-24) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -327,7 +327,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.52.0", build: "2026-09-24", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.53.0", build: "2026-09-24", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -3156,6 +3156,7 @@ Chart.prototype._drawMeasure = function (c, b, d) {
 
 /* --- long/short position with live R:R --- */
 Chart.prototype._drawPos = function (c, b, d) {
+  if (d.draft) return this._drawDraft(c, b, d);
   var x0 = this.x(d.i), xr = b.r;
   var ye = this.y(d.entry), ys = this.y(d.stop), yt = this.y(d.target);
   c.fillStyle = "rgba(63,191,127,.13)"; c.fillRect(x0, Math.min(ye, yt), xr - x0, Math.abs(yt - ye));
@@ -3177,6 +3178,39 @@ Chart.prototype._drawPos = function (c, b, d) {
   c.font = "700 11px 'IBM Plex Mono',monospace"; c.textAlign = "right"; c.textBaseline = "top";
   c.fillStyle = rr >= 2 ? COL.ok : rr >= 1 ? COL.amber : COL.bad;
   c.fillText(rr.toFixed(2) + "R", xr - 5, Math.min(ye, yt) + 4);
+};
+
+/* An order that is still only on the ticket. Drawn so it cannot be mistaken
+   for a live trade or a working order: no shaded zones, dashed lines, hollow
+   price tags, and every label says NEW. */
+Chart.prototype._drawDraft = function (c, b, d) {
+  var x0 = this.x(d.i), xr = b.r, self = this;
+  var ye = this.y(d.entry), ys = this.y(d.stop), yt = this.y(d.target);
+  /* a thin bracket joining the three levels, so they read as one idea */
+  c.strokeStyle = "rgba(138,146,162,.55)"; c.lineWidth = 1; c.setLineDash([2, 3]);
+  c.beginPath(); c.moveTo(x0 + 0.5, Math.min(ys, yt)); c.lineTo(x0 + 0.5, Math.max(ys, yt)); c.stroke();
+  function line(y, col, txt, val) {
+    y = Math.round(y) + 0.5;
+    c.strokeStyle = col; c.lineWidth = 1.2; c.setLineDash([6, 4]);
+    c.beginPath(); c.moveTo(x0, y); c.lineTo(xr, y); c.stroke();
+    c.setLineDash([]);
+    c.font = "700 10px Archivo,sans-serif"; c.textAlign = "left"; c.textBaseline = "bottom";
+    var w = c.measureText(txt).width + 8;
+    c.fillStyle = "rgba(11,14,19,.85)"; c.fillRect(x0 + 3, y - 15, w, 13);
+    c.fillStyle = col; c.fillText(txt, x0 + 7, y - 3);
+    /* hollow tag on the axis -- filled tags belong to real orders */
+    var t = self.fmt(val);
+    c.font = "10px 'IBM Plex Mono',monospace";
+    var tw = c.measureText(t).width + 8;
+    c.fillStyle = "#0B0E13"; c.fillRect(xr + 1, y - 8, tw, 16);
+    c.strokeStyle = col; c.lineWidth = 1; c.strokeRect(xr + 1.5, y - 7.5, tw - 1, 15);
+    c.textBaseline = "middle"; c.fillStyle = col; c.fillText(t, xr + 5, y + 0.5);
+  }
+  var side = d.dir > 0 ? "BUY" : "SELL";
+  line(yt, COL.ok, "NEW TARGET", d.target);
+  line(ye, COL.paper, "NEW " + side + (d._noEntryDrag ? " AT MARKET" : " ENTRY") + " · not placed", d.entry);
+  line(ys, COL.bad, "NEW STOP", d.stop);
+  c.setLineDash([]);
 };
 
 /* readout used by the side panels */
@@ -7340,6 +7374,7 @@ var PROG = (function () {
     start: 25000, balance: 25000, lots: 1,
     pos: [], ord: [], log: [], nextId: 1,
     dir: 1, otype: "market", playing: false, timer: null, speed: 320,
+    draft: false,                         /* user is working the ticket: preview it */
     peak: 25000, maxDD: 0, curve: [25000]
   };
 
@@ -7997,7 +8032,8 @@ var PROG = (function () {
     BT.tSL = +g.stop.toFixed(BT.ch.dec);
     BT.tTP = +g.target.toFixed(BT.ch.dec);
     if (!g._taken) { g._taken = true; BT.coachTaken++; }
-    paintBT(); chB.render();
+    BT.draft = true;
+    syncDraw(); paintBT(); chB.render();
     toast("Ticket filled from the setup — set your lots, then place it");
   }
 
@@ -8040,9 +8076,16 @@ var PROG = (function () {
        has actually been placed yet. For a market order there is no entry to
        choose -- it fills at whatever price is current -- so that line is
        shown for reference but not draggable. */
+    /* With a trade or order already on, a second full set of lines is noise
+       that reads as another position -- so the draft stays off the chart until
+       you actually start working the ticket (or ask for it). */
+    if (!showDraft()) return;
     var lv = ticketLevels();
-    chB.drawings.push({ type: "pos", _bt: "ticket", i: chB.vis, dir: BT.dir,
+    chB.drawings.push({ type: "pos", _bt: "ticket", draft: true, i: chB.vis, dir: BT.dir,
       entry: lv.entry, stop: lv.sl, target: lv.tp, _noEntryDrag: BT.otype === "market" });
+  }
+  function showDraft() {
+    return BT.draft || !(BT.pos.length || BT.ord.length);
   }
   /** The ticket's current entry/stop/target -- the same defaults paintBT()
       shows in the number fields, factored out so the chart preview and the
@@ -8684,6 +8727,13 @@ var PROG = (function () {
         return '<button class="' + (BT.otype === t ? "on" : "") + '" data-bt="otype" data-v="' + t + '">' +
           t.charAt(0).toUpperCase() + t.slice(1) + '</button>';
       }).join("") + '</div>' +
+      ((BT.pos.length || BT.ord.length)
+        ? '<div class="btkv" style="margin-bottom:6px"><span class="hint" style="margin:0">' +
+          (showDraft() ? 'New order shown dashed on the chart — not placed yet.'
+            : 'New-order preview hidden while a trade is on.') + '</span>' +
+          '<button class="btuse" style="white-space:nowrap" data-bt="draft" data-v="' + (showDraft() ? '0' : '1') + '">' +
+          (showDraft() ? 'Hide' : 'Show on chart') + '</button></div>'
+        : '') +
       (chB.tool === "btpick" && chB._pickField
         ? '<div class="hint" style="margin-bottom:6px;color:var(--amber)">Tap a price on the chart to set the ' +
           (chB._pickField === "entry" ? "entry" : chB._pickField === "sl" ? "stop loss" : "take profit") + '.</div>'
@@ -8846,6 +8896,8 @@ var PROG = (function () {
         var pos = BT.pos.filter(function (x) { return x.id === id; })[0];
         if (a === "take") { takeSignal(); return; }
         if (a === "skipnext") { skipToNext(); return; }
+        if (a === "draft") BT.draft = v === "1";
+        if (a === "dir" || a === "otype" || a === "pick") BT.draft = true;
         if (a === "dir") { BT.dir = +v; BT.tSL = BT.tTP = BT.tPrice = null; }
         if (a === "otype") {
           BT.otype = v; BT.tPrice = null;
@@ -8909,6 +8961,7 @@ var PROG = (function () {
       var el = $(id);
       if (el) el.onchange = function () {
         var v = +this.value; if (isFinite(v)) set(v);
+        if (id !== "btLots") BT.draft = true;
         syncDraw(); chB.render(); paintBT();
       };
     }
@@ -8963,6 +9016,7 @@ var PROG = (function () {
         toast(BT.otype + " order placed at " + px(entry));
       }
       BT.tSL = BT.tTP = BT.tPrice = null;
+      BT.draft = false;                /* it's a real order now -- drop the draft */
       syncDraw(); chB.render(); paintBT();
     };
 
