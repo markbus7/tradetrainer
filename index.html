@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.57.0 (build 2026-09-24) — Al Brooks price action -->
+<!-- Trade Trainer v3.58.0 (build 2026-09-24) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -358,7 +358,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.57.0", build: "2026-09-24", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.58.0", build: "2026-09-24", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -7413,7 +7413,8 @@ var PROG = (function () {
     btFills: btFills, btSeries: btSeries, equity: equity, openPL: openPL,
     lotUnits: lotUnits, toLots: toLots, toUnits: toUnits, fmtLots: fmtLots,
     perPoint: perPoint, pipName: pipName,
-    unitsFor: unitsFor, btStats: btStats, btReport: btReport, btChartText: btChartText, paintBT: paintBT, autoRun: autoRun, structRead: structRead, tradeCheck: tradeCheck, ticketLevels: ticketLevels,
+    unitsFor: unitsFor, btStats: btStats, btReport: btReport, btChartText: btChartText,
+    paintBT: paintBT, autoRun: autoRun, autoWatch: autoWatch, autoStop: autoStop, autoCtl: autoCtl, structRead: structRead, tradeCheck: tradeCheck, ticketLevels: ticketLevels,
     get session() { return S; },
     get HIST() { return HIST; }, histReview: histReview, preGrade: preGrade, paintHist: paintHist, histSave: histSave, get chH() { return chH; }
   };
@@ -7437,6 +7438,8 @@ var PROG = (function () {
     pos: [], ord: [], log: [], nextId: 1,
     dir: 1, otype: "market", playing: false, timer: null, speed: 320,
     draft: false,                         /* user is working the ticket: preview it */
+    dealMap: true,                        /* closed trades drawn entry -> exit on the chart */
+    autoVis: null, autoTimer: null,       /* a visual auto-backtest in progress */
     peak: 25000, maxDD: 0, curve: [25000]
   };
 
@@ -7646,7 +7649,7 @@ var PROG = (function () {
       /* R is measured against the risk the WHOLE trade started with — dividing a
          partial by its own slice risk would make scaling out look better than it is */
       pl: pl, r: p.rpu > 0 ? pl / (p.rpu * p.units0) : 0,
-      why: why || "manual", idx: chB.vis });
+      why: why || "manual", idx: chB.vis, openIdx: p.openIdx, ch: BT.ch });
     if (p.exits) p.exits.push({ idx: chB.vis, price: price, why: why || "manual", pl: pl,
       r: p.rpu > 0 ? pl / (p.rpu * p.units0) : 0 });
     if (p.units <= 1e-9) {
@@ -7935,6 +7938,35 @@ var PROG = (function () {
     }
     return { good: good, msg: msg, rr: rr, be: be };
   }
+  /** Deal map: every closed trade (or slice of one) on this tape, from its
+      entry to its exit -- green if it made money, red if not -- the way
+      cTrader draws past deals. Only exits already revealed. */
+  function drawDeals(c, b, ch) {
+    if (!BT.dealMap || !BT.log.length) return;
+    c.save();
+    c.beginPath(); c.rect(0, 0, b.r, b.t + b.h); c.clip();
+    BT.log.forEach(function (t) {
+      if (t.ch !== BT.ch || t.openIdx == null || t.idx > ch.vis) return;
+      var x1 = ch.x(t.openIdx), y1 = ch.y(t.entry), x2 = ch.x(t.idx), y2 = ch.y(t.exit);
+      if (Math.max(x1, x2) < 0 || Math.min(x1, x2) > b.r) return;
+      var col = t.pl >= 0 ? COL.ok : COL.bad;
+      c.strokeStyle = col; c.lineWidth = 1.5; c.setLineDash([4, 3]);
+      c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); c.setLineDash([]);
+      /* entry: a triangle pointing the way the trade was */
+      var s = 6, dy = t.dir > 0 ? 1 : -1;
+      c.fillStyle = t.dir > 0 ? COL.blue : COL.amber;
+      c.beginPath(); c.moveTo(x1, y1); c.lineTo(x1 - s, y1 + dy * s * 1.4); c.lineTo(x1 + s, y1 + dy * s * 1.4); c.closePath(); c.fill();
+      /* exit: a square */
+      c.fillStyle = col; c.strokeStyle = "#0B0E13"; c.lineWidth = 1;
+      c.fillRect(x2 - 3.5, y2 - 3.5, 7, 7); c.strokeRect(x2 - 3.5, y2 - 3.5, 7, 7);
+      var txt = (t.r >= 0 ? "+" : "") + t.r.toFixed(2) + "R";
+      c.font = "700 10px 'IBM Plex Mono',monospace"; c.textAlign = "left"; c.textBaseline = "middle";
+      var w = c.measureText(txt).width + 6;
+      c.fillStyle = "rgba(11,14,19,.85)"; c.fillRect(x2 + 6, y2 - 7, w, 14);
+      c.fillStyle = col; c.fillText(txt, x2 + 9, y2);
+    });
+    c.restore();
+  }
   /* drawn on the Desk chart itself when Coach is on */
   /* a title that stays readable over whatever lines run underneath it */
   function plate(c, txt, x, y, col) {
@@ -8168,6 +8200,7 @@ var PROG = (function () {
     };
   }
   function showDraft() {
+    if (BT.autoVis) return false;
     return BT.draft || !(BT.pos.length || BT.ord.length);
   }
   /** The ticket's current entry/stop/target -- the same defaults paintBT()
@@ -8235,7 +8268,7 @@ var PROG = (function () {
     chB.gt = null; chB.sigBar = null;
     chB.setSpan(150, 110);
     chB.onChange = function () { readDraw(); paintBT(); };
-    chB.overlayFn = drawRead;
+    chB.overlayFn = function (c, b, ch) { drawDeals(c, b, ch); drawRead(c, b, ch); };
     if (!chB._btPoint) {
       /* the stock 'pos' tool clears every pos drawing on the chart, which would
          wipe the open positions — so the desk gets its own placement tool */
@@ -8320,12 +8353,16 @@ var PROG = (function () {
      those documented win rates, not to discover them independently. A green
      run here shows the method's claimed numbers hold together and that
      following them mechanically compounds; it is not proof of a real edge. */
-  function autoRun(n) {
+  /* The auto-backtest in three parts so it can run two ways: all at once
+     (autoRun), or bar by bar on the chart like cTrader's visual mode
+     (autoWatch). Both drive exactly the same tick, so what you watch is
+     what the instant run does. */
+  function autoBegin(n) {
     n = Math.max(1, Math.min(5000, Math.round(n) || 100));
     if (BT.playing) btPlay();
     if (BT.log.length && !confirm("Run " + n + " automatic trades? This clears the " +
       BT.log.length + " trade" + (BT.log.length === 1 ? "" : "s") + " already in this account " +
-      "and starts fresh from " + money(BT.start) + ".")) return;
+      "and starts fresh from " + money(BT.start) + ".")) return null;
     btResetAccount(BT.start);
     var wasCoach = BT.coach;
     BT._auto = true;                   /* Coach's own trades stay out of your History */
@@ -8350,125 +8387,216 @@ var PROG = (function () {
     if (!BT.sym) BT.sym = (BT.ch && BT.ch.sym) || Mkt.INSTR[Math.floor(Math.random() * Mkt.INSTR.length)].sym;
     if (!BT.tf) BT.tf = (BT.ch && BT.ch.tf) || Mkt.TFS[Math.floor(Math.random() * Mkt.TFS.length)].k;
 
-    var guard = 0, MAX = n * 4000;
-    while (BT.log.length < n && guard++ < MAX) {
-      if (!BT.ch || chB.vis >= BT.ch.bars.length - 1) {
-        /* btNew() unconditionally wipes BT.pos -- fine for a human, who would
-           never hit "New tape" mid-trade, but this loop runs through tape
-           boundaries constantly. Close out anything still open at the last
-           printed price first, so a trade the tape simply ran out of room to
-           resolve is counted, not silently discarded. */
-        if (BT.pos.length) {
-          var lastPx = BT.ch.bars[BT.ch.bars.length - 1].c;
-          BT.pos.slice().forEach(function (p) { btClose(p, lastPx, 1, "eod"); });
-        }
-        BT.ord.length = 0;
-        btNew(true);
+    return { n: n, wasCoach: wasCoach, wasSym: wasSym, wasTf: wasTf, guard: 0, MAX: n * 4000 };
+  }
+  function autoDone(S) { return BT.log.length >= S.n || S.guard >= S.MAX; }
+  /** one bar of the mechanical run: new tape if needed, place Coach's order, reveal a bar, fill */
+  function autoTick(S) {
+    S.guard++;
+    if (!BT.ch || chB.vis >= BT.ch.bars.length - 1) {
+      /* btNew() unconditionally wipes BT.pos -- fine for a human, who would
+         never hit "New tape" mid-trade, but this loop runs through tape
+         boundaries constantly. Close out anything still open at the last
+         printed price first, so a trade the tape simply ran out of room to
+         resolve is counted, not silently discarded. */
+      if (BT.pos.length) {
+        var lastPx = BT.ch.bars[BT.ch.bars.length - 1].c;
+        BT.pos.slice().forEach(function (p) { btClose(p, lastPx, 1, "eod"); });
       }
-
-      /* a working order whose setup aged out unfilled is abandoned -- the
-         same discipline a human is expected to show, not an open-ended bet */
-      if (BT.ord.length && BT.ord[0]._sigI != null && chB.vis - BT.ord[0]._sigI > COACH_WINDOW) {
-        BT.ord.length = 0;
-      }
-
-      if (BT.pos.length === 0 && BT.ord.length === 0) {
-        var g = liveSignal();
-        if (g && g.tradeable && !g._taken && g.entry != null && g.stop != null && g.target != null) {
-          g._taken = true;
-          var u = unitsFor(g.entry, g.stop);
-          if (u > 0) BT.ord.push({ id: BT.nextId++, kind: g.entryType === "limit" ? "limit" : "stop",
-            dir: g.dir, price: g.entry, units: u, sl: g.stop, tp: g.target, _sigI: g.i });
-        }
-      }
-      chB.vis++;
-      btFills(chB.vis);
-
-      /* unitsFor(g.entry, g.stop) above sizes the order BEFORE it fills, off
-         the signal's intended entry -- but a stop or limit order can gap-fill
-         well past that price (btFills' own "or better/or worse" fill logic),
-         which changes the REAL distance from entry to stop without changing
-         the units already committed to. Left alone, a stop-out then loses
-         (actual distance / intended distance) times the 1% that was promised
-         -- confirmed directly: one run gap-filled 3.35x past its intended
-         distance, and on a bad enough gap this compounds into wiping out
-         most of the account while every trade still just reads "-1.00R" in
-         the log (R is computed from the ACTUAL post-fill distance, so it
-         stays blind to how it was mis-sized). Re-deriving units right after
-         a fill, from the price that actually happened, is what makes "1%
-         risk" true instead of aspirational. */
-      if (BT.pos.length === 1 && BT.pos[0].openIdx === chB.vis) {
-        var justFilled = BT.pos[0];
-        /* A gap severe enough can fill a stop or limit order not just far
-           from its intended entry, but past one of the order's OWN levels --
-           confirmed directly, both directions:
-           - an ADVERSE gap can fill past the order's own STOP: a long limit
-             meant to fill near 104.94 with a stop at 104.70 instead filled at
-             104.40, putting the stop ABOVE the entry it was supposed to
-             protect. btFills' exit check only tests "has price reached sl",
-             so the very next check closes it -- at a price on the
-             FAVOURABLE side of the actual entry, logged as "stop" with a
-             positive R and a real profit.
-           - a FAVOURABLE gap (much more common -- 103 cases in one sweep vs.
-             1-2 for the stop side) can fill past the order's own TARGET: a
-             breakout meant to fill near 26,251 instead filled at 37,626,
-             already well beyond its own 27,738 target before the trade even
-             began. The very next check closes it "at target" -- for a LOSS,
-             because the target is now behind the actual entry.
-           Either way, a level swapping sides with entry is not a rare bad
-           outcome, it is a mislabelled one: the trade's whole premise (a
-           defined risk-to-reward from THIS entry) no longer means anything
-           once one of its levels sits on the wrong side of it, so it isn't
-           sized or scored as a normal trade -- it's closed flat,
-           immediately, tagged distinctly from a real stop or a real
-           target. */
-        var wrongSide = (justFilled.entry - justFilled.sl) * justFilled.dir <= 0;
-        var wrongTarget = justFilled.tp != null &&
-          (justFilled.tp - justFilled.entry) * justFilled.dir <= 0;
-        if (wrongSide || wrongTarget) {
-          btClose(justFilled, justFilled.entry, 1, "invalid-fill");
-        } else {
-          /* unitsFor(g.entry, g.stop) above sizes the order BEFORE it fills,
-             off the signal's intended entry -- but a stop or limit order can
-             gap-fill well past that price, changing the REAL distance from
-             entry to stop without changing the units already committed to.
-             Left alone, a stop-out then loses (actual distance / intended
-             distance) times the 1% that was promised -- confirmed directly:
-             one run gap-filled 3.35x past its intended distance, and on a
-             bad enough gap this compounds into wiping out most of the
-             account while every trade still just reads "-1.00R" in the log
-             (R is computed from the ACTUAL post-fill distance, so it stays
-             blind to how it was mis-sized). Re-deriving units right after a
-             fill, from the price that actually happened, is what makes "1%
-             risk" true instead of aspirational. */
-          var trueUnits = unitsFor(justFilled.entry, justFilled.sl);
-          if (trueUnits > 0) {
-            justFilled.units = justFilled.units0 = trueUnits;
-            justFilled.rpu = Math.abs(justFilled.entry - justFilled.sl) * qRate();
-          } else {
-            /* the fill landed exactly on its own stop -- no real trade to size */
-            btClose(justFilled, justFilled.entry, 1, "degenerate");
-          }
-        }
-      }
-      coachTally();
+      BT.ord.length = 0;
+      btNew(true);
     }
-    BT.coach = wasCoach;
+
+    /* a working order whose setup aged out unfilled is abandoned -- the
+       same discipline a human is expected to show, not an open-ended bet */
+    if (BT.ord.length && BT.ord[0]._sigI != null && chB.vis - BT.ord[0]._sigI > COACH_WINDOW) {
+      BT.ord.length = 0;
+    }
+
+    if (BT.pos.length === 0 && BT.ord.length === 0) {
+      var g = liveSignal();
+      if (g && g.tradeable && !g._taken && g.entry != null && g.stop != null && g.target != null) {
+        g._taken = true;
+        var u = unitsFor(g.entry, g.stop);
+        if (u > 0) BT.ord.push({ id: BT.nextId++, kind: g.entryType === "limit" ? "limit" : "stop",
+          dir: g.dir, price: g.entry, units: u, sl: g.stop, tp: g.target, _sigI: g.i });
+      }
+    }
+    chB.vis++;
+    btFills(chB.vis);
+
+    /* unitsFor(g.entry, g.stop) above sizes the order BEFORE it fills, off
+       the signal's intended entry -- but a stop or limit order can gap-fill
+       well past that price (btFills' own "or better/or worse" fill logic),
+       which changes the REAL distance from entry to stop without changing
+       the units already committed to. Left alone, a stop-out then loses
+       (actual distance / intended distance) times the 1% that was promised
+       -- confirmed directly: one run gap-filled 3.35x past its intended
+       distance, and on a bad enough gap this compounds into wiping out
+       most of the account while every trade still just reads "-1.00R" in
+       the log (R is computed from the ACTUAL post-fill distance, so it
+       stays blind to how it was mis-sized). Re-deriving units right after
+       a fill, from the price that actually happened, is what makes "1%
+       risk" true instead of aspirational. */
+    if (BT.pos.length === 1 && BT.pos[0].openIdx === chB.vis) {
+      var justFilled = BT.pos[0];
+      /* A gap severe enough can fill a stop or limit order not just far
+         from its intended entry, but past one of the order's OWN levels --
+         confirmed directly, both directions:
+         - an ADVERSE gap can fill past the order's own STOP: a long limit
+           meant to fill near 104.94 with a stop at 104.70 instead filled at
+           104.40, putting the stop ABOVE the entry it was supposed to
+           protect. btFills' exit check only tests "has price reached sl",
+           so the very next check closes it -- at a price on the
+           FAVOURABLE side of the actual entry, logged as "stop" with a
+           positive R and a real profit.
+         - a FAVOURABLE gap (much more common -- 103 cases in one sweep vs.
+           1-2 for the stop side) can fill past the order's own TARGET: a
+           breakout meant to fill near 26,251 instead filled at 37,626,
+           already well beyond its own 27,738 target before the trade even
+           began. The very next check closes it "at target" -- for a LOSS,
+           because the target is now behind the actual entry.
+         Either way, a level swapping sides with entry is not a rare bad
+         outcome, it is a mislabelled one: the trade's whole premise (a
+         defined risk-to-reward from THIS entry) no longer means anything
+         once one of its levels sits on the wrong side of it, so it isn't
+         sized or scored as a normal trade -- it's closed flat,
+         immediately, tagged distinctly from a real stop or a real
+         target. */
+      var wrongSide = (justFilled.entry - justFilled.sl) * justFilled.dir <= 0;
+      var wrongTarget = justFilled.tp != null &&
+        (justFilled.tp - justFilled.entry) * justFilled.dir <= 0;
+      if (wrongSide || wrongTarget) {
+        btClose(justFilled, justFilled.entry, 1, "invalid-fill");
+      } else {
+        /* unitsFor(g.entry, g.stop) above sizes the order BEFORE it fills,
+           off the signal's intended entry -- but a stop or limit order can
+           gap-fill well past that price, changing the REAL distance from
+           entry to stop without changing the units already committed to.
+           Left alone, a stop-out then loses (actual distance / intended
+           distance) times the 1% that was promised -- confirmed directly:
+           one run gap-filled 3.35x past its intended distance, and on a
+           bad enough gap this compounds into wiping out most of the
+           account while every trade still just reads "-1.00R" in the log
+           (R is computed from the ACTUAL post-fill distance, so it stays
+           blind to how it was mis-sized). Re-deriving units right after a
+           fill, from the price that actually happened, is what makes "1%
+           risk" true instead of aspirational. */
+        var trueUnits = unitsFor(justFilled.entry, justFilled.sl);
+        if (trueUnits > 0) {
+          justFilled.units = justFilled.units0 = trueUnits;
+          justFilled.rpu = Math.abs(justFilled.entry - justFilled.sl) * qRate();
+        } else {
+          /* the fill landed exactly on its own stop -- no real trade to size */
+          btClose(justFilled, justFilled.entry, 1, "degenerate");
+        }
+      }
+    }
+    coachTally();
+  }
+  function autoEnd(S) {
+    BT.coach = S.wasCoach;
     BT._auto = false;
     /* Restoring BT.sym/BT.tf doesn't touch the tape that was just built (the
        report reads BT.ch.sym, the actual instrument traded, not BT.sym) --
        it only lets "Any market" go back to picking randomly for whatever
        tape comes next, instead of staying pinned to what this run landed on. */
-    BT.sym = wasSym; BT.tf = wasTf;
+    BT.sym = S.wasSym; BT.tf = S.wasTf;
     /* the toolbar's Coach button is only redrawn by buildBTTools() (called
        from btNew(), which the loop just ran with coach forced on) -- without
        this it would keep showing "Coach: ON" after being restored to off */
     buildBTTools();
     syncDraw(); chB.render(); paintBT();
     var st = btStats();
-    toast(st.n + (st.n < n ? " of " + n : "") + " trades done — " + (st.avgR >= 0 ? "+" : "") +
+    toast(st.n + (st.n < S.n ? " of " + S.n : "") + " trades done — " + (st.avgR >= 0 ? "+" : "") +
       st.avgR.toFixed(2) + "R avg, " + Math.round(st.win * 100) + "% win rate, PF " +
       (isFinite(st.pf) ? st.pf.toFixed(2) : "∞"));
+  }
+  function autoRun(n) {
+    var S = autoBegin(n);
+    if (!S) return;
+    while (!autoDone(S)) autoTick(S);
+    autoEnd(S);
+  }
+  /** Visual mode: the same ticks, paced on the chart. Between trades it
+      fast-forwards (up to 30 bars a frame) unless told not to, so the dead air
+      between setups does not take minutes; once an order is working or a
+      position is open it goes one bar per frame at the toolbar speed. */
+  function autoWatch(n) {
+    if (BT.autoVis) return;
+    if (BT.playing) btPlay();
+    var S = autoBegin(n);
+    if (!S) return;
+    S.ff = true; S.paused = false;
+    BT.autoVis = S;
+    buildBTTools();
+    autoFrame();
+  }
+  function autoFrame() {
+    var S = BT.autoVis;
+    clearTimeout(BT.autoTimer);
+    if (!S || S.paused) return;
+    var ch0 = BT.ch, k = 0;
+    do { autoTick(S); k++; }
+    while (!autoDone(S) && S.ff && k < 30 && !BT.pos.length && !BT.ord.length && BT.ch === ch0);
+    chB.locked = true;                 /* its trades are its own: look, don't touch */
+    if (chB.vis > chB.i1 - 6) { var span = chB.i1 - chB.i0; chB.i1 = chB.vis + 8; chB.i0 = chB.i1 - span; }
+    syncDraw(); chB.render();
+    /* the panel is rebuilt a few times a second, not every frame -- at Turbo
+       a button replaced 25x a second eats the click aimed at it */
+    var now = Date.now();
+    if (!S.painted || now - S.painted > 350) { paintBT(); S.painted = now; }
+    if (autoDone(S)) { autoStop(); return; }
+    BT.autoTimer = setTimeout(autoFrame, BT.speed);
+  }
+  function autoStop() {
+    var S = BT.autoVis;
+    if (!S) return;
+    clearTimeout(BT.autoTimer); BT.autoTimer = null;
+    /* stopped early: settle what it still holds, as a backtest's end does */
+    if (!autoDone(S)) {
+      BT.ord.length = 0;
+      BT.pos.slice().forEach(function (p) { btClose(p, btPrice(), 1, "end"); });
+    }
+    BT.autoVis = null;
+    chB.locked = false;
+    autoEnd(S);
+  }
+  function autoCtl(v) {
+    var S = BT.autoVis;
+    if (!S) return;
+    if (v === "pause") { S.paused = !S.paused; if (!S.paused) autoFrame(); else paintBT(); }
+    if (v === "step" && S.paused) {
+      /* one bar, even between trades, then hold */
+      var keepFF = S.ff; S.ff = false; S.paused = false;
+      autoFrame(); clearTimeout(BT.autoTimer);
+      S.ff = keepFF;
+      if (BT.autoVis) { S.paused = true; paintBT(); }
+    }
+    if (v === "stop") autoStop();
+    if (v === "ff") { S.ff = !S.ff; paintBT(); }
+  }
+  /* on press, not on click, and delegated -- the panel may be rebuilt
+     between a press and its release while the run is playing */
+  $("btPanel").addEventListener("pointerdown", function (e) {
+    var t = e.target.closest && e.target.closest("[data-av]");
+    if (!t || !BT.autoVis) return;
+    e.preventDefault();
+    autoCtl(t.dataset.av);
+  });
+  function autoPanel() {
+    var S = BT.autoVis, st = btStats();
+    return '<div class="btkv" style="margin-top:6px"><span>Trade</span><b>' + st.n + ' of ' + S.n + '</b></div>' +
+      '<div class="btkv"><span>Now</span><b>' + (BT.pos.length ? (BT.pos[0].dir > 0 ? "long" : "short") + " · open " + money(openPL()) :
+        BT.ord.length ? "order working" : S.paused ? "paused" : "waiting for a setup") + '</b></div>' +
+      '<div class="btkv"><span>So far</span><b class="' + (st.netR >= 0 ? "up" : "dn") + '">' + (st.netR >= 0 ? "+" : "") + st.netR.toFixed(2) + 'R · ' +
+        (st.n ? Math.round(st.win * 100) : 0) + '% wins</b></div>' +
+      '<div class="btbtns"><button class="btn" data-av="pause">' + (S.paused ? "Resume ▶" : "Pause ❚❚") + '</button>' +
+      (S.paused ? '<button class="btn" data-av="step">Next bar ▸</button>' : '') +
+      '<button class="btn" data-av="stop">Stop ■</button></div>' +
+      '<div class="btkv" style="margin-top:6px;align-items:center"><span>Fast-forward between trades</span>' +
+      '<button class="btuse" data-av="ff">' + (S.ff ? "On" : "Off") + '</button></div>' +
+      '<div class="hint" style="margin-top:3px;font-size:10.5px">Speed is the Slow / Normal / Fast / Turbo menu in the toolbar.</div>';
   }
   /* =====================================================================
      HISTORY — every trade you take on the Desk, kept with the bars around
@@ -8940,6 +9068,8 @@ var PROG = (function () {
       actBtn("undo", "↺", "Undo", "Undo the last drawing") +
       actBtn("clear", "✕", "Clear all", "Clear every drawing — to remove just one, click it and press its ✕") +
       actBtn("fit", "⤢", "Fit", "Fit the chart to the bars") +
+      '<button class="tool lab' + (BT.dealMap ? ' on' : '') + '" data-act="deals" title="Deal map — draw every closed trade on this tape from entry to exit">' +
+      '<span class="ic">⤳</span><span class="tl">Deals</span></button>' +
       actBtn("copy", "⧉", "Copy", "Copy what's on screen as text — the bars, the read, the setup and your orders — to paste into a chat") +
       '<div class="tsep"></div>' +
       /* Coach sits right up front, immediately after the drawing tools, because
@@ -8967,6 +9097,8 @@ var PROG = (function () {
     [].forEach.call(wrap.querySelectorAll("[data-act]"), function (b) {
       b.onclick = function () {
         var a = b.dataset.act;
+        if (BT.autoVis && /^(s1|s10|play|coach|new)$/.test(a)) { toast("The backtest is driving the chart — pause or stop it first"); return; }
+        if (a === "deals") { BT.dealMap = !BT.dealMap; buildBTTools(); chB.render(); return; }
         if (a === "undo") { chB.undo(); syncDraw(); }
         if (a === "clear") { chB.drawings = chB.drawings.filter(function (d) { return d._bt; }); }
         if (a === "fit") chB.fit();
@@ -9223,7 +9355,8 @@ var PROG = (function () {
         'title="' + (armed ? "Cancel picking" : "Click, then tap a price on the chart") + '">' +
         (armed ? "✕" : "⊕") + '</button></label>';
     }
-    out.push('<div class="btsec"><h5>Order ticket</h5>' +
+    if (BT.autoVis) out.push('<div class="btsec"><h5>Order ticket</h5><div class="hint">Coach is trading this account — the ticket comes back when the backtest stops.</div></div>');
+    else out.push('<div class="btsec"><h5>Order ticket</h5>' +
       '<div class="btseg" style="margin-bottom:7px">' +
       '<button class="buy' + (BT.dir > 0 ? " on" : "") + '" data-bt="dir" data-v="1">Buy</button>' +
       '<button class="sell' + (BT.dir < 0 ? " on" : "") + '" data-bt="dir" data-v="-1">Sell</button></div>' +
@@ -9295,7 +9428,7 @@ var PROG = (function () {
               x.pct + '% @ ' + px(x.price) + '</button>' +
               '<button data-bt="delpart" data-id="' + p.id + '" data-v="' + n + '" title="Remove">✕</button>';
         }).join("") + '</div>' : '') +
-        '<div class="acts">' +
+        (BT.autoVis ? '</div>' : '<div class="acts">' +
         '<button data-bt="close" data-id="' + p.id + '" data-v="1">Close</button>' +
         '<button data-bt="close" data-id="' + p.id + '" data-v="0.5">Close 50%</button>' +
         '<button data-bt="close" data-id="' + p.id + '" data-v="0.25">25%</button>' +
@@ -9307,7 +9440,7 @@ var PROG = (function () {
         (addUnits > 1e-9 ? '<button data-bt="topup" data-id="' + p.id +
           '" title="Add units at the current price so total risk reaches 1% of equity">' +
           'Top up to 1%</button>' : '') +
-        '</div></div>');
+        '</div></div>'));
     });
     out.push('</div>');
 
@@ -9350,9 +9483,12 @@ var PROG = (function () {
       'stops, targets and 1% risk sizing you\'d use by hand. This checks whether following Coach ' +
       'mechanically compounds the way the method\'s own documented odds say it should — the bars ' +
       'are synthetic, so it is <b>not</b> a test against real market data.</div>' +
+      (BT.autoVis ? autoPanel() :
       '<div style="margin-top:7px"><label class="btlab">Trades to run</label>' +
-      '<input class="btin" id="btAutoN" type="number" step="1" min="1" max="5000" value="100"></div>' +
-      '<div class="btbtns" style="margin-top:7px"><button class="btn" id="btAutoRun">Run</button></div>' +
+      '<input class="btin" id="btAutoN" type="number" step="1" min="1" max="5000" value="' + (BT.autoN || 100) + '"></div>' +
+      '<div class="btbtns" style="margin-top:7px"><button class="btn" id="btAutoWatch" title="Play it on the chart bar by bar, like a visual backtest">Watch it trade ▶</button>' +
+      '<button class="btn" id="btAutoRun" title="Run every trade instantly">Run instantly</button></div>' +
+      '<div class="hint" style="margin-top:5px;font-size:10.5px">Watch plays on the chart at the toolbar speed and fast-forwards between setups. Closed trades stay drawn on the chart (Deals).</div>') +
       '</div>');
 
     /* results */
@@ -9404,6 +9540,7 @@ var PROG = (function () {
       b.onclick = function () {
         var a = b.dataset.bt, id = +b.dataset.id, v = b.dataset.v;
         var pos = BT.pos.filter(function (x) { return x.id === id; })[0];
+        if (BT.autoVis && a !== "hist") { toast("The backtest is trading — stop it to trade by hand"); return; }
         if (a === "take") { takeSignal(); return; }
         if (a === "hist") { setView("history"); return; }
         if (a === "grade") BT.gradeAsk = true;
@@ -9496,8 +9633,17 @@ var PROG = (function () {
     if (arBtn) arBtn.onclick = function () {
       var el = $("btAutoN"), n = el ? +el.value : 100;
       if (!(n > 0)) { toast("Enter how many trades to run"); return; }
+      BT.autoN = n;
       autoRun(n);
     };
+    var awBtn = $("btAutoWatch");
+    if (awBtn) awBtn.onclick = function () {
+      var el = $("btAutoN"), n = el ? +el.value : 100;
+      if (!(n > 0)) { toast("Enter how many trades to run"); return; }
+      BT.autoN = n;
+      autoWatch(n);
+    };
+
 
     [].forEach.call(P.querySelectorAll("[data-olot]"), function (el) {
       el.onchange = function () {
@@ -9509,6 +9655,7 @@ var PROG = (function () {
     });
     var pl = $("btPlace");
     if (pl) pl.onclick = function () {
+      if (BT.autoVis) { toast("The backtest is trading — stop it to trade by hand"); return; }
       var at = btPrice(), A = btATR();
       var entry = BT.otype === "market" ? at
         : (BT.tPrice != null ? BT.tPrice : at + BT.dir * A);
