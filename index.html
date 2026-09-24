@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.58.0 (build 2026-09-24) — Al Brooks price action -->
+<!-- Trade Trainer v3.58.1 (build 2026-09-24) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -358,7 +358,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.58.0", build: "2026-09-24", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.58.1", build: "2026-09-24", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -8522,6 +8522,13 @@ var PROG = (function () {
       fast-forwards (up to 30 bars a frame) unless told not to, so the dead air
       between setups does not take minutes; once an order is working or a
       position is open it goes one bar per frame at the toolbar speed. */
+  /* bar-to-bar delay (ms) and its name -- one table for the toolbar menu and
+     the Watch panel's slower / faster buttons */
+  var SPEEDS = [[2000, "Very slow"], [1200, "Slower"], [600, "Slow"], [320, "Normal"], [120, "Fast"], [40, "Turbo"]];
+  function speedName() {
+    var m = SPEEDS.filter(function (x) { return x[0] === BT.speed; })[0];
+    return m ? m[1] : BT.speed + " ms";
+  }
   function autoWatch(n) {
     if (BT.autoVis) return;
     if (BT.playing) btPlay();
@@ -8536,17 +8543,23 @@ var PROG = (function () {
     var S = BT.autoVis;
     clearTimeout(BT.autoTimer);
     if (!S || S.paused) return;
-    var ch0 = BT.ch, k = 0;
+    var ch0 = BT.ch, k = 0, nLog = BT.log.length, nPos = BT.pos.length;
     do { autoTick(S); k++; }
     while (!autoDone(S) && S.ff && k < 30 && !BT.pos.length && !BT.ord.length && BT.ch === ch0);
+    /* optionally hold at each fill and each exit, to look at it */
+    if (S.holdAt && (BT.pos.length > nPos || BT.log.length > nLog) && !autoDone(S)) {
+      S.paused = true;
+      toast(BT.log.length > nLog ? "Trade closed — paused. Resume when ready." : "Order filled — paused. Resume when ready.");
+    }
     chB.locked = true;                 /* its trades are its own: look, don't touch */
     if (chB.vis > chB.i1 - 6) { var span = chB.i1 - chB.i0; chB.i1 = chB.vis + 8; chB.i0 = chB.i1 - span; }
     syncDraw(); chB.render();
     /* the panel is rebuilt a few times a second, not every frame -- at Turbo
        a button replaced 25x a second eats the click aimed at it */
     var now = Date.now();
-    if (!S.painted || now - S.painted > 350) { paintBT(); S.painted = now; }
+    if (S.paused || !S.painted || now - S.painted > 350) { paintBT(); S.painted = now; }
     if (autoDone(S)) { autoStop(); return; }
+    if (S.paused) return;
     BT.autoTimer = setTimeout(autoFrame, BT.speed);
   }
   function autoStop() {
@@ -8575,6 +8588,15 @@ var PROG = (function () {
     }
     if (v === "stop") autoStop();
     if (v === "ff") { S.ff = !S.ff; paintBT(); }
+    if (v === "hold") { S.holdAt = !S.holdAt; paintBT(); }
+    if (v === "slower" || v === "faster") {
+      var i = SPEEDS.map(function (x) { return x[0]; }).indexOf(BT.speed);
+      if (i < 0) i = 3;
+      i = Math.max(0, Math.min(SPEEDS.length - 1, i + (v === "slower" ? -1 : 1)));
+      BT.speed = SPEEDS[i][0];
+      var sel = $("btSpeed"); if (sel) sel.value = String(BT.speed);
+      paintBT();
+    }
   }
   /* on press, not on click, and delegated -- the panel may be rebuilt
      between a press and its release while the run is playing */
@@ -8594,9 +8616,16 @@ var PROG = (function () {
       '<div class="btbtns"><button class="btn" data-av="pause">' + (S.paused ? "Resume ▶" : "Pause ❚❚") + '</button>' +
       (S.paused ? '<button class="btn" data-av="step">Next bar ▸</button>' : '') +
       '<button class="btn" data-av="stop">Stop ■</button></div>' +
-      '<div class="btkv" style="margin-top:6px;align-items:center"><span>Fast-forward between trades</span>' +
+      '<div class="btkv" style="margin-top:8px;align-items:center"><span>Speed</span>' +
+      '<span style="display:flex;gap:5px;align-items:center"><button class="btuse" data-av="slower" title="Slower">− slower</button>' +
+      '<b style="min-width:62px;text-align:center">' + speedName() + '</b>' +
+      '<button class="btuse" data-av="faster" title="Faster">faster +</button></span></div>' +
+      '<div class="btkv" style="margin-top:5px;align-items:center"><span>Fast-forward between trades</span>' +
       '<button class="btuse" data-av="ff">' + (S.ff ? "On" : "Off") + '</button></div>' +
-      '<div class="hint" style="margin-top:3px;font-size:10.5px">Speed is the Slow / Normal / Fast / Turbo menu in the toolbar.</div>';
+      '<div class="btkv" style="margin-top:5px;align-items:center"><span>Pause at every fill and exit</span>' +
+      '<button class="btuse" data-av="hold">' + (S.holdAt ? "On" : "Off") + '</button></div>' +
+      '<div class="hint" style="margin-top:4px;font-size:10.5px">' + (S.ff ? 'Quiet stretches between setups are skipped; each trade plays at the speed above. Turn fast-forward off to watch every bar.' :
+        'Every bar plays at the speed above.') + '</div>';
   }
   /* =====================================================================
      HISTORY — every trade you take on the Desk, kept with the bars around
@@ -9086,8 +9115,8 @@ var PROG = (function () {
       '<button class="tool wide" data-act="s10">+10 ▸▸</button>' +
       '<button class="tool wide" data-act="play" id="btPlayBtn">Play ▶</button>' +
       '<select class="tool wide" id="btSpeed" title="Replay speed">' +
-      '<option value="600">Slow</option><option value="320" selected>Normal</option>' +
-      '<option value="120">Fast</option><option value="40">Turbo</option></select>' +
+      SPEEDS.map(function (x) { return '<option value="' + x[0] + '"' + (BT.speed === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') +
+      '</select>' +
       '<div class="tsep"></div>' +
       '<button class="tool wide" data-act="new">New tape</button>';
     wrap.innerHTML = html;
@@ -9145,6 +9174,7 @@ var PROG = (function () {
     if (sp) sp.onchange = function () {
       BT.speed = +this.value || 320;
       if (BT.playing) { btPlay(); btPlay(); }
+      if (BT.autoVis) paintBT();
     };
     chB._syncWrap = wrap;
     syncTools(wrap, chB);
