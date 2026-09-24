@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.58.2 (build 2026-09-24) — Al Brooks price action -->
+<!-- Trade Trainer v3.58.3 (build 2026-09-24) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -358,7 +358,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.58.2", build: "2026-09-24", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.58.3", build: "2026-09-24", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2058,7 +2058,12 @@ var Mkt = (function () {
     }
     b.h = Math.max(b.h, b.o, b.c); b.l = Math.min(b.l, b.o, b.c);
     b.v = Math.round(b.v * R.f(1.2, 2.1));
-    if (bars[i + 1]) bars[i + 1].o = b.c;
+    /* the next bar opens where this one now closes -- and its range has to
+       reach that open, or it becomes a bar whose open sits outside its own
+       high/low (0.4% of all bars, every one right after a signal bar, where
+       the trades are: stops booked at prices the bar never traded) */
+    var nb = bars[i + 1];
+    if (nb) { nb.o = b.c; nb.h = Math.max(nb.h, nb.o, nb.c); nb.l = Math.min(nb.l, nb.o, nb.c); }
     return q;
   }
 
@@ -7649,7 +7654,7 @@ var PROG = (function () {
       /* R is measured against the risk the WHOLE trade started with — dividing a
          partial by its own slice risk would make scaling out look better than it is */
       pl: pl, r: p.rpu > 0 ? pl / (p.rpu * p.units0) : 0,
-      why: why || "manual", idx: chB.vis, openIdx: p.openIdx, ch: BT.ch });
+      why: why || "manual", idx: chB.vis, openIdx: p.openIdx, ch: BT.ch, sl: p.sl, tp: p.tp });
     if (p.exits) p.exits.push({ idx: chB.vis, price: price, why: why || "manual", pl: pl,
       r: p.rpu > 0 ? pl / (p.rpu * p.units0) : 0 });
     if (p.units <= 1e-9) {
@@ -7727,17 +7732,42 @@ var PROG = (function () {
        first — the bar's path is unknown and flattering yourself here is the
        fastest way to build a backtest that lies to you. */
     for (var j = BT.pos.length - 1; j >= 0; j--) {
-      var p = BT.pos[j];
-      if (p.openIdx === i) continue;                    /* no same-bar exit */
-      var slHit = p.sl != null && (p.dir > 0 ? b.l <= p.sl : b.h >= p.sl);
-      if (slHit) { btClose(p, p.sl, 1, "stop"); continue; }
+      var p = BT.pos[j], d = p.dir;
+      /* a level the bar OPENED beyond was gapped through: a real order fills
+         at the open, not at the level (worse for a stop, better for a target) */
+      var past = function (lvl, fav) { return fav ? (d > 0 ? Math.max(b.o, lvl) : Math.min(b.o, lvl))
+                                                 : (d > 0 ? Math.min(b.o, lvl) : Math.max(b.o, lvl)); };
+      if (p.openIdx === i) {
+        /* The fill bar. Its high and low may have come before the fill, so
+           they prove nothing -- but its CLOSE came after it. A close beyond
+           the stop means the stop was hit on this bar; booking it on the next
+           bar instead put the exit at a price that bar never traded. A close
+           beyond the target means the target was hit -- unless the bar also
+           reached the stop, where the order is unknown and the stop counts. */
+        /* filled beyond its own stop or target (the price was already past
+           the order when it triggered): the trade's premise -- a set risk and
+           reward from THIS entry -- never existed. Closed flat and labelled so,
+           never booked as a 'stop' at a profit or a 'target' at a loss. */
+        if ((p.sl != null && (p.entry - p.sl) * d <= 0) || (p.tp != null && (p.tp - p.entry) * d <= 0)) {
+          btClose(p, p.entry, 1, "invalid-fill");
+          continue;
+        }
+        var cS = p.sl != null && (d > 0 ? b.c <= p.sl : b.c >= p.sl);
+        var cT = p.tp != null && (d > 0 ? b.c >= p.tp : b.c <= p.tp);
+        var reachS = p.sl != null && (d > 0 ? b.l <= p.sl : b.h >= p.sl);
+        if (cS || (cT && reachS)) btClose(p, p.sl, 1, "stop");
+        else if (cT) btClose(p, p.tp, 1, "target");
+        continue;
+      }
+      var slHit = p.sl != null && (d > 0 ? b.l <= p.sl : b.h >= p.sl);
+      if (slHit) { btClose(p, past(p.sl, false), 1, "stop"); continue; }
       (p.partials || []).forEach(function (pt) {
         if (pt.done) return;
-        var touched = p.dir > 0 ? b.h >= pt.price : b.l <= pt.price;
-        if (touched) { pt.done = true; btClose(p, pt.price, pt.pct / 100, "partial"); }
+        var touched = d > 0 ? b.h >= pt.price : b.l <= pt.price;
+        if (touched) { pt.done = true; btClose(p, past(pt.price, true), pt.pct / 100, "partial"); }
       });
       if (p.units <= 1e-9) continue;
-      if (p.tp != null && (p.dir > 0 ? b.h >= p.tp : b.l <= p.tp)) btClose(p, p.tp, 1, "target");
+      if (p.tp != null && (d > 0 ? b.h >= p.tp : b.l <= p.tp)) btClose(p, past(p.tp, true), 1, "target");
     }
 
   }
