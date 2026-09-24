@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.53.0 (build 2026-09-24) — Al Brooks price action -->
+<!-- Trade Trainer v3.54.0 (build 2026-09-24) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -327,7 +327,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.53.0", build: "2026-09-24", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.54.0", build: "2026-09-24", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -3167,19 +3167,31 @@ Chart.prototype._drawPos = function (c, b, d) {
     c.strokeStyle = col; c.lineWidth = 1.3; c.setLineDash([]);
     c.beginPath(); c.moveTo(x0, y); c.lineTo(xr, y); c.stroke();
     c.font = "700 10px Archivo,sans-serif"; c.textAlign = "left"; c.textBaseline = "bottom";
+    /* backed, so a label stays readable where another order's lines cross it */
+    c.fillStyle = "rgba(11,14,19,.8)"; c.fillRect(x0 + 2, y - 15, c.measureText(txt).width + 6, 13);
     c.fillStyle = col; c.fillText(txt, x0 + 5, y - 3);
     self._tag(c, xr + 1, y, self.fmt(val), col, "#0B0E13");
   }
-  line(yt, COL.ok, "TARGET", d.target);
+  line(yt, COL.ok, "TARGET" + this._pnlTxt(d, d.target), d.target);
   line(ye, COL.amber, d.dir > 0 ? "LONG ENTRY" : "SHORT ENTRY", d.entry);
-  line(ys, COL.bad, "STOP", d.stop);
+  line(ys, COL.bad, "STOP" + this._pnlTxt(d, d.stop), d.stop);
+  this._rrTxt(c, b, d, ye, yt);
+};
+
+/* What hitting a level would make or lose, when the owner of the drawing can
+   say (the desk supplies d.pnl) -- read straight off the line, the way a
+   broker's chart shows it. */
+Chart.prototype._pnlTxt = function (d, price) {
+  return typeof d.pnl === "function" ? "   " + d.pnl(d, price) : "";
+};
+/* the reward:risk readout in the top-right of a position box */
+Chart.prototype._rrTxt = function (c, b, d, ye, yt) {
   var risk = Math.abs(d.entry - d.stop), rew = Math.abs(d.target - d.entry);
   var rr = risk > 0 ? rew / risk : 0;
   c.font = "700 11px 'IBM Plex Mono',monospace"; c.textAlign = "right"; c.textBaseline = "top";
   c.fillStyle = rr >= 2 ? COL.ok : rr >= 1 ? COL.amber : COL.bad;
-  c.fillText(rr.toFixed(2) + "R", xr - 5, Math.min(ye, yt) + 4);
+  c.fillText(rr.toFixed(2) + "R", b.r - 5, Math.min(ye, yt) + 4);
 };
-
 /* An order that is still only on the ticket. Drawn so it cannot be mistaken
    for a live trade or a working order: no shaded zones, dashed lines, hollow
    price tags, and every label says NEW. */
@@ -3207,10 +3219,11 @@ Chart.prototype._drawDraft = function (c, b, d) {
     c.textBaseline = "middle"; c.fillStyle = col; c.fillText(t, xr + 5, y + 0.5);
   }
   var side = d.dir > 0 ? "BUY" : "SELL";
-  line(yt, COL.ok, "NEW TARGET", d.target);
+  line(yt, COL.ok, "NEW TARGET" + this._pnlTxt(d, d.target), d.target);
   line(ye, COL.paper, "NEW " + side + (d._noEntryDrag ? " AT MARKET" : " ENTRY") + " · not placed", d.entry);
-  line(ys, COL.bad, "NEW STOP", d.stop);
+  line(ys, COL.bad, "NEW STOP" + this._pnlTxt(d, d.stop), d.stop);
   c.setLineDash([]);
+  this._rrTxt(c, b, d, ye, yt);
 };
 
 /* readout used by the side panels */
@@ -8058,6 +8071,7 @@ var PROG = (function () {
     }
     BT.pos.forEach(function (p) {
       chB.drawings.push({ type: "pos", _bt: "pos", _id: p.id, i: p.openIdx, dir: p.dir,
+        pnl: pnlAt(function () { return p.units; }),
         entry: p.entry, stop: p.sl, target: p.tp == null ? p.entry + p.dir * btATR() * 2 : p.tp });
       (p.partials || []).forEach(function (pt, n) {
         if (!pt.done) chB.drawings.push({ type: "hline", _bt: "part", _id: p.id, _n: n, p: pt.price });
@@ -8066,6 +8080,7 @@ var PROG = (function () {
     BT.ord.forEach(function (o) {
       /* a working order gets the same three draggable lines as a live position */
       chB.drawings.push({ type: "pos", _bt: "ord", _id: o.id, i: Math.max(0, chB.vis - 18),
+        pnl: pnlAt(function () { return o.units; }),
         dir: o.dir, entry: o.price, stop: o.sl,
         target: o.tp == null ? o.price + o.dir * btATR() * 2 : o.tp });
     });
@@ -8082,7 +8097,16 @@ var PROG = (function () {
     if (!showDraft()) return;
     var lv = ticketLevels();
     chB.drawings.push({ type: "pos", _bt: "ticket", draft: true, i: chB.vis, dir: BT.dir,
+      pnl: pnlAt(function () { return toUnits(BT.lots); }),
       entry: lv.entry, stop: lv.sl, target: lv.tp, _noEntryDrag: BT.otype === "market" });
+  }
+  /** Money made or lost if price reaches a level, for a drawing's size --
+      computed at draw time, so it follows a drag and a lot change live. */
+  function pnlAt(units) {
+    return function (d, price) {
+      var m = (price - d.entry) * d.dir * units() * qRate(), eq = equity();
+      return (m > 0 ? "+" : "") + money(m) + (eq > 0 ? " (" + (Math.abs(m) / eq * 100).toFixed(2) + "%)" : "");
+    };
   }
   function showDraft() {
     return BT.draft || !(BT.pos.length || BT.ord.length);
