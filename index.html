@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.51.0 (build 2026-09-24) — Al Brooks price action -->
+<!-- Trade Trainer v3.52.0 (build 2026-09-24) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -327,7 +327,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.51.0", build: "2026-09-24", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.52.0", build: "2026-09-24", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2601,10 +2601,11 @@ Chart.prototype.render = function () {
   if (this.sigBar !== undefined && this.sigBar !== null) this._sigMark(c, b);
   if (this.gt) this._gtOverlay(c, b);
   this._markers(c, b);
-  if (this.overlayFn) this.overlayFn(c, b, this);
   var self = this;
   this.drawings.forEach(function (dr) { self._draw(c, b, dr, dr._bt === "ticket"); });
   if (this.pending) this._draw(c, b, previewOf(this.pending, this._hoverPt), true);
+  /* last, so its titles aren't printed over by other lines' labels */
+  if (this.overlayFn) this.overlayFn(c, b, this);
   c.restore();
   this._selBadge(c);
   this._axes(c, b);
@@ -7343,6 +7344,21 @@ var PROG = (function () {
   };
 
   /** one long tape: many contexts, each rebased to continue from the last close */
+  /** A context's structure, moved from its own bar/price frame onto the
+      stitched tape. Points are copied, never shared with the source gt. */
+  function segStruct(g, base, off, end) {
+    var P = function (pt) { return pt ? { i: pt.i + base, p: pt.p + off } : null; };
+    return {
+      from: base, to: end,
+      labels: (g.labels || []).filter(function (L) { return L && L[0]; })
+        .map(function (L) { return [P(L[0]), L[1]]; }),
+      rangeTop: g.rangeTop != null ? g.rangeTop + off : null,
+      rangeBot: g.rangeBot != null ? g.rangeBot + off : null,
+      trendline: g.trendline && g.trendline.a && g.trendline.b ? {
+        a: P(g.trendline.a), b: P(g.trendline.b), slope: g.trendline.slope,
+        thru: g.trendline.thru != null ? g.trendline.thru + base : null } : null
+    };
+  }
   function btSeries(seed, segs) {
     var R = Mkt.mkR(seed), bars = [], first = null, sigs = [];
     for (var s = 0; s < segs; s++) {
@@ -7365,8 +7381,13 @@ var PROG = (function () {
          Keep it, rebased onto the stitched tape, so the coach can show the setup
          as it arrives instead of the chart being a mystery. */
       var g = c.gt;
+      /* ...and the structure the setup is built on -- its named swing points
+         (push 1/2/3, spike high, range high/low...), range and trendline --
+         so the chart can show WHICH highs and lows make it a wedge or a
+         range, not just where to get in */
+      var st = g ? segStruct(g, base, off, base + src.length - 1) : null;
       if (g && g.sigIdx != null) {
-        sigs.push({
+        sigs.push({ st: st,
           i: base + g.sigIdx, key: g.key, name: g.name, cycle: g.cycle,
           dir: g.dir, tradeable: !!g.tradeable,
           entry: g.entry != null ? g.entry + off : null,
@@ -7392,7 +7413,7 @@ var PROG = (function () {
         var fa = g.firstAttempt;
         var faRisk = Math.abs(fa.entry - fa.stop), faRr = faRisk > 0
           ? Math.abs(fa.target - fa.entry) / faRisk : 0;
-        sigs.push({
+        sigs.push({ st: st,
           i: base + fa.i, key: g.key, name: g.name + " — first entry", cycle: g.cycle,
           dir: g.dir, tradeable: true,
           entry: fa.entry + off, stop: fa.stop + off, invalid: g.invalid != null ? g.invalid + off : null,
@@ -7417,6 +7438,21 @@ var PROG = (function () {
     if (lo <= first.bars[0].o * 0.25) {
       var lift = first.bars[0].o * 0.4 - lo;
       bars.forEach(function (b) { b.o += lift; b.h += lift; b.l += lift; b.c += lift; });
+      /* the setups' prices have to move with the bars, or Coach's lines sit
+         `lift` away from the structure they describe */
+      sigs.forEach(function (sg) {
+        ["entry", "stop", "invalid", "target"].forEach(function (k) { if (sg[k] != null) sg[k] += lift; });
+      });
+      var lifted = [];
+      sigs.forEach(function (sg) {
+        var t = sg.st;
+        if (!t || lifted.indexOf(t) >= 0) return;   /* first entry shares its main signal's structure */
+        lifted.push(t);
+        t.labels.forEach(function (L) { L[0].p += lift; });
+        if (t.rangeTop != null) t.rangeTop += lift;
+        if (t.rangeBot != null) t.rangeBot += lift;
+        if (t.trendline) { t.trendline.a.p += lift; t.trendline.b.p += lift; }
+      });
     }
     return { bars: bars, sym: first.sym, nm: first.nm, tf: first.tf, tfLbl: first.tfLbl,
       dec: first.dec, kind: first.kind, seed: seed, U: first.U, sigs: sigs,
@@ -7793,8 +7829,86 @@ var PROG = (function () {
     return { good: good, msg: msg, rr: rr, be: be };
   }
   /* drawn on the Desk chart itself when Coach is on */
+  /* a title that stays readable over whatever lines run underneath it */
+  function plate(c, txt, x, y, col) {
+    c.font = "700 11px Archivo,sans-serif"; c.textAlign = "left"; c.textBaseline = "top";
+    var w = c.measureText(txt).width;
+    c.fillStyle = "rgba(11,14,19,.88)"; c.fillRect(x - 4, y - 2, w + 8, 16);
+    c.fillStyle = col; c.fillText(txt, x, y);
+  }
+  /** The live Coach setup's own structure -- the named swing points it is
+      built on (push 1/2/3 of a wedge, spike high and low, range edges...),
+      joined in time order so the pattern's shape is visible, plus its range
+      box, trendline and signal bar. Only points already revealed are drawn. */
+  function drawSetupStruct(c, b, ch) {
+    var cg = liveSignal();
+    if (!cg || !cg.st) return;
+    var t = cg.st, v = ch.vis, bars = BT.ch.bars, col = "rgba(169,139,232,.95)";
+    var pts = t.labels.filter(function (L) { return L[0].i <= v; })
+      .sort(function (a, z) { return a[0].i - z[0].i; });
+    c.save();
+    var xEnd = ch.x(Math.min(v, cg.i + 8));
+    if (t.rangeTop != null && t.rangeBot != null) {
+      var x0 = ch.x(t.from), yt = ch.y(t.rangeTop), yb = ch.y(t.rangeBot);
+      c.fillStyle = "rgba(169,139,232,.06)"; c.fillRect(x0, yt, xEnd - x0, yb - yt);
+      c.strokeStyle = "rgba(169,139,232,.7)"; c.lineWidth = 1.2; c.setLineDash([3, 4]);
+      c.beginPath(); c.moveTo(x0, yt); c.lineTo(xEnd, yt); c.moveTo(x0, yb); c.lineTo(xEnd, yb); c.stroke();
+      c.setLineDash([]);
+    }
+    if (t.trendline) {
+      var tl = t.trendline, endI = Math.min(v, (tl.thru != null ? tl.thru : tl.b.i) + 3);
+      var endP = tl.b.p + (tl.slope != null ? tl.slope : (tl.b.p - tl.a.p) / ((tl.b.i - tl.a.i) || 1)) * (endI - tl.b.i);
+      c.strokeStyle = "rgba(232,166,116,.9)"; c.lineWidth = 1.4; c.setLineDash([6, 4]);
+      c.beginPath(); c.moveTo(ch.x(tl.a.i), ch.y(tl.a.p)); c.lineTo(ch.x(endI), ch.y(endP)); c.stroke();
+      c.setLineDash([]);
+      c.font = "10px 'IBM Plex Mono',monospace"; c.fillStyle = "rgba(232,166,116,.9)";
+      c.textAlign = "left"; c.textBaseline = "top";
+      c.fillText("TRENDLINE", ch.x(tl.a.i) + 5, ch.y(tl.a.p) + 4);
+    }
+    /* the swings joined in order -- this line IS the shape: three stepping
+       pushes for a wedge, spike-then-pullback for a spike and channel */
+    /* ...except for a range: its edges aren't a path, and joining range low
+       to range high draws a diagonal that means nothing -- the box says it */
+    if (pts.length >= 2 && t.rangeTop == null) {
+      c.strokeStyle = col; c.lineWidth = 1.6;
+      c.beginPath();
+      pts.forEach(function (L, k) {
+        var x = ch.x(L[0].i), y = ch.y(L[0].p);
+        if (k) c.lineTo(x, y); else c.moveTo(x, y);
+      });
+      c.stroke();
+    }
+    c.font = "700 10px 'IBM Plex Mono',monospace"; c.textAlign = "center";
+    pts.forEach(function (L) {
+      var pt = L[0], x = ch.x(pt.i), y = ch.y(pt.p), bar = bars[pt.i];
+      var high = bar ? Math.abs(pt.p - bar.h) <= Math.abs(pt.p - bar.l) : true;
+      c.fillStyle = col;
+      c.beginPath(); c.arc(x, y, 3.5, 0, 6.284); c.fill();
+      c.textBaseline = high ? "bottom" : "top";
+      c.fillText(L[1], x, high ? y - 7 : y + 7);
+    });
+    /* and the bar the entry comes from */
+    var sb = bars[cg.i];
+    if (sb && cg.i <= v) {
+      var sx = ch.x(cg.i), below = cg.dir > 0, sy = ch.y(below ? sb.l : sb.h);
+      /* a swing label sitting on the same bar (push 3 usually IS the signal
+         bar's neighbour) would print on top of this -- step past it */
+      var crowd = pts.some(function (L) {
+        var bl = bars[L[0].i], hi = bl ? Math.abs(L[0].p - bl.h) <= Math.abs(L[0].p - bl.l) : true;
+        return Math.abs(L[0].i - cg.i) <= 3 && hi !== below;
+      });
+      if (crowd) sy += below ? 16 : -16;
+      c.strokeStyle = COL.amber; c.fillStyle = COL.amber; c.lineWidth = 1.4;
+      c.beginPath(); c.moveTo(sx, sy + (below ? 5 : -5)); c.lineTo(sx, sy + (below ? 18 : -18)); c.stroke();
+      c.font = "700 9px Archivo,sans-serif"; c.textBaseline = below ? "top" : "bottom";
+      c.fillText("SIGNAL BAR", sx, sy + (below ? 20 : -20));
+    }
+    plate(c, "SETUP: " + cg.name, 8, b.t + 36, col);
+    c.restore();
+  }
   function drawRead(c, b, ch) {
     if (!BT.coach) return;
+    drawSetupStruct(c, b, ch);
     var r = structRead();
     if (!r || !r.piv.length) return;
     var col = "rgba(91,155,213,.9)";
@@ -7822,9 +7936,7 @@ var PROG = (function () {
       c.textBaseline = up ? "bottom" : "top";
       c.fillText(p.lab + (p.tentative ? "?" : ""), x, up ? y - 5 : y + 5);
     });
-    c.font = "700 11px Archivo,sans-serif"; c.textAlign = "left"; c.textBaseline = "top";
-    c.fillStyle = col;
-    c.fillText("READ: " + r.name + (r.why ? " — " + r.why : ""), 8, b.t + 20);
+    plate(c, "READ: " + r.name + (r.why ? " — " + r.why : ""), 8, b.t + 18, col);
     c.restore();
   }
 
@@ -8521,6 +8633,11 @@ var PROG = (function () {
           (cg.dir > 0 ? 'BUY' : 'SELL') + ' ' + (cg.entryType || 'stop').toUpperCase() + '</b>' + faTag +
           '<span class="mono">' + rr.toFixed(2) + 'R</span></div>' +
           '<div style="margin-top:3px"><b>' + cg.name + '</b></div>' +
+          (cg.st && cg.st.labels.length ? '<div class="hint" style="margin-top:3px;color:#A98BE8">Built on: ' +
+            cg.st.labels.filter(function (L) { return L[0].i <= chB.vis; })
+              .sort(function (a, z) { return a[0].i - z[0].i; })
+              .map(function (L) { return L[1]; }).join(' → ') +
+            ' — marked in violet on the chart.</div>' : '') +
           (cg.isFirstAttempt ? '<div class="hint" style="margin-top:3px">' + cg.brooks + '</div>' : '') +
           '<div class="mono" style="margin-top:4px">entry ' + px(cg.entry) +
           ' · stop ' + px(cg.stop) + ' · target ' + px(cg.target) + '</div>' +
