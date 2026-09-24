@@ -114,6 +114,7 @@ namespace cAlgo.Robots
         {
             int v = Bars.Count - 2;                          // the bar that just closed
             if (v < 0) return;
+            GuardStops();
             while (core.Count <= v) AddBar(core.Count);
             foreach (var g in core.ReadUpTo(v))
             {
@@ -196,8 +197,40 @@ namespace cAlgo.Robots
                 return;
             }
             // stop and target exactly on the structure, not pips from the fill
-            ModifyPosition(p, plan.Sig.Stop, plan.Sig.Target, ProtectionType.Absolute);
             open[p.Id] = plan;
+            var mod = ModifyPosition(p, plan.Sig.Stop, plan.Sig.Target, ProtectionType.Absolute);
+            if (!mod.IsSuccessful || p.StopLoss == null)
+            {
+                // never leave a trade without its stop
+                Print("Could not set the stop for {0} ({1}); closing it rather than leave it unprotected",
+                    plan.Sig.Name, mod.IsSuccessful ? "no stop on the position" : mod.Error.ToString());
+                ClosePosition(p);
+                return;
+            }
+            Print("Filled {0} {1} at {2}: stop {3} (planned {4}), target {5}",
+                plan.Sig.Name, p.TradeType, Fmt(p.EntryPrice), Fmt(p.StopLoss.Value), Fmt(plan.Sig.Stop),
+                p.TakeProfit.HasValue ? Fmt(p.TakeProfit.Value) : "none");
+        }
+
+        /// Every bar: each of this bot's trades must still carry its stop.
+        void GuardStops()
+        {
+            foreach (var p in Positions.FindAll(OrderLabel, SymbolName))
+            {
+                Plan plan;
+                if (p.StopLoss != null || !open.TryGetValue(p.Id, out plan)) continue;
+                double px = p.TradeType == TradeType.Buy ? Symbol.Bid : Symbol.Ask;
+                if ((px - plan.Sig.Stop) * plan.Sig.Dir <= 0)
+                {
+                    Print("{0} had no stop and is already past it: closing", plan.Sig.Name);
+                    ClosePosition(p);
+                }
+                else
+                {
+                    Print("{0} had no stop: restoring it at {1}", plan.Sig.Name, Fmt(plan.Sig.Stop));
+                    ModifyPosition(p, plan.Sig.Stop, plan.Sig.Target, ProtectionType.Absolute);
+                }
+            }
         }
 
         void OnClosed(PositionClosedEventArgs args)
@@ -210,7 +243,10 @@ namespace cAlgo.Robots
             Tally t;
             if (!stats.TryGetValue(plan.Sig.Key, out t)) stats[plan.Sig.Key] = t = new Tally();
             t.N++; if (r > 0) t.Wins++; t.R += r;
-            Print("Closed {0}: {1:+0.00;-0.00}R ({2}, net {3:0.00})", plan.Sig.Name, r, args.Reason, p.NetProfit);
+            Print("Closed {0} {1}: {2:+0.00;-0.00}R, reason {3}, entry {4}, planned stop {5}, stop on position {6}, net {7:0.00}{8}",
+                plan.Sig.Name, p.TradeType, r, args.Reason, Fmt(p.EntryPrice), Fmt(plan.Sig.Stop),
+                p.StopLoss.HasValue ? Fmt(p.StopLoss.Value) : "NONE", p.NetProfit,
+                r < -1.3 ? "  <-- lost more than planned" : "");
         }
 
         protected override void OnStop()
