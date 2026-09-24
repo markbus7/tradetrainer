@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.54.0 (build 2026-09-24) — Al Brooks price action -->
+<!-- Trade Trainer v3.55.0 (build 2026-09-24) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -227,6 +227,17 @@
   .btpin.on{border-color:var(--amber);background:#241a08;color:var(--amber)}
   .btuse{padding:1px 6px;font-size:10px;font-weight:600;border:1px solid var(--line);border-radius:5px;background:var(--bg2);color:var(--muted)}
   .btuse:hover{border-color:var(--amber);color:var(--paper)}
+  .hgrade{display:inline-block;min-width:18px;text-align:center;font:700 10.5px 'IBM Plex Mono',monospace;border-radius:4px;padding:1px 4px;letter-spacing:0}
+  .hgrade.gA{background:#12291d;color:var(--up)} .hgrade.gB{background:#1d2616;color:#9CCB5B}
+  .hgrade.gC{background:#241a08;color:var(--amber)} .hgrade.gD{background:#2c1512;color:var(--dn)}
+  .hnotes{margin-top:8px;display:flex;flex-direction:column;gap:5px}
+  .hn{display:flex;gap:7px;font-size:11.5px;line-height:1.45;color:#cfd4dd}
+  .hn i{font-style:normal;font-weight:700;flex:0 0 12px;text-align:center}
+  .hn.good i{color:var(--up)} .hn.bad i{color:var(--dn)} .hn.info i{color:var(--muted)}
+  .hlist{display:flex;flex-direction:column;gap:3px;max-height:320px;overflow-y:auto}
+  .hrow{display:grid;grid-template-columns:34px 1fr 62px 70px 22px;gap:4px;align-items:center;text-align:left;
+    padding:4px 6px;font-size:11px;border:1px solid var(--line);border-radius:6px;background:var(--bg3);color:var(--paper)}
+  .hrow:hover{border-color:#3d465a} .hrow.on{border-color:var(--amber)}
   .btseg{display:flex;gap:4px}
   .btseg button{flex:1;padding:5px 0;font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:6px;background:var(--bg3);color:var(--muted)}
   .btseg button.on{border-color:var(--amber);background:#241a08;color:var(--amber)}
@@ -266,6 +277,7 @@
     <button data-view="path" data-ico="▤" class="on">Path</button>
     <button data-view="practice" data-ico="▶">Practice</button>
     <button data-view="desk" data-ico="▦">Desk</button>
+    <button data-view="history" data-ico="☰">History</button>
     <button data-view="stats" data-ico="◔">Stats</button>
     <button id="helpBtn" data-ico="?">Help</button>
   </nav>
@@ -317,6 +329,24 @@
     </div>
   </section>
 
+  <!-- ============ HISTORY — review your own Desk trades ============ -->
+  <section class="view" id="view-history">
+    <div class="stage">
+      <div class="chartcol">
+        <div class="toolwrap"><div class="toolbar">
+          <button class="tool wide" id="hPrev" title="Older trade">◀ Prev</button>
+          <button class="tool wide" id="hNext" title="Newer trade">Next ▶</button>
+          <div class="tsep"></div>
+          <div class="sym" id="histTitle" style="white-space:nowrap"></div>
+        </div></div>
+        <div class="chartwrap"><canvas id="cvHist"></canvas></div>
+      </div>
+      <aside class="panel wide">
+        <div class="pbody" id="histPanel"></div>
+      </aside>
+    </div>
+  </section>
+
   <!-- ============ STATS ============ -->
   <section class="view" id="view-stats"><div class="scroll" id="statsBody"></div></section>
 </main>
@@ -327,7 +357,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.54.0", build: "2026-09-24", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.55.0", build: "2026-09-24", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2735,8 +2765,11 @@ Chart.prototype._markers = function (c, b) {
     if (m.txt) {
       c.font = "10px 'IBM Plex Mono',monospace"; c.textAlign = "center";
       c.textBaseline = m.below ? "top" : "bottom";
+      /* backed, so it reads over candles */
+      var tw = c.measureText(m.txt).width + 6, ty = y + (m.below ? 8 : -8);
+      c.fillStyle = "rgba(11,14,19,.8)"; c.fillRect(x - tw / 2, m.below ? ty - 1 : ty - 12, tw, 13);
       c.fillStyle = m.col || COL.amber;
-      c.fillText(m.txt, x, y + (m.below ? 8 : -8));
+      c.fillText(m.txt, x, ty);
     }
   });
 };
@@ -3157,15 +3190,16 @@ Chart.prototype._drawMeasure = function (c, b, d) {
 /* --- long/short position with live R:R --- */
 Chart.prototype._drawPos = function (c, b, d) {
   if (d.draft) return this._drawDraft(c, b, d);
-  var x0 = this.x(d.i), xr = b.r;
+  /* i2, when given, closes the box at a bar (a finished trade under review) */
+  var x0 = this.x(d.i), xr = b.r, xe = d.i2 != null ? Math.max(x0 + 4, Math.min(b.r, this.x(d.i2))) : b.r;
   var ye = this.y(d.entry), ys = this.y(d.stop), yt = this.y(d.target);
-  c.fillStyle = "rgba(63,191,127,.13)"; c.fillRect(x0, Math.min(ye, yt), xr - x0, Math.abs(yt - ye));
-  c.fillStyle = "rgba(229,99,77,.15)"; c.fillRect(x0, Math.min(ye, ys), xr - x0, Math.abs(ys - ye));
+  c.fillStyle = "rgba(63,191,127,.13)"; c.fillRect(x0, Math.min(ye, yt), xe - x0, Math.abs(yt - ye));
+  c.fillStyle = "rgba(229,99,77,.15)"; c.fillRect(x0, Math.min(ye, ys), xe - x0, Math.abs(ys - ye));
   var self = this;
   function line(y, col, txt, val) {
     y = Math.round(y) + 0.5;
     c.strokeStyle = col; c.lineWidth = 1.3; c.setLineDash([]);
-    c.beginPath(); c.moveTo(x0, y); c.lineTo(xr, y); c.stroke();
+    c.beginPath(); c.moveTo(x0, y); c.lineTo(xe, y); c.stroke();
     c.font = "700 10px Archivo,sans-serif"; c.textAlign = "left"; c.textBaseline = "bottom";
     /* backed, so a label stays readable where another order's lines cross it */
     c.fillStyle = "rgba(11,14,19,.8)"; c.fillRect(x0 + 2, y - 15, c.measureText(txt).width + 6, 13);
@@ -3175,7 +3209,7 @@ Chart.prototype._drawPos = function (c, b, d) {
   line(yt, COL.ok, "TARGET" + this._pnlTxt(d, d.target), d.target);
   line(ye, COL.amber, d.dir > 0 ? "LONG ENTRY" : "SHORT ENTRY", d.entry);
   line(ys, COL.bad, "STOP" + this._pnlTxt(d, d.stop), d.stop);
-  this._rrTxt(c, b, d, ye, yt);
+  this._rrTxt(c, b, d, ye, yt, xe);
 };
 
 /* What hitting a level would make or lose, when the owner of the drawing can
@@ -3185,12 +3219,12 @@ Chart.prototype._pnlTxt = function (d, price) {
   return typeof d.pnl === "function" ? "   " + d.pnl(d, price) : "";
 };
 /* the reward:risk readout in the top-right of a position box */
-Chart.prototype._rrTxt = function (c, b, d, ye, yt) {
+Chart.prototype._rrTxt = function (c, b, d, ye, yt, xe) {
   var risk = Math.abs(d.entry - d.stop), rew = Math.abs(d.target - d.entry);
   var rr = risk > 0 ? rew / risk : 0;
   c.font = "700 11px 'IBM Plex Mono',monospace"; c.textAlign = "right"; c.textBaseline = "top";
   c.fillStyle = rr >= 2 ? COL.ok : rr >= 1 ? COL.amber : COL.bad;
-  c.fillText(rr.toFixed(2) + "R", b.r - 5, Math.min(ye, yt) + 4);
+  c.fillText(rr.toFixed(2) + "R", (xe || b.r) - 5, Math.min(ye, yt) + 4);
 };
 /* An order that is still only on the ticket. Drawn so it cannot be mistaken
    for a live trade or a working order: no shaded zones, dashed lines, hollow
@@ -5492,12 +5526,13 @@ var PROG = (function () {
 
   function setView(v) {
     Speech.stop();
-    ["path", "drill", "practice", "desk", "stats"].forEach(function (k) { $("view-" + k).classList.toggle("on", k === v); });
+    ["path", "drill", "practice", "desk", "history", "stats"].forEach(function (k) { $("view-" + k).classList.toggle("on", k === v); });
     [].forEach.call(document.querySelectorAll("nav button[data-view]"), function (b) {
       b.classList.toggle("on", b.dataset.view === v);
     });
     if (v === "path") paintPath();
     if (v === "stats") paintStats();
+    if (v === "history") paintHist();
     if (v === "practice") { if (!prac.ch) newPractice(); else setTimeout(function () { chP.render(); }, 30); }
     if (v === "drill") setTimeout(function () { chD.fit(); }, 30);
     if (v === "desk") { if (!BT.ch) btNew(); else setTimeout(function () { chB.render(); }, 30); }
@@ -5506,6 +5541,8 @@ var PROG = (function () {
     b.addEventListener("click", function () { setView(b.dataset.view); });
   });
   $("helpBtn").addEventListener("click", showHelp);
+  $("hPrev").addEventListener("click", function () { histStep(-1); });
+  $("hNext").addEventListener("click", function () { histStep(1); });
 
   function paintHeader() {
     var st = PROG.st;
@@ -7366,7 +7403,8 @@ var PROG = (function () {
     lotUnits: lotUnits, toLots: toLots, toUnits: toUnits, fmtLots: fmtLots,
     perPoint: perPoint, pipName: pipName,
     unitsFor: unitsFor, btStats: btStats, btReport: btReport, paintBT: paintBT, autoRun: autoRun, structRead: structRead, tradeCheck: tradeCheck, ticketLevels: ticketLevels,
-    get session() { return S; }
+    get session() { return S; },
+    get HIST() { return HIST; }, histReview: histReview, paintHist: paintHist, histSave: histSave, get chH() { return chH; }
   };
 
 
@@ -7408,7 +7446,7 @@ var PROG = (function () {
     };
   }
   function btSeries(seed, segs) {
-    var R = Mkt.mkR(seed), bars = [], first = null, sigs = [];
+    var R = Mkt.mkR(seed), bars = [], first = null, sigs = [], parts = [];
     for (var s = 0; s < segs; s++) {
       var key = R.pick(Mkt.KEYS);
       /* the first segment fixes the instrument and timeframe; the rest follow it,
@@ -7434,6 +7472,8 @@ var PROG = (function () {
          so the chart can show WHICH highs and lows make it a wedge or a
          range, not just where to get in */
       var st = g ? segStruct(g, base, off, base + src.length - 1) : null;
+      /* which context each stretch of tape really was -- hindsight for the trade review */
+      parts.push({ from: base, to: base + src.length - 1, name: (g && g.name) || (Mkt.CTX[key] || {}).name || key });
       if (g && g.sigIdx != null) {
         sigs.push({ st: st,
           i: base + g.sigIdx, key: g.key, name: g.name, cycle: g.cycle,
@@ -7503,7 +7543,7 @@ var PROG = (function () {
       });
     }
     return { bars: bars, sym: first.sym, nm: first.nm, tf: first.tf, tfLbl: first.tfLbl,
-      dec: first.dec, kind: first.kind, seed: seed, U: first.U, sigs: sigs,
+      dec: first.dec, kind: first.kind, seed: seed, U: first.U, sigs: sigs, parts: parts,
       atr: Mkt.atr(bars, 14, Math.min(60, bars.length - 1)), gt: null };
   }
 
@@ -7571,11 +7611,16 @@ var PROG = (function () {
   }
 
   /* ---------- order / position lifecycle ---------- */
-  function btOpen(dir, entry, units, sl, tp, atIdx) {
+  function btOpen(dir, entry, units, sl, tp, atIdx, meta) {
     var p = { id: BT.nextId++, dir: dir, entry: entry, units: units, units0: units,
       sl: sl, tp: tp, openIdx: atIdx,
       rpu: Math.abs(entry - sl) * qRate(),   /* money risked per unit, fixed at entry */
-      partials: [], };
+      partials: [], exits: [] };
+    if (meta && !BT._auto) {
+      var eq0 = equity();
+      p.meta = meta; meta.fill = entry; meta.openIdx = atIdx;
+      meta.riskMoney = p.rpu * units; meta.riskPct = eq0 > 0 ? meta.riskMoney / eq0 * 100 : 0;
+    }
     BT.pos.push(p); syncDraw(); return p;
   }
   /** close all or part of a position at `price`; pct is a share of the ORIGINAL size */
@@ -7591,7 +7636,10 @@ var PROG = (function () {
          partial by its own slice risk would make scaling out look better than it is */
       pl: pl, r: p.rpu > 0 ? pl / (p.rpu * p.units0) : 0,
       why: why || "manual", idx: chB.vis });
+    if (p.exits) p.exits.push({ idx: chB.vis, price: price, why: why || "manual", pl: pl,
+      r: p.rpu > 0 ? pl / (p.rpu * p.units0) : 0 });
     if (p.units <= 1e-9) {
+      histAdd(p);
       BT.pos.splice(BT.pos.indexOf(p), 1);
       /* One point per finished trade. Sampling equity every bar instead would
          draw the open-profit wobble, and a drawdown you never actually took. */
@@ -7656,7 +7704,7 @@ var PROG = (function () {
       }
       if (hit) {
         BT.ord.splice(k, 1);
-        btOpen(o.dir, fill, o.units, o.sl, o.tp, i);
+        btOpen(o.dir, fill, o.units, o.sl, o.tp, i, o.meta);
         toast((o.dir > 0 ? "Buy" : "Sell") + " " + o.kind + " filled — " + fmtLots(o.units) + " at " + px(fill));
       }
     }
@@ -8136,10 +8184,14 @@ var PROG = (function () {
         d.entry = p.entry;            /* a fill cannot be dragged — snap it back */
         d.i = p.openIdx;
         p.sl = d.stop; p.tp = d.target;
+        /* the one management move that is never OK: giving the loss more room */
+        if (p.meta && (p.meta.sl0 - p.sl) * p.dir > 1e-12 && (p.entry - p.sl) * p.dir > 0) p.meta.widened = true;
       }
       if (d._bt === "part" && p && p.partials[d._n]) p.partials[d._n].price = d.p;
       if (d._bt === "ord" && o) {
         o.price = d.entry; o.sl = d.stop; o.tp = d.target;
+        /* still just a plan until it fills -- the review judges the plan as it stood */
+        if (o.meta) { o.meta.entry0 = o.price; o.meta.sl0 = o.sl; o.meta.tp0 = o.tp; }
         /* dragging the entry across the current price flips limit <-> stop */
         o.kind = (o.price - btPrice()) * o.dir > 0 ? "stop" : "limit";
       }
@@ -8157,6 +8209,7 @@ var PROG = (function () {
   /* ---------- lifecycle ---------- */
   function btNew(keepAccount) {
     if (BT.timer) { clearInterval(BT.timer); BT.timer = null; }
+    if (BT.ch) histDetach();
     BT.playing = false;
     BT.ch = btSeries((Date.now() ^ (Math.random() * 1e9)) >>> 0, 22);
     BT.pos = []; BT.ord = [];
@@ -8231,7 +8284,8 @@ var PROG = (function () {
     var kind = (price - at) * d > 0 ? "stop" : "limit";
     var sl = price - d * A * 1.5, tp = price + d * A * 3;
     var u = toUnits(BT.lots);
-    BT.ord.push({ id: BT.nextId++, kind: kind, dir: d, price: price, units: u, sl: sl, tp: tp });
+    BT.ord.push({ id: BT.nextId++, kind: kind, dir: d, price: price, units: u, sl: sl, tp: tp,
+      meta: tradeMeta(kind, d, price, sl, tp) });
     syncDraw(); chB.render(); paintBT();
     toast((d > 0 ? "Buy" : "Sell") + " " + kind + " working at " + px(price) + " — drag the lines, set the lots");
   }
@@ -8261,6 +8315,7 @@ var PROG = (function () {
       "and starts fresh from " + money(BT.start) + ".")) return;
     btResetAccount(BT.start);
     var wasCoach = BT.coach;
+    BT._auto = true;                   /* Coach's own trades stay out of your History */
     BT.coach = true;
 
     /* Lock the instrument and timeframe for the whole run. Each btNew() call
@@ -8386,6 +8441,7 @@ var PROG = (function () {
       coachTally();
     }
     BT.coach = wasCoach;
+    BT._auto = false;
     /* Restoring BT.sym/BT.tf doesn't touch the tape that was just built (the
        report reads BT.ch.sym, the actual instrument traded, not BT.sym) --
        it only lets "Any market" go back to picking randomly for whatever
@@ -8401,6 +8457,371 @@ var PROG = (function () {
       st.avgR.toFixed(2) + "R avg, " + Math.round(st.win * 100) + "% win rate, PF " +
       (isFinite(st.pf) ? st.pf.toFixed(2) : "∞"));
   }
+  /* =====================================================================
+     HISTORY — every trade you take on the Desk, kept with the bars around
+     it, so it can be replayed and judged afterwards: what the structure
+     and Coach said when you got in, how you managed it, what price did
+     after you got out, and how much the plan would have made. Graded on
+     the decisions, not the outcome -- a good trade can lose.
+     ===================================================================== */
+  var HIST_KEY = "tt_hist_v1", HIST_MAX = 200, HIST_POST = 60, HIST_PRE = 100;
+  var HIST = (function () {
+    try { var v = JSON.parse(localStorage.getItem(HIST_KEY) || "null"); if (v && v.length != null) return v; } catch (e) { }
+    return [];
+  })();
+  var histSel = null, chH = null;
+
+  /** the setup the tape was printing at bar v, whether or not Coach is showing it */
+  function sigAt(ch, v) {
+    var out = null;
+    (ch.sigs || []).forEach(function (g) {
+      if (g.i <= v && v - g.i <= COACH_WINDOW && (!out || g.i > out.i)) out = g;
+    });
+    return out;
+  }
+  function partAt(ch, v) {
+    var p = (ch.parts || []).filter(function (x) { return x.from <= v && v <= x.to; })[0];
+    return p ? p.name : null;
+  }
+  /** What the trader could see when they decided -- captured at the moment the
+      order is placed (or the market order sent), never later. */
+  function tradeMeta(kind, dir, entry, sl, tp) {
+    if (BT._auto || !BT.ch) return null;
+    var rd = null, ck = null, keep = BT.dir;
+    try {
+      rd = structRead();
+      BT.dir = dir;
+      ck = tradeCheck(rd, { entry: entry, sl: sl, tp: tp });
+    } catch (e) { } finally { BT.dir = keep; }
+    var g = sigAt(BT.ch, chB.vis);
+    return {
+      kind: kind, placedIdx: chB.vis, entry0: entry, sl0: sl, tp0: tp, coachOn: !!BT.coach,
+      read: rd && rd.kind !== "none" ? { kind: rd.kind, name: rd.name } : null,
+      check: ck ? { good: ck.good, msg: ck.msg } : null,
+      sig: g ? { name: g.name, dir: g.dir, tradeable: !!g.tradeable, entry: g.entry, stop: g.stop,
+        target: g.target, prob: g.prob != null ? g.prob : null } : null,
+      ctx: partAt(BT.ch, chB.vis)
+    };
+  }
+  /** a position just finished -- file it */
+  function histAdd(p) {
+    var m = p.meta;
+    if (!m || BT._auto) return;
+    var pl = 0, r = 0;
+    p.exits.forEach(function (x) { pl += x.pl; r += x.r; });
+    var rec = {
+      uid: Date.now().toString(36) + "-" + p.id, when: Date.now(), n: (HIST.length ? HIST[HIST.length - 1].n : 0) + 1,
+      sym: BT.ch.sym, tf: BT.ch.tf, tfLbl: BT.ch.tfLbl, dec: BT.ch.dec,
+      dir: p.dir, kind: m.kind, placedIdx: m.placedIdx, openIdx: m.openIdx, closeIdx: chB.vis,
+      entry: m.fill, entry0: m.entry0, sl0: m.sl0, tp0: m.tp0, slEnd: p.sl, tpEnd: p.tp,
+      riskMoney: m.riskMoney, riskPct: m.riskPct, pl: pl, r: r,
+      exits: p.exits.map(function (x) { return { idx: x.idx, price: x.price, why: x.why, r: x.r }; }),
+      why: p.exits[p.exits.length - 1].why, widened: !!m.widened, topped: !!m.topped,
+      read: m.read, check: m.check, sig: m.sig, coachOn: m.coachOn, ctx: m.ctx,
+      from: Math.max(0, Math.min(m.placedIdx, m.openIdx) - HIST_PRE)
+    };
+    Object.defineProperty(rec, "_ch", { value: BT.ch, writable: true, enumerable: false });
+    HIST.push(rec);
+    histSel = rec.uid;
+    histSave();
+  }
+  /** bars for a record: live off the tape while it is still loaded (so the
+      "after you exited" part grows as you keep stepping), frozen once it isn't.
+      Never past what has been revealed -- no peeking at the current tape. */
+  function histBars(rec) {
+    if (rec._ch && rec._ch === BT.ch) {
+      var end = Math.min(chB.vis, rec.closeIdx + HIST_POST);
+      return rec._ch.bars.slice(rec.from, end + 1);
+    }
+    return (rec.bars || []).map(function (a) { return { t: a[0], o: a[1], h: a[2], l: a[3], c: a[4], v: a[5] }; });
+  }
+  function histFreeze(rec) {
+    var k = Math.pow(10, (rec.dec || 2) + 2);
+    rec.bars = histBars(rec).map(function (b) {
+      return [b.t, Math.round(b.o * k) / k, Math.round(b.h * k) / k, Math.round(b.l * k) / k, Math.round(b.c * k) / k, Math.round(b.v || 0)];
+    });
+  }
+  function histSave() {
+    HIST.forEach(function (rec) { if (rec._ch) histFreeze(rec); });
+    while (HIST.length > HIST_MAX) HIST.shift();
+    for (var tries = 0; tries < 6; tries++) {
+      try { localStorage.setItem(HIST_KEY, JSON.stringify(HIST)); return; }
+      catch (e) { if (HIST.length < 2) return; HIST.splice(0, Math.ceil(HIST.length / 4)); }
+    }
+  }
+  /* the tape is about to be replaced: pin every record on it to what was seen */
+  function histDetach() {
+    var any = false;
+    HIST.forEach(function (rec) {
+      if (rec._ch && rec._ch === BT.ch) { histFreeze(rec); rec._ch = null; any = true; }
+    });
+    if (any) histSave();
+  }
+  window.addEventListener("pagehide", function () { histSave(); });
+  document.addEventListener("visibilitychange", function () { if (document.hidden) histSave(); });
+
+  /** The judgement. Numbers first (excursions, what the plan would have done
+      after the exit), then written feedback, then a process grade. */
+  function histReview(rec) {
+    var bars = histBars(rec), off = rec.from, d = rec.dir;
+    var R0 = Math.abs(rec.entry - rec.sl0);
+    var toR = function (px) { return R0 > 0 ? (px - rec.entry) * d / R0 : 0; };
+    var A = { bars: bars, R0: R0, notes: [], score: 100, tags: [] };
+    var bad = function (tag, txt, pen) { A.notes.push({ k: "bad", t: txt }); A.tags.push(tag); A.score -= pen || 0; };
+    var good = function (txt) { A.notes.push({ k: "good", t: txt }); };
+    var info = function (txt) { A.notes.push({ k: "info", t: txt }); };
+    var fmtR = function (x) { return (x >= 0 ? "+" : "") + x.toFixed(2) + "R"; };
+
+    /* excursions while in the trade */
+    var mfe = 0, mae = 0, mfeIdx = rec.openIdx, mfePx = rec.entry;
+    for (var i = rec.openIdx + 1; i <= rec.closeIdx; i++) {
+      var b = bars[i - off]; if (!b) break;
+      var fav = d > 0 ? b.h : b.l, adv = d > 0 ? b.l : b.h;
+      if (toR(fav) > mfe) { mfe = toR(fav); mfeIdx = i; mfePx = fav; }
+      mae = Math.min(mae, toR(adv));
+    }
+    A.mfe = mfe; A.mae = mae; A.mfeIdx = mfeIdx; A.mfePx = mfePx;
+    A.rr0 = R0 > 0 ? Math.abs(rec.tp0 - rec.entry) / R0 : 0;
+
+    /* after the exit: which of the ORIGINAL stop and target came first, and how
+       far price ran on in the trade's direction */
+    var first = null, firstIdx = null, run = 0, seen = 0, exitPx = rec.exits[rec.exits.length - 1].price;
+    for (var j = rec.closeIdx + 1; j - off < bars.length && j <= rec.closeIdx + HIST_POST; j++) {
+      var q = bars[j - off]; seen++;
+      var hs = d > 0 ? q.l <= rec.sl0 : q.h >= rec.sl0;
+      var ht = d > 0 ? q.h >= rec.tp0 : q.l <= rec.tp0;
+      if (!first) run = Math.max(run, R0 > 0 ? ((d > 0 ? q.h : q.l) - exitPx) * d / R0 : 0);
+      if (!first && (hs || ht)) { first = hs ? "stop" : "target"; firstIdx = j; }
+    }
+    A.after = { first: first, idx: firstIdx, run: run, seen: seen };
+    var after = function (n) { return n + " bar" + (n === 1 ? "" : "s") + " later"; };
+
+    /* ---- the entry ---- */
+    if (rec.check && rec.check.good === true) good("Fit the read (" + (rec.read ? rec.read.name : "structure") + "): " + rec.check.msg);
+    else if (rec.check && rec.check.good === false) bad("read", "Fought the read (" + (rec.read ? rec.read.name : "structure") + "): " + rec.check.msg, 25);
+    var g = rec.sig;
+    if (g && g.tradeable) {
+      if (g.dir === d) {
+        good("Matched the setup that was live: " + g.name + (rec.coachOn ? "" : " (Coach was off — you read it yourself)") + ".");
+        var gR = Math.abs(g.entry - g.stop);
+        if (gR > 0 && R0 < gR * 0.7) info("Your stop was tighter than the setup's (" + fmtN(g.stop, rec.dec) + "). The setup's stop sits where the idea is proven wrong; a tighter one gets hit by noise more often.");
+        if (g.prob != null && A.rr0 > 0) {
+          var ev = g.prob * A.rr0 - (1 - g.prob);
+          info("At about " + Math.round(g.prob * 100) + "% odds for this setup, a " + A.rr0.toFixed(2) + "R target is worth " + fmtR(ev) + " per trade" +
+            (ev < 0 ? " — negative. The target needed to be further, or the entry better." : "."));
+        }
+      } else bad("coach", "Against the setup that was live: " + g.name + " (" + (g.dir > 0 ? "buy" : "sell") + "). You " + (d > 0 ? "bought" : "sold") + ".", 20);
+    } else info("No Coach setup was live here — this was your own read." + (rec.ctx ? " In hindsight this stretch of tape was: " + rec.ctx + "." : ""));
+    if (g && g.tradeable && rec.ctx) info("In hindsight this stretch of tape was: " + rec.ctx + ".");
+    if (A.rr0 > 0 && A.rr0 < 1) bad("rr", "Reward was only " + A.rr0.toFixed(2) + "R for 1R risk — you needed to win more than " + Math.round(100 / (1 + A.rr0)) + "% of the time.", 10);
+    else if (A.rr0 >= 1) good("Planned reward " + A.rr0.toFixed(2) + "R for 1R risk (break-even at " + Math.round(100 / (1 + A.rr0)) + "% wins).");
+
+    /* ---- size ---- */
+    if (rec.riskPct > 2) bad("size", "Risked " + rec.riskPct.toFixed(2) + "% of the account — double your 1% rule or more.", 25);
+    else if (rec.riskPct > 1.3) bad("size", "Risked " + rec.riskPct.toFixed(2) + "% — over the 1% rule. Use the 1% button before placing.", 15);
+    else if (rec.riskPct < 0.6) info("Risked only " + rec.riskPct.toFixed(2) + "% — fine if deliberate, but it shrinks the winners as much as the losers.");
+    else good("Risk " + rec.riskPct.toFixed(2) + "% — on plan.");
+
+    /* ---- management ---- */
+    if (rec.widened) bad("widen", "You moved the stop further away. That turns a 1R loss into a bigger one — never widen a stop.", 30);
+    var slTight = Math.abs(rec.entry - rec.slEnd) < R0 * 0.98 || (rec.slEnd - rec.entry) * d >= 0;
+    var tpR = A.rr0, why = rec.why;
+    if (why === "stop") {
+      if (!slTight) {
+        if (first === "target") bad("tight", "Stopped out, then price went on to hit your target " + after(firstIdx - rec.closeIdx) +
+          ". The idea was right but the stop was where the market could reach it — put it beyond the signal bar or the last swing, and size down to keep 1%.", 5);
+        else good("Stopped at the planned loss. When the setup fails, taking the stop is the job.");
+      } else if (rec.r > 0.05) good("Your trailed stop locked in " + fmtR(rec.r) + ".");
+      else {
+        if (first === "target") bad("manage", "You tightened the stop and got taken out; the original stop held and the target was hit " +
+          after(firstIdx - rec.closeIdx) + ". Managing too tight cost about " + (tpR - rec.r).toFixed(2) + "R.", 10);
+        else if (first === "stop") good("You tightened the stop, and the original stop was hit afterwards — that saved " + (rec.r + 1).toFixed(2) + "R.");
+        else info("Taken out by a tightened stop at " + fmtR(rec.r) + ".");
+      }
+    } else if (why === "target") {
+      good("Target hit: " + fmtR(rec.r) + ".");
+      if (run >= 1) info("Price ran another " + fmtR(run) + " past your target. In a strong trend Brooks takes part off at the target and swings the rest.");
+    } else if (why === "manual" || why === "partial" || why === "eod") {
+      if (first === "target") bad("early", "You closed at " + fmtR(rec.r) + "; the target was hit " + after(firstIdx - rec.closeIdx) +
+        " — holding would have made " + fmtR(tpR) + " (missed " + (tpR - rec.r).toFixed(2) + "R).", 15);
+      else if (first === "stop") good("Good exit: after you closed, price hit your original stop — closing saved " + (rec.r + 1).toFixed(2) + "R.");
+      else if (seen) info("After you closed, price reached neither your stop nor your target in the next " + seen + " bars.");
+      else info("Step the tape on the Desk to see what price did after you closed.");
+    } else if (why === "invalid-fill") info("The fill gapped past one of the order's own levels, so it was closed flat.");
+    if (mfe >= 1 && rec.r <= 0) bad("giveback", "It went " + fmtR(mfe) + " your way and still ended at " + fmtR(rec.r) +
+      ". Once a trade is 1R in profit, a partial or a stop past entry keeps a winner from becoming a loser.", 5);
+    else if (mfe - rec.r >= 1 && rec.r > 0 && why !== "target") info("At best it was " + fmtR(mfe) + "; you kept " + fmtR(rec.r) + ".");
+    if (rec.r > 0 && mae <= -0.8) info("It came within " + (1 + mae).toFixed(2) + "R of your stop before it worked — the stop had little room to spare.");
+    if (rec.topped) info("You added to the position while it was open.");
+
+    A.score = Math.max(0, A.score);
+    A.grade = A.score >= 85 ? "A" : A.score >= 70 ? "B" : A.score >= 50 ? "C" : "D";
+    A.missed = (why === "manual" || why === "partial" || why === "eod" || (why === "stop" && slTight && rec.r <= 0.05)) && first === "target" ? tpR - rec.r : 0;
+    return A;
+  }
+
+  var HIST_LESSON = {
+    read: "Entries that fought the structure read",
+    coach: "Trades against the live Coach setup",
+    rr: "Targets under 1R",
+    size: "Risk above 1%",
+    widen: "Stops moved further away",
+    tight: "Stopped out, then the target was hit",
+    manage: "Tightened stops that cost the trade",
+    early: "Closed early, then the target was hit",
+    giveback: "Went 1R+ your way, still ended a loser"
+  };
+
+  function histSetup() {
+    if (chH) return;
+    chH = new Chart($("cvHist"));
+    chH.opts.vol = true;
+  }
+  function paintHist() {
+    histSetup();
+    var list = HIST.slice().reverse(), out = [];
+    var rec = HIST.filter(function (x) { return x.uid === histSel; })[0] || list[0] || null;
+    if (rec) histSel = rec.uid;
+    var revs = {}; HIST.forEach(function (x) { revs[x.uid] = histReview(x); });
+
+    /* summary */
+    var n = HIST.length, wins = HIST.filter(function (x) { return x.r > 0; }).length;
+    var net = HIST.reduce(function (a, x) { return a + x.r; }, 0);
+    var avgS = n ? HIST.reduce(function (a, x) { return a + revs[x.uid].score; }, 0) / n : 0;
+    var missed = HIST.reduce(function (a, x) { return a + revs[x.uid].missed; }, 0);
+    var grade = avgS >= 85 ? "A" : avgS >= 70 ? "B" : avgS >= 50 ? "C" : "D";
+    out.push('<div class="btsec"><h5>Your trades <span class="mono">' + n + '</span></h5>');
+    if (!n) out.push('<div class="hint">Nothing here yet. Every trade you take on the Desk lands here when it closes — with the chart around it, what the structure and Coach said when you got in, and what price did after you got out.</div>' +
+      '<div class="btbtns" style="margin-top:8px"><button class="btuse" data-h="desk">Go to the Desk</button></div>');
+    else {
+      out.push('<div class="btkv"><span>Win rate</span><b>' + Math.round(wins / n * 100) + '%  (' + wins + '/' + n + ')</b></div>' +
+        '<div class="btkv"><span>Net</span><b class="' + (net >= 0 ? "up" : "dn") + '">' + (net >= 0 ? "+" : "") + net.toFixed(2) + 'R · avg ' +
+        (net / n >= 0 ? "+" : "") + (net / n).toFixed(2) + 'R</b></div>' +
+        '<div class="btkv"><span>Process grade</span><b>' + grade + ' (' + Math.round(avgS) + '/100)</b></div>' +
+        (missed > 0 ? '<div class="btkv"><span>Missed by exiting / stopping too soon</span><b class="dn">' + missed.toFixed(2) + 'R</b></div>' : ''));
+      var cnt = {}, cost = {};
+      HIST.forEach(function (x) { revs[x.uid].tags.forEach(function (t) { cnt[t] = (cnt[t] || 0) + 1; cost[t] = (cost[t] || 0) + Math.min(0, x.r); }); });
+      var top = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).slice(0, 3);
+      if (top.length) out.push('<div class="hint" style="margin-top:7px;color:var(--paper)">Work on</div>' + top.map(function (t) {
+        return '<div class="btkv"><span>' + HIST_LESSON[t] + '</span><b>' + cnt[t] + '×</b></div>';
+      }).join(""));
+      else if (n >= 3) out.push('<div class="hint" style="margin-top:7px;color:var(--up)">No recurring mistakes — keep doing exactly this.</div>');
+    }
+    out.push('</div>');
+
+    /* the selected trade */
+    if (rec) {
+      var A = revs[rec.uid], d = rec.dir, p = function (v) { return fmtN(v, rec.dec); };
+      var fr = function (x) { return (x >= 0 ? "+" : "") + x.toFixed(2) + "R"; };
+      out.push('<div class="btsec"><h5>Trade #' + rec.n + ' · ' + esc(rec.sym) + ' ' + esc(rec.tfLbl || rec.tf) +
+        '<span class="hgrade g' + A.grade + '">' + A.grade + '</span></h5>' +
+        '<div class="btkv"><span>' + (d > 0 ? "Long" : "Short") + ' · ' + (rec.kind === "market" ? "market order" : rec.kind + " order") + '</span><b class="' +
+        (rec.r >= 0 ? "up" : "dn") + '">' + fr(rec.r) + '  (' + money(rec.pl) + ')</b></div>' +
+        '<div class="btkv"><span>Entry → exit</span><b>' + p(rec.entry) + ' → ' + p(rec.exits[rec.exits.length - 1].price) + '</b></div>' +
+        '<div class="btkv"><span>Planned stop / target</span><b>' + p(rec.sl0) + ' / ' + p(rec.tp0) + '</b></div>' +
+        (Math.abs(rec.slEnd - rec.sl0) > 1e-12 ? '<div class="btkv"><span>Stop when it closed</span><b>' + p(rec.slEnd) + '</b></div>' : '') +
+        '<div class="btkv"><span>Risk</span><b>' + money(rec.riskMoney) + ' (' + rec.riskPct.toFixed(2) + '%) · plan ' + A.rr0.toFixed(2) + 'R</b></div>' +
+        '<div class="btkv"><span>Best / worst while open</span><b><span class="up">' + fr(A.mfe) + '</span> / <span class="dn">' + fr(A.mae) + '</span></b></div>' +
+        '<div class="btkv"><span>Exit</span><b>' + esc(rec.why) + ' · ' + (rec.closeIdx - rec.openIdx) + ' bars held</b></div>' +
+        '<div class="hnotes">' + A.notes.map(function (x) {
+          return '<div class="hn ' + x.k + '"><i>' + (x.k === "good" ? "✓" : x.k === "bad" ? "✗" : "•") + '</i><span>' + esc(x.t) + '</span></div>';
+        }).join("") + '</div>' +
+        '<div class="hint" style="margin-top:6px;font-size:10.5px">Graded on the decisions — entry, size, management — not on whether it won. A good trade can lose; a bad one can win.</div>' +
+        '</div>');
+    }
+
+    /* every trade */
+    if (n) {
+      out.push('<div class="btsec"><h5>All trades<span><button class="btuse" data-h="copy">Copy</button> <button class="btuse" data-h="clear">Clear</button></span></h5>' +
+        '<div class="hlist">' + list.map(function (x) {
+          var A2 = revs[x.uid];
+          return '<button class="hrow' + (x.uid === histSel ? " on" : "") + '" data-uid="' + x.uid + '">' +
+            '<span class="mono">#' + x.n + '</span><span>' + esc(x.sym) + ' ' + (x.dir > 0 ? "L" : "S") + '</span>' +
+            '<span class="mono ' + (x.r >= 0 ? "up" : "dn") + '">' + (x.r >= 0 ? "+" : "") + x.r.toFixed(2) + 'R</span>' +
+            '<span class="mu">' + esc(x.why) + '</span><span class="hgrade g' + A2.grade + '">' + A2.grade + '</span></button>';
+        }).join("") + '</div></div>');
+    }
+    $("histPanel").innerHTML = out.join("");
+    $("histTitle").innerHTML = rec ? "<b>Trade #" + rec.n + "</b>" + esc(rec.sym + " " + (rec.tfLbl || rec.tf) + " · " +
+      (rec.dir > 0 ? "long " : "short ") + (rec.r >= 0 ? "+" : "") + rec.r.toFixed(2) + "R") : "<b>History</b>no trades yet";
+    wireHist();
+    setTimeout(function () { drawHist(rec, rec ? revs[rec.uid] : null); }, 20);
+  }
+  function drawHist(rec, A) {
+    if (!chH) return;
+    if (!rec) { chH.blank(); return; }
+    var off = rec.from, bars = A.bars;
+    if (!bars.length) { chH.blank(); return; }
+    chH.load({ bars: bars, dec: rec.dec, sym: rec.sym, tf: rec.tf }, bars.length - 1);
+    chH.locked = true;
+    var o = rec.openIdx - off, cI = rec.closeIdx - off, d = rec.dir;
+    chH.drawings.push({ type: "pos", i: o, i2: Math.max(cI, o + 2), dir: d, entry: rec.entry, stop: rec.sl0, target: rec.tp0,
+      pnl: function (dr, price) {
+        var m = A.R0 > 0 ? (price - rec.entry) * d / A.R0 * rec.riskMoney : 0;
+        return (m > 0 ? "+" : "") + money(m);
+      } });
+    if (Math.abs(rec.slEnd - rec.sl0) > 1e-12)
+      chH.drawings.push({ type: "hline", p: rec.slEnd, col: "rgba(229,99,77,.7)", tag: "STOP WHEN CLOSED" });
+    var mk = [];
+    if (rec.kind !== "market" && rec.placedIdx !== rec.openIdx)
+      mk.push({ i: rec.placedIdx - off, p: rec.entry0, txt: "order placed", col: COL.txt, below: d < 0 });
+    mk.push({ i: o, p: rec.entry, txt: null, col: COL.amber });   /* the entry line already names it */
+    if (A.mfe > 0.05 && A.mfeIdx !== rec.closeIdx)
+      mk.push({ i: A.mfeIdx - off, p: A.mfePx, txt: "best " + "+" + A.mfe.toFixed(2) + "R", col: COL.ok, below: d < 0 });
+    rec.exits.forEach(function (x) {
+      mk.push({ i: x.idx - off, p: x.price, txt: "EXIT " + (x.r >= 0 ? "+" : "") + x.r.toFixed(2) + "R", col: x.r >= 0 ? COL.ok : COL.bad, below: (x.r >= 0) === (d < 0) });
+    });
+    if (A.after.idx != null)
+      mk.push({ i: A.after.idx - off, p: A.after.first === "target" ? rec.tp0 : rec.sl0,
+        txt: A.after.first === "target" ? "target hit after" : "stop hit after", col: "#A98BE8", below: (A.after.first === "target") === (d < 0) });
+    chH.markers = mk;
+    chH.overlayFn = function (c, b, ch) {
+      var x = Math.round(ch.x(cI + 0.5)) + 0.5;
+      if (x > b.r) return;
+      c.fillStyle = "rgba(169,139,232,.05)"; c.fillRect(x, b.t, b.r - x, b.h);
+      c.strokeStyle = "rgba(169,139,232,.6)"; c.setLineDash([4, 4]); c.lineWidth = 1;
+      c.beginPath(); c.moveTo(x, b.t); c.lineTo(x, b.t + b.h); c.stroke(); c.setLineDash([]);
+      c.font = "700 10px Archivo,sans-serif"; c.fillStyle = "rgba(169,139,232,.95)"; c.textAlign = "left"; c.textBaseline = "top";
+      c.fillText("AFTER YOU EXITED →", x + 5, b.t + 4);
+    };
+    chH.fitRange(Math.max(0, o - 40), Math.max(cI + 12, bars.length - 1));
+  }
+  function wireHist() {
+    var P = $("histPanel");
+    [].forEach.call(P.querySelectorAll("[data-uid]"), function (b) {
+      b.onclick = function () { histSel = b.dataset.uid; paintHist(); $("histPanel").scrollTop = 0; };
+    });
+    [].forEach.call(P.querySelectorAll("[data-h]"), function (b) {
+      b.onclick = function () {
+        var a = b.dataset.h;
+        if (a === "desk") setView("desk");
+        if (a === "clear" && confirm("Delete all " + HIST.length + " trades from your history? This can't be undone.")) {
+          HIST.length = 0; histSel = null; histSave(); paintHist();
+        }
+        if (a === "copy") copyText(histReport());
+      };
+    });
+  }
+  function histStep(k) {
+    if (!HIST.length) return;
+    var i = HIST.map(function (x) { return x.uid; }).indexOf(histSel);
+    i = Math.max(0, Math.min(HIST.length - 1, (i < 0 ? HIST.length - 1 : i) + k));
+    histSel = HIST[i].uid; paintHist();
+  }
+  /** plain text, for pasting into a chat and picking apart */
+  function histReport() {
+    var L = ["TRADE TRAINER v" + APP.version + " — trade history (" + HIST.length + " trades)", ""];
+    HIST.forEach(function (x) {
+      var A = histReview(x);
+      L.push("#" + x.n + " " + x.sym + " " + (x.tfLbl || x.tf) + " " + (x.dir > 0 ? "long" : "short") + " " + x.kind +
+        "  entry " + fmtN(x.entry, x.dec) + " stop " + fmtN(x.sl0, x.dec) + " target " + fmtN(x.tp0, x.dec) +
+        "  risk " + x.riskPct.toFixed(2) + "%  -> " + x.why + " " + (x.r >= 0 ? "+" : "") + x.r.toFixed(2) + "R" +
+        "  best +" + A.mfe.toFixed(2) + "R  grade " + A.grade);
+      A.notes.forEach(function (nn) { L.push("    " + (nn.k === "good" ? "+" : nn.k === "bad" ? "-" : "·") + " " + nn.t); });
+    });
+    return L.join("\n");
+  }
+
   function btStep(n) {
     if (!BT.ch) return;
     for (var k = 0; k < n; k++) {
@@ -8786,6 +9207,10 @@ var PROG = (function () {
         : "Place " + BT.otype + " " + (BT.dir > 0 ? "buy" : "sell")) + '</button></div>' +
       '</div>');
 
+    /* the way back to every closed trade */
+    if (HIST.length) out.push('<div class="btsec"><div class="btkv" style="align-items:center"><span>' + HIST.length +
+      ' trade' + (HIST.length === 1 ? '' : 's') + ' in your History — replayed and graded</span>' +
+      '<button class="btuse" data-bt="hist">Review</button></div></div>');
     /* open positions */
     out.push('<div class="btsec"><h5>Open positions <span class="mono">' + BT.pos.length + '</span></h5>');
     if (!BT.pos.length) out.push('<div class="hint">Nothing open. Levels you place are draggable right on the chart.</div>');
@@ -8919,6 +9344,7 @@ var PROG = (function () {
         var a = b.dataset.bt, id = +b.dataset.id, v = b.dataset.v;
         var pos = BT.pos.filter(function (x) { return x.id === id; })[0];
         if (a === "take") { takeSignal(); return; }
+        if (a === "hist") { setView("history"); return; }
         if (a === "skipnext") { skipToNext(); return; }
         if (a === "draft") BT.draft = v === "1";
         if (a === "dir" || a === "otype" || a === "pick") BT.draft = true;
@@ -8957,6 +9383,7 @@ var PROG = (function () {
           var add = topUpUnits(pos);
           if (add > 0) {
             btAddUnits(pos, add);
+            if (pos.meta) pos.meta.topped = true;
             toast("Added " + fmtLots(add) + " at " + px(btPrice()) + " — now risking 1% at the new average entry");
           }
         }
@@ -9028,15 +9455,16 @@ var PROG = (function () {
       if ((sl - entry) * BT.dir >= 0) { toast("The stop must sit on the losing side of the entry"); return; }
       var u = toUnits(BT.lots);
       if (!(u > 0)) { toast("Size works out to zero — check the stop distance"); return; }
+      var meta = tradeMeta(BT.otype, BT.dir, entry, sl, tp);
       if (BT.otype === "market") {
-        btOpen(BT.dir, at, u, sl, tp, chB.vis);
+        btOpen(BT.dir, at, u, sl, tp, chB.vis, meta);
         toast((BT.dir > 0 ? "Bought" : "Sold") + " " + fmtLots(u) + " at " + px(at));
       } else {
         /* a stop order must sit beyond the price, a limit order behind it */
         var beyond = (entry - at) * BT.dir > 0;
         if (BT.otype === "stop" && !beyond) { toast("A stop order goes beyond the current price"); return; }
         if (BT.otype === "limit" && beyond) { toast("A limit order goes behind the current price"); return; }
-        BT.ord.push({ id: BT.nextId++, kind: BT.otype, dir: BT.dir, price: entry, units: u, sl: sl, tp: tp });
+        BT.ord.push({ id: BT.nextId++, kind: BT.otype, dir: BT.dir, price: entry, units: u, sl: sl, tp: tp, meta: meta });
         toast(BT.otype + " order placed at " + px(entry));
       }
       BT.tSL = BT.tTP = BT.tPrice = null;
