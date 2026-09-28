@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.64.0 (build 2026-09-28) — Al Brooks price action -->
+<!-- Trade Trainer v3.64.1 (build 2026-09-28) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.64.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.64.1 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -538,7 +538,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.64.0", build: "2026-09-28", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.64.1", build: "2026-09-28", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -3420,8 +3420,9 @@ Chart.prototype._drawPos = function (c, b, d) {
   var x0 = this.x(d.i), xr = b.r, xe = d.i2 != null ? Math.max(x0 + 4, Math.min(b.r, this.x(d.i2))) : b.r;
   var ye = this.y(d.entry), ys = this.y(d.stop), yt = this.y(d.target);
   var ghost = d._ghostT != null && d.target === d._ghostT;
-  if (!ghost) { c.fillStyle = "rgba(63,191,127,.13)"; c.fillRect(x0, Math.min(ye, yt), xe - x0, Math.abs(yt - ye)); }
-  c.fillStyle = "rgba(229,99,77,.15)"; c.fillRect(x0, Math.min(ye, ys), xe - x0, Math.abs(ys - ye));
+  /* a lesson draws its box lighter: the candles inside it are the point */
+  if (!ghost) { c.fillStyle = d.lesson ? "rgba(63,191,127,.06)" : "rgba(63,191,127,.13)"; c.fillRect(x0, Math.min(ye, yt), xe - x0, Math.abs(yt - ye)); }
+  c.fillStyle = d.lesson ? "rgba(229,99,77,.08)" : "rgba(229,99,77,.15)"; c.fillRect(x0, Math.min(ye, ys), xe - x0, Math.abs(ys - ye));
   var self = this;
   function line(y, col, txt, val) {
     y = Math.round(y) + 0.5;
@@ -3442,7 +3443,8 @@ Chart.prototype._drawPos = function (c, b, d) {
   else line(yt, COL.ok, (d.lesson && d.tl ? "TARGET · " + d.tl : "TARGET") + this._pnlTxt(d, d.target), d.target);
   line(ye, COL.amber, d.dir > 0 ? "LONG ENTRY" : "SHORT ENTRY", d.entry);
   line(ys, COL.bad, "STOP" + this._pnlTxt(d, d.stop), d.stop);
-  if (!ghost) this._rrTxt(c, b, d, ye, yt, xe);
+  /* a lesson stop that has been moved: reward over the new, smaller risk is not a number anyone trades on */
+  if (!ghost && !d.norr) this._rrTxt(c, b, d, ye, yt, xe);
 };
 
 /* A lesson position whose stop has been trailed past the entry: the zone
@@ -3450,8 +3452,8 @@ Chart.prototype._drawPos = function (c, b, d) {
 Chart.prototype._drawTrail = function (c, b, d) {
   var x0 = this.x(d.i), xr = b.r, xe = d.i2 != null ? Math.max(x0 + 4, Math.min(b.r, this.x(d.i2))) : b.r, self = this;
   var ye = this.y(d.entry), ys = this.y(d.stop), yt = this.y(d.target);
-  c.fillStyle = "rgba(63,191,127,.10)"; c.fillRect(x0, Math.min(ye, yt), xe - x0, Math.abs(yt - ye));
-  c.fillStyle = "rgba(63,191,127,.22)"; c.fillRect(x0, Math.min(ye, ys), xe - x0, Math.abs(ys - ye));
+  c.fillStyle = "rgba(63,191,127,.05)"; c.fillRect(x0, Math.min(ye, yt), xe - x0, Math.abs(yt - ye));
+  c.fillStyle = "rgba(63,191,127,.11)"; c.fillRect(x0, Math.min(ye, ys), xe - x0, Math.abs(ys - ye));
   function line(y, col, txt, val) {
     y = Math.round(y) + 0.5;
     c.strokeStyle = col; c.lineWidth = 1.3; c.setLineDash([]);
@@ -7839,7 +7841,7 @@ var PROG = (function () {
     for (var i = a; i <= z; i++) { L = Math.min(L, this.ex.bars[i].l); H = Math.max(H, this.ex.bars[i].h); }
     (this.def.extraPrices ? this.def.extraPrices(this.ex) : []).forEach(function (p) { if (isFinite(p)) { L = Math.min(L, p); H = Math.max(H, p); } });
     ch.lockP = { lo: L, hi: H };
-    ch.drawings = st.pos ? [{ type: "pos", lesson: true, tl: st.pos.tl, ra: st.pos.ra, i: st.pos.i, i2: st.pos.i2, dir: st.pos.dir, entry: st.pos.entry, stop: st.pos.stop, target: st.pos.target }] : [];
+    ch.drawings = st.pos ? [{ type: "pos", lesson: true, tl: st.pos.tl, ra: st.pos.ra, norr: st.pos.norr, i: st.pos.i, i2: st.pos.i2, dir: st.pos.dir, entry: st.pos.entry, stop: st.pos.stop, target: st.pos.target }] : [];
     if (instant) { ch.vis = Math.min(st.vis, n - 1); ch.render(); }
     return st;
   };
@@ -8067,7 +8069,7 @@ var PROG = (function () {
      position box, and can stop and ask a question. `check` states what the
      script assumes about the chart, so a change to the generator that moves a
      signal bar is caught by the tests instead of silently mis-narrating. */
-  function lpos(g, i, i2, stop) { return { i: i, i2: i2, dir: g.dir, entry: g.entry, stop: stop != null ? stop : g.invalid, target: g.target, tl: ltgt(g) }; }
+  function lpos(g, i, i2, stop) { return { i: i, i2: i2, dir: g.dir, entry: g.entry, stop: stop != null ? stop : g.invalid, target: g.target, tl: ltgt(g), norr: stop != null && stop !== g.invalid }; }
   /* what a setup's target is based on, in a few words, for the position box */
   function ltgt(g) {
     var k = String(g.key || "").replace(/_D$/, ""), up = g.dir > 0;
@@ -8690,46 +8692,72 @@ var PROG = (function () {
     }
   };
 
+  /** Trailing by Brooks' rule, run over the chart: a pullback starts when a bar
+      fails to make a new high; it is over when a bar goes above the high it
+      started from; then the stop goes one tick below the pullback's low. */
+  function ltrailNH(ex, from, to) {
+    var g = ex.gt, b = ex.bars, d = g.dir, t = Math.pow(10, -ex.dec), ext = function (q) { return d > 0 ? q.h : q.l; }, low = function (q) { return d > 0 ? q.l : q.h; };
+    var H = ext(b[from]), Hi = from, pb = false, pl = null, out = [];
+    for (var i = from + 1; i <= to; i++) {
+      var q = b[i];
+      /* a pullback bar: it fails to make a new high, or it trades below the prior bar's low */
+      if ((ext(q) - H) * d <= 0 || (low(q) - low(b[i - 1])) * d < 0) pb = true;
+      if (pl === null || (low(q) - pl.p) * d < 0) pl = { i: i, p: low(q) };
+      if ((ext(q) - H) * d > 0) {
+        if (pb) out.push({ at: i, low: pl, stop: pl.p - d * t, from: Hi });
+        H = ext(q); Hi = i; pb = false; pl = null;
+      }
+    }
+    return out;
+  }
   LVID.manage = {
     title: "Managing a trade bar by bar",
     example: function () { return lessonChart("spikeChannel", 1592, "GER40", "5m"); },
     check: function (ex) {
-      var g = ex.gt, b = ex.bars, R = g.entry - g.invalid;
+      var g = ex.gt, b = ex.bars, R = g.entry - g.invalid, T = ltrailNH(ex, 49, 84);
       return g.sigIdx === 48 && g.fillAt === 49 && g.hitTargetAt === 85 && b[51].h >= g.entry + R && b[50].h < g.entry + R &&
-        lo(ex, 55, 68).i === 63 && b[64].h > b[63].h && b[63].c > b[63].o && lo(ex, 64, 68).p > b[63].l && b[69].h > b[54].h &&
-        lo(ex, 74, 76).i === 75 && b[76].c > b[76].o && b[77].h > b[76].h && b[77].h > b[74].h &&
-        b[82].l < b[81].l && b[82].l < b[83].l && b[82].c > b[82].o && b[83].h > b[82].h;
+        T.length === 4 && T[0].at === 51 && T[0].low.i === 51 && T[1].at === 69 && T[1].low.i === 63 && T[2].at === 77 && T[2].low.i === 75 && T[3].at === 83 && T[3].low.i === 82 &&
+        b[60].c > b[60].o && b[61].h > b[60].h && b[63].l < b[60].l && hi(ex, 55, 68).p < b[54].h && lo(ex, 50, 84).p > g.invalid &&
+        T.every(function (x, k) { return lo(ex, x.at + 1, k < 3 ? T[k + 1].at : 85).p > x.stop; });
     },
     extraPrices: function (ex) { return [ex.gt.target, ex.gt.invalid]; },
     scenes: function (ex) {
-      var g = ex.gt, b = ex.bars, R = g.entry - g.invalid, tick = 1;
-      var s1 = b[63].l - tick, s2 = b[75].l - tick, s3 = b[82].l - tick;
+      var g = ex.gt, b = ex.bars, R = g.entry - g.invalid, T = ltrailNH(ex, 49, 84), t = Math.pow(10, -ex.dec);
       var r = function (p) { return ((p - g.entry) / R).toFixed(1); };
+      var P = function (i2, st) { return lpos(g, 49, i2, st); };
+      var stopLine = function (k) { return N.hl(T[k].stop, T[k].low.i, "stop " + (k + 1) + ": " + r(T[k].stop) + "R", COL.dn, true, 43); };
+      var h1stop = b[60].l - t;
       return [
-        { title: "The plan", vis: 48, view: [38, 90], add: lorders(ex, 48).concat([lmm(ex)]),
-          say: "This is the spike and channel trade from before: GER40, bought above the High 2 at the EMA. Now we manage it bar by bar. The plan was made before the entry: stop below the pullback low, target the spike's measured move, and the stop moves only when a pullback has ended." },
-        { title: "The entry bar", vis: 49, pos: lpos(g, 49, 52),
+        { title: "The plan", vis: 48, view: [42, 88], add: lorders(ex, 48).concat([lmm(ex)]),
+          say: "This is the spike and channel trade from before: GER40, bought above the High 2 at the EMA. Now we manage it bar by bar. The plan was made before the entry: stop below the pullback low, target the spike's measured move, and the stop moves only when a pullback is over." },
+        { title: "The entry bar", vis: 49, pos: P(52), clear: true,
           say: "Bar one, the entry bar: a strong bull bar closing near its high. Decision: hold." },
-        { title: "A bear bar", vis: 50, pos: lpos(g, 49, 53),
-          say: "Bar two: a bear bar closing on its low. Is the trade failing? Check three things: it is well above the stop, it did not break below the signal bar, and the market is always-in long after a spike. One bear bar is not a reversal. Decision: hold, and watch the next bar." },
-        { title: "One R", vis: 51, pos: lpos(g, 49, 54), add: [N.pt(51, g.entry + R, "+1R: hold", COL.up, true)],
-          say: "Bar three: a big bull bar closes on its high and reaches one R. Decision: hold. One R is a number, not a reason: a strong bull bar at the start of a channel is the opposite of a reason to take profits." },
-        { title: "Where is the stop now?", vis: 51,
-          say: "Now think about the stop.",
-          ask: { q: "You are at 1R in a with-trend trade. Where does the stop go?", o: ["Leave it; move it only behind a pullback that has ended", "Move it to breakeven right away", "Move it just below this bar"], a: 0,
-            why: "A stop exactly at your entry sits where an ordinary pullback often reaches: most winning trend trades come back at least half R toward the stop before they reach the target. The stop belongs below the last higher low, and you move it up when a pullback has ended." } },
-        { title: "The rhythm of a channel", vis: 63, pos: lpos(g, 49, 66), add: [N.pt(63, b[63].l, "pullback low", COL.violet, false, "left")],
-          say: "The channel: a push up, then a pullback that drifts down to the EMA. Is it a problem? No. It's the normal rhythm of a channel, and it's above your entry. While a pullback is still going, the stop stays where it is: you don't know yet where the pullback ends." },
-        { title: "Trail one: the pullback ends", vis: 64, pos: lpos(g, 49, 68, s1), add: [N.bar(63, "signal", COL.amber), N.hl(s1, 63, "stop to " + r(s1) + "R", COL.dn, true, 52)],
-          say: "The pullback ends with a bull bar on the EMA, and the next bar goes above its high: a buy signal has triggered at the end of the pullback. That is the moment the pullback's low becomes a higher low. Move the stop to one tick below it. Not because of one bull bar, but because a pullback ended and a with-trend buy signal triggered above it." },
-        { title: "The new high confirms it", vis: 69, pos: lpos(g, 49, 72, s1), add: [N.hl(b[54].h, 54, "high before the pullback", COL.txt, true, 40)],
-          say: "A small dip holds above that low, and then a big bull bar breaks the high from before the pullback. That confirms the higher low. Some traders wait for exactly this bar before they move the stop: later, but the same level. Both are fine. What is not fine is moving the stop under a bar that ended nothing." },
-        { title: "Trail two", vis: 77, pos: lpos(g, 49, 80, s2), add: [N.hl(s2, 75, "stop to " + r(s2) + "R", COL.dn, true, 60)],
-          say: "Another push up and a two-bar pullback. A bull bar ends it, and the next bar triggers above it and makes a new high at the same time. Move the stop to one tick below this pullback's low. More than three times your risk is now locked in." },
-        { title: "Trail three", vis: 83, pos: lpos(g, 49, 86, s3), add: [N.hl(s3, 82, "stop to " + r(s3) + "R", COL.dn, true, 66)],
-          say: "And once more: a one-bar pullback that ends with a bull bar, and the next bar triggers above it. The stop goes below that low." },
-        { title: "Target", vis: 85, pos: lpos(g, 49, 85, s3),
-          say: "The target fills: about " + r(g.target) + " R on the whole position. Notice what you didn't do: you didn't take half at one R, you didn't move the stop because of one scary bar, and you didn't trail under every small bar. The stop moved only after a pullback had ended: a with-trend signal triggered above it, or the market made a new high." }
+        { title: "A bear bar", vis: 50, pos: P(53),
+          say: "Bar two: a bear bar closing on its low. Is the trade failing? It is well above the stop, it did not break below the signal bar, and the market is always-in long after a spike. One bear bar is not a reversal. Decision: hold, and watch the next bar." },
+        { title: "Trail one: a new high", vis: 51, pos: P(55, T[0].stop), clear: true,
+          add: [N.pt(51, g.entry + R, "+1R: hold", COL.up, true, "left"), N.pt(T[0].low.i, T[0].low.p, "pullback low", COL.violet, false, "right"), stopLine(0)],
+          say: "Bar three: a big bull bar closes on its high, reaches one R, and goes above the entry bar's high. That new high ends the one-bar pullback, and its lowest point is this bar's own low. Move the stop to one tick below it: the risk drops from one R to about a quarter of an R. And take no profit: one R is a number, not a reason." },
+        { title: "Every bar?", vis: 54, pos: P(57, T[0].stop),
+          say: "Three more bull bars, three new highs.",
+          ask: { q: "Every bar makes a new high. Do you move the stop under each bar's low?", o: ["No: only after a pullback, once the market goes above the high it started from", "Yes: under every bar"], a: 0,
+            why: "A stop under every bar gets hit by the first ordinary pullback. The stop moves under a pullback's low, and only once that pullback is over." } },
+        { title: "A pullback", vis: 59, fast: true, pos: P(62, T[0].stop), clear: true, add: [N.hl(b[54].h, 54, "high before the pullback", COL.txt, true, 43), stopLine(0)],
+          say: "Now a real pullback, drifting down toward the EMA. While a pullback is going, the stop stays where it is: you don't know yet where it ends." },
+        { title: "The first attempt", vis: 61, pos: P(64, T[0].stop), add: [N.bar(60, "H1", COL.amber, false), N.hl(h1stop, 60, "", COL.txt, true)],
+          say: "A bull bar, and the next bar goes above its high: the first attempt up, a High 1.",
+          ask: { q: "The H1 triggered. Move the stop below it?", o: ["Not yet: wait for a new high above the high before the pullback", "Yes: the pullback is over"], a: 0,
+            why: "In a channel, pullbacks often come in two legs, and the first attempt up often fails. The pullback is only proven over when the market goes above the high it started from. Watch what happens." } },
+        { title: "Leg two", vis: 63, pos: P(66, T[0].stop), add: [N.pt(63, b[63].l, "a stop under the H1 is hit here", COL.dn, false, "right")],
+          say: "Two bars later the market goes below the High 1's low: a second leg down. A stop moved under the High 1 would be gone, for about " + r(h1stop) + " R, in a trade that is about to run to almost six. Yours is still below the first pullback's low." },
+        { title: "Trail two: a new high", vis: 69, pos: P(72, T[1].stop), clear: true,
+          add: [N.hl(b[54].h, 54, "high before the pullback", COL.txt, true, 43), N.bar(60, "H1", COL.txt, false), N.bar(63, "H2", COL.amber, false), N.pt(T[1].low.i, T[1].low.p, "pullback low", COL.violet, false, "left"), N.pt(69, b[69].h, "new high", COL.up, true, "left"), stopLine(1)],
+          say: "The second leg ends with a bull bar, a High 2, and a few bars later the market goes above the high before the pullback: the pullback is over, and its low was the High 2 bar's low. Now move the stop to one tick below it: " + r(T[1].stop) + " R is locked in." },
+        { title: "Trail three", vis: 77, pos: P(80, T[2].stop), clear: true, add: [N.pt(T[2].low.i, T[2].low.p, "pullback low", COL.violet, false), N.pt(77, b[77].h, "new high", COL.up, true, "left"), stopLine(2)],
+          say: "A strong push, then a two-bar pullback. This bar goes above the high before it: a new high. The stop goes one tick below that pullback's low: " + r(T[2].stop) + " R locked in." },
+        { title: "Trail four", vis: 83, pos: P(86, T[3].stop), clear: true, add: [N.pt(T[3].low.i, T[3].low.p, "pullback low", COL.violet, false), N.pt(83, b[83].h, "new high", COL.up, true, "left"), stopLine(3)],
+          say: "And once more: a one-bar pullback, then a new high above it. The stop goes below that low: " + r(T[3].stop) + " R." },
+        { title: "Target", vis: 85, pos: P(85, T[3].stop), clear: true, add: [stopLine(0), stopLine(1), stopLine(2), stopLine(3)],
+          say: "The target fills: about " + r(g.target) + " R on the whole position. The stop moved four times, each time after a pullback was proven over by a new high, and each time to just below that pullback's low. Never during a pullback, never under every bar, and not under the first attempt up: that one failed. In a tight channel, where pullbacks have one leg, traders move it after the first triggered signal bar. In a normal channel, wait for the new high." }
       ];
     }
   };
@@ -9511,7 +9539,7 @@ var PROG = (function () {
           "A strong signal the other way (strong breakout, second-entry reversal)? Exit.",
           "Rejected at a magnet before the target (a reversal bar or a long tail at the prior high or low, or the range edge)? Take half, stop to breakeven.",
           "A reversal trade that has gone 1R? Stop to breakeven. (1R itself is never a reason to take profits.)",
-          "A pullback ended (a with-trend signal triggered, or a new extreme)? Move the stop one tick beyond that pullback (trends only).",
+          "A pullback is over — the market made a new extreme beyond where the pullback started? Move the stop one tick beyond that pullback (trends only). In a tight channel a triggered signal bar at its end is enough.",
           "Sideways for a long time (10–20 bars on 5 min)? Take profits or tighten.",
           "None of these: <b>hold, and touch nothing.</b>"
         ]));
@@ -9558,7 +9586,7 @@ var PROG = (function () {
           "<b>Next bars:</b> follow-through expected. Sideways right away — expect less.",
           "<b>At 1R:</b> nothing — 1R is a number, not a reason. Only in a reversal trade (wedge, major trend reversal, final flag) the stop now goes to breakeven.",
           "<b>At a magnet before the target:</b> rejected there (reversal bar, long tail)? Take half, stop to breakeven. Goes through it? Hold.",
-          "<b>Trends:</b> when a pullback ends — a with-trend signal bar triggers above it (below it for a short), or the market makes a new extreme — move the stop one tick beyond that pullback. Never while the pullback is still going, and not behind every bar.",
+          "<b>Trends:</b> when a pullback is over — the market goes above the high it started from (below the low, for a short) — move the stop one tick beyond that pullback's extreme. Not at the first signal bar up: in a channel the first attempt often fails. In a tight channel, where pullbacks have one leg, the first triggered signal bar is enough. Never while the pullback is still going, and not behind every bar.",
           "<b>Ranges:</b> fixed target (middle, other side). No trailing.",
           "<b>Exit early:</b> strong breakout against you, second-entry signal the other way, a long sideways stall. Back at your entry after the premise broke: take the breakeven exit.",
           "<b>Never:</b> widen the stop, add to a loser, remove the stop, or move the target further because you are sure."
@@ -10281,7 +10309,7 @@ var PROG = (function () {
         lh("Breakeven") +
         lp("<b>In reversal trades</b> (wedge, major trend reversal, final flag), move the stop to breakeven once the trade has gone 1R: a real reversal should not come back to its entry, and if it does, the old trend is still in control. <b>After a rejection at a magnet</b> the stop for the rest goes to breakeven too. <b>In with-trend trades</b> don't: the stop stays until the trailing rule moves it. <b>In range trades</b> the stop stays where it is until the target.") +
         lh("Trailing") +
-        lp("Only in trends. While a pullback is going, the stop stays put: you don't know yet where it ends. The pullback has ended when a with-trend signal bar at its end gets triggered — the next bar goes above a bull signal bar (below a bear one). That makes its low a higher low: move the stop one tick below it. Some traders wait for the next new high to confirm it — later, same level. A single bull bar that ends no pullback and breaks nothing is not a reason to move the stop. In a range, hold a fixed target: a trailing stop there gets hit by the ordinary back-and-forth.") +
+        lp("Only in trends. While a pullback is going, the stop stays put: you don't know yet where it ends. The pullback is over when the market goes above the high it started from (below the low, for a short). Then move the stop one tick below that pullback's low. Why not at the first bull signal bar that triggers? Because in a channel pullbacks often have two legs, and the first attempt up (the H1) often fails: the lesson shows one, where a stop under the H1 would have been hit in a trade that went on to almost 6R. In a <b>tight</b> channel, where pullbacks are one leg, traders do move the stop after the first triggered signal bar. A single bull bar that ends nothing is never a reason. In a range, hold a fixed target: a trailing stop there gets hit by the ordinary back-and-forth.") +
         lh("Scaling in") +
         lp("Adding to a position is a planned technique, not a rescue. In a range, experienced traders scale into longs in the lower half on signals, with the total risk decided before the first entry. The chapter " + lgo("limits", "Limit orders, wide stops and scaling in") + " shows one bar by bar. It is one position at an average price. Adding to a loser without a plan is how accounts die.");
     },
@@ -10290,7 +10318,7 @@ var PROG = (function () {
       { q: "Your buy is rejected just below the prior high: two pushes, then a bar with a long tail on top. What do you do?", o: ["Take half off and move the stop to breakeven", "Nothing: it hasn't reached 1R twice"], a: 0, why: "A rejection at a magnet on the way to the target is the one reason to take half early." },
       { q: "Your wedge reversal has gone 1R. Where does the stop go?", o: ["To breakeven", "It stays; reversals are never touched"], a: 0, why: "A real reversal should not come back to its entry. In reversals, breakeven at 1R improved the result in this app's data." },
       { q: "In a trading range trade, do you trail the stop?", o: ["Yes", "No: hold a fixed target"], a: 1, why: "Trailing inside two-sided trading gets you stopped by ordinary swings." },
-      { q: "When does a trailing stop move up in a bull trend?", o: ["After every bull bar", "When a pullback has ended — a buy signal triggers above it, or a new high — to just below that pullback's low"], a: 1, why: "Only a pullback that has ended gives you a higher low. Until then the stop stays where it is." }
+      { q: "When does a trailing stop move up in a bull channel?", o: ["After every bull bar", "At the first bull signal bar that triggers in a pullback", "When the market goes above the high the pullback started from — to just below that pullback's low"], a: 2, why: "Only a pullback that is over gives you a higher low, and the new high is what proves it is over. The first attempt up often fails in a channel." }
     ],
     practise: [{ label: "Drill: managing what you took", go: "node", node: "t0f" }, { label: "Drill: manage a trend", go: "node", node: "tMb" }, { label: "Drill: manage a range trade", go: "node", node: "tMc" }, { label: "Drill: trail it or take the target?", go: "node", node: "tMa" }]
   });
@@ -10593,7 +10621,7 @@ var PROG = (function () {
     m3b: { q: "Earlier in this trade, did a strong bar against you break the structure (and you stayed in), and is price now back near your entry?", a: [["Yes", "e_gift"], ["No", "m4"]] },
     m4: { q: "Has the market reached a magnet on the way to your target (the prior high or low, a range edge, the middle of a range) and been rejected there: a reversal bar or a long tail against you?", a: [["Yes, and I still hold the full position", "e_magnet"], ["Yes, but I already took half there", "m5"], ["No, or it went straight through", "m5"]] },
     m5: { q: "Is it a reversal trade (wedge, major trend reversal, final flag) that has gone at least 1R, with the stop not yet at breakeven?", a: [["Yes", "e_be_rev"], ["No", "m6"]] },
-    m6: { q: "Is it a with-trend trade, and since your last stop move did a pullback end: a with-trend signal bar at its end got triggered, or the market made a new extreme your way?", a: [["Yes", "e_trail"], ["No — or it is a range trade: ranges are never trailed", "m7"]] },
+    m6: { q: "Is it a with-trend trade, and since your last stop move did a pullback end with a new extreme your way (above the high the pullback started from, for a long)? In a tight channel, a triggered signal bar at the pullback's end is enough.", a: [["Yes", "e_trail"], ["No — or it is a range trade: ranges are never trailed", "m7"]] },
     m7: { q: "Has the market gone sideways for a long time since the entry (about 10–20 bars on 5 min)?", a: [["Yes", "e_tighten"], ["No", "e_hold"]] },
 
     o1: { q: "Did the bar that just closed trigger your order?", a: [["Yes", "e_filled"], ["No", "o2"]] },
@@ -10637,7 +10665,7 @@ var PROG = (function () {
     e_magnet: { k: "manage", t: "Take half off, stop to breakeven", d: "The market is rejected at a magnet on the way to your target: that is a reason on the chart. Close half now. Move the stop for the rest to your entry: if the move is still healthy, the market has no business back there. Keep the original target." },
     e_be_rev: { k: "manage", t: "Stop to breakeven", d: "In a reversal trade, once it has gone 1R, the stop goes to your entry. A real reversal should not come back there; if it does, the old trend is still in control. Take no profits yet: your target is at least 2R away." },
     e_gift: { k: "exit", t: "Take the gift: get out at breakeven", d: "The reason for the trade broke when that strong bar went against you. Price coming back to your entry doesn't repair it; it is only a pullback of the other side. Close at or near breakeven. (If nothing broke and a new signal in your direction formed, you would hold instead: that is a bad trade going good.)" },
-    e_trail: { k: "manage", t: "Move the stop behind the pullback that ended", d: "Put the stop one tick beyond that pullback's extreme (below its low for a long, above its high for a short). Never while a pullback is still going, and never under a bar that ended nothing. It never moves back." },
+    e_trail: { k: "manage", t: "Move the stop behind the pullback that ended", d: "Put the stop one tick beyond that pullback's extreme (below its low for a long, above its high for a short). Never while a pullback is still going, never under the first attempt of a two-legged pullback, and never under a bar that ended nothing. It never moves back." },
     e_tighten: { k: "manage", t: "Take profits or tighten", d: "A market that goes sideways for many bars after your entry is losing momentum. Take some or all of the profit, or tighten the stop to just beyond the recent bars. Expect less than the full target." },
     e_hold: { k: "hold", t: "Hold. Change nothing.", d: "Nothing has changed. The stop and the target stay where they are. Most bars in a trade are hold bars." },
     e_filled: { k: "manage", t: "You're in: manage it", d: "Check that the stop and target are attached to the position in cTrader. From the next bar on, answer \"Yes, I'm in a trade\" at the top. A good entry bar closes your way." },
@@ -10685,13 +10713,13 @@ var PROG = (function () {
     m2: [["bad", "The structure breaks"], ["badgood", "Against you"], null],
     m3b: [["gift", "The gift"], null],
     m4: [["partB", "Stalled below the magnet"], null, ["partA", "Through the magnet"]],
-    m6: [["manage", "Trail one: the pullback ends"], null]
+    m6: [["manage", "Trail two: a new high"], null]
   };
   var LTREE_ENDFIG = {
     e_trend: ["every", "The orders"], e_range: ["range", "The buy signal"], e_rev: ["wedge", "The orders"], e_spike: ["spike", "The spike"],
     e_tight: ["tight", "A tight channel"], e_bo: ["bo", "The signal"], e_bofail: ["fbo", "The sell signal"], e_barb: ["nothing", "Barbwire"],
     e_h2: ["every", "The High 1"], e_middle: ["range", "Thirds"], e_weak: ["bars", "A weak signal"], e_exit: ["bad", "The structure breaks"],
-    e_watch: ["badgood", "Against you"], e_magnet: ["partB", "Stalled below the magnet"], e_trail: ["manage", "Trail one: the pullback ends"],
+    e_watch: ["badgood", "Against you"], e_magnet: ["partB", "Stalled below the magnet"], e_trail: ["manage", "Trail two: a new high"],
     e_gift: ["gift", "The gift"], e_late_go: ["late", "The close of the entry bar"], e_late_wait: ["late", "Your price again"],
     e_test: ["mtr", "The test"], e_broadtop: ["broad", "Where to take profit"], e_big: ["bars", "A good signal bar"]
   };
