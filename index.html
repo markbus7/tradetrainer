@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.60.0 (build 2026-09-28) — Al Brooks price action -->
+<!-- Trade Trainer v3.60.1 (build 2026-09-28) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.60.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.60.1 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -492,7 +492,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.60.0", build: "2026-09-28", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.60.1", build: "2026-09-28", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -1052,7 +1052,10 @@ var Mkt = (function () {
     hU: function () { return 0.8; },
     gt: function (b, ax, C) {
       var top = C.hi(b, ax.t1.i - 2, ax.b2.i + 2), bot = C.lo(b, ax.t1.i - 2, ax.b2.i + 2);
-      var pb = C.lo(b, ax.bo.i, ax.sig.i + 2);
+      /* the pullback that follows the breakout: from the bar AFTER the breakout's
+         extreme up to the signal bar. Starting at the extreme bar itself put the
+         stop at that bar's far end -- halfway up a big breakout bar, protecting nothing */
+      var pb = C.lo(b, ax.bo.i + 1, ax.sig.i);
       return {
         sigIdx: ax.sig.i, measure: { a: bot, b: top }, anchor: top,
         rangeTop: top.p, rangeBot: bot.p,
@@ -8076,29 +8079,40 @@ var PROG = (function () {
 
   LVID.cycle = {
     title: "The market cycle",
-    example: function () { return lessonStitch([{ ctx: "spikeChannel", seed: 1222, cut: 78 }, { ctx: "successBo_D", seed: 1222 }], "ES", "5m"); },
-    check: function (ex) { return ex.bars.length === 239 && ex.segs[1].sig === 199 && ex.segs[1].fillAt === 200 && ex.segs[1].hitT === 230; },
+    example: function () { return lessonStitch([{ ctx: "spikeChannel", seed: 1222, cut: 78 }, { ctx: "successBo_D", seed: 53799 }], "ES", "5m"); },
+    /* every position below is read from the second part's recorded structure;
+       the check pins what the narration says about it */
+    check: function (ex) {
+      var s1 = ex.segs[1], b = ex.bars, hiI = s1.labels.filter(function (L) { return L[1] === "range high"; })[0][0].i;
+      var pause = hi(ex, s1.pbFrom, s1.sig).p;   /* the pause after the spike, up to the signal bar */
+      return s1.fillAt === s1.sig + 1 && s1.worked && s1.hitI === -1 && s1.hitT > 0 && s1.hitT < b.length &&
+        s1.stop >= pause - 1e-9 && s1.stop - pause < 0.25 * (s1.stop - s1.entry) && s1.pbFrom > hiI && s1.sig - hiI <= 8;
+    },
     scenes: function (ex) {
-      var b = ex.bars, s1 = ex.segs[1], r0 = lo(ex, 0, 22), r1 = hi(ex, 0, 22);
-      var sp0 = lo(ex, 23, 27), sp1 = hi(ex, 23, 27), top = hi(ex, 78, 90), rb = lo(ex, 86, 197);
+      var b = ex.bars, s1 = ex.segs[1], n = b.length, r0 = lo(ex, 0, 22), r1 = hi(ex, 0, 22);
+      var sp0 = lo(ex, 23, 27), sp1 = hi(ex, 23, 27), top = hi(ex, 78, 95);
+      var hiI = s1.labels.filter(function (L) { return L[1] === "range high"; })[0][0].i;
+      var spike = [];
+      for (var i = hiI + 1; i < s1.sig; i++) if (b[i].c < b[i].o && (b[i].c - b[i].l) / (b[i].h - b[i].l) < 0.3) spike.push(i);
+      var P = function (i2) { return { i: s1.fillAt, i2: i2, dir: -1, entry: s1.entry, stop: s1.stop, target: s1.target }; };
       return [
-        { title: "A trading range", vis: 22, view: [0, 238], add: [N.box(0, 22, r0.p, r1.p, "trading range", COL.txt)],
+        { title: "A trading range", vis: 22, view: [0, n - 1], add: [N.box(0, 22, r0.p, r1.p, "trading range", COL.txt)],
           say: "This is US500 on the 5 minute chart, about twenty hours in one picture. Every bar you will ever trade sits in one phase of the market cycle. Here it starts as a trading range: small overlapping bars going sideways around a flat EMA. In a range there is no always-in direction." },
         { title: "Breakout: the spike", vis: 27, add: [N.box(23, 27, sp0.p, sp1.p, "spike = breakout", COL.up)],
           say: "Then a breakout: several big bull bars in a row, each closing near its high, with almost no pullback. Brooks calls it a spike. The market is now always-in long, and during a spike you never look for shorts." },
         { title: "The channel", vis: 72, add: [N.seg({ i: 41, p: b[41].l }, { i: 72, p: b[72].l }, "channel: higher lows", COL.blue)],
           say: "After the spike comes the channel. The market keeps going up, but slower, with pullbacks, and each pullback turns up at a higher low near the EMA. In a channel you buy pullbacks, the High 1 and High 2 signals, and hold for a measured move." },
-        { title: "An old trend", vis: 85, add: [N.pt(top.i, top.p, "channel top", COL.violet, true)],
+        { title: "An old trend", vis: top.i, add: [N.pt(top.i, top.p, "channel top", COL.violet, true)],
           say: "The channel keeps climbing, but look at the bars: smaller, more overlap, more tails. The trend is getting old. And the top of the channel..." },
-        { title: "The trading range", vis: 150, add: [N.box(86, 197, rb.p, top.p, "trading range", COL.txt, "below")],
+        { title: "The trading range", vis: 150, add: [N.box(top.i + 1, hiI, s1.rangeBot, Math.max(top.p, s1.rangeTop), "trading range", COL.txt, "below")],
           say: "turns into a trading range. The market goes sideways, the EMA flattens, and price crosses it again and again. Now both sides make money: bulls buy near the bottom, bears sell near the top, and both take profits in the middle or at the other side. You do the same: buy low, sell high, and scalp." },
-        { title: "Edges hold", vis: 191, fast: true,
+        { title: "Edges hold", vis: hiI, fast: true,
           say: "Tests of the top and of the bottom fail again and again. About eight out of ten attempts to break out of a trading range fail, which is why in a range you fade the edges instead of buying the highs and selling the lows." },
-        { title: "The next breakout", vis: 197, add: [N.bar(192, "bear spike", COL.dn), N.bar(194, "", COL.dn), N.bar(196, "", COL.dn)],
-          say: "Then the breakout that works. Big bear bars closing near their lows drop from the top of the range to the bottom in a few bars: a bear spike. The cycle starts again, this time down, and the market is now always-in short." },
-        { title: "Sell the breakout", vis: 200, add: [N.bar(199, "sell signal", COL.amber)], pos: { i: s1.fillAt, i2: 206, dir: -1, entry: s1.entry, stop: s1.stop, target: s1.target },
-          say: "A small pause, then a bear bar: sell below it. The stop goes above the pause, and the target is the height of the range projected down from the breakout. That is the measured move of a breakout." },
-        { title: "A bear channel", vis: 238, fast: true, pos: { i: s1.fillAt, i2: s1.hitT, dir: -1, entry: s1.entry, stop: s1.stop, target: s1.target },
+        { title: "The next breakout", vis: s1.sig - 1, add: spike.map(function (i, k) { return N.bar(i, k === 0 ? "bear spike" : "", COL.dn); }),
+          say: "Then the breakout that works. Big bear bars closing on their lows drop from the top of the range through its bottom in a few bars: a bear spike. The cycle starts again, this time down, and the market is now always-in short." },
+        { title: "Sell the breakout", vis: s1.fillAt, add: [N.bar(s1.sig, "sell signal", COL.amber, true, "left")], pos: P(s1.fillAt + 6),
+          say: "A small pause, then a bear bar: sell below it. The stop goes one tick above the high of the pause. The wider choice is above the top of the spike, with a smaller position. The target is the height of the range projected down from the breakout: the measured move of a breakout." },
+        { title: "A bear channel", vis: n - 1, fast: true, pos: P(s1.hitT),
           say: "And the bear channel follows, down to the measured move. Trading range, breakout, channel, trading range, breakout: that is the market cycle. Your first job on every bar is to know which phase you are in, because each phase has its own trades." }
       ];
     }
