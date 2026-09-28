@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.63.0 (build 2026-09-28) — Al Brooks price action -->
+<!-- Trade Trainer v3.63.1 (build 2026-09-28) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.63.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.63.1 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -531,7 +531,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.63.0", build: "2026-09-28", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.63.1", build: "2026-09-28", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -1332,10 +1332,10 @@ var Mkt = (function () {
   /* ---- 14. climax --------------------------------------------------- */
   CTX.climax = {
     name: "Sell climax", twin: "Buy climax",
-    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: -1, prob: 0.577, pWin: 0.62,
+    family: "reversal", cycle: "breakout", dir: 1, alwaysIn: -1, prob: 0.577, pWin: 0.60,
     style: "scalp", mmType: "none", entryType: "stop", sigQ: "strong", attempt: "second", probFirst: 0.71, exit: "target",
-    brooks: "Three or more big bear bars accelerating into a low is a sell climax — exhaustion, not strength. Expect a two-legged correction up lasting about ten bars. But this is a scalp: after a climax the odds of the trend resuming are still about even, so take the bounce and do not marry it.",
-    mmRule: "Measure the last climactic leg; a correction typically retraces a good part of it, not all.",
+    brooks: "Three or more big bear bars accelerating into a low is a sell climax — exhaustion, not strength. Expect a two-legged correction up lasting about ten bars, back toward the start of the climax, where the bars got big and fast. But this is a scalp: after a climax the odds of the trend resuming are still about even, so take the bounce and do not marry it.",
+    mmRule: "The target is the start of the climax: the price where the bars became big and fast. After a climax the market usually comes back there, in about two legs and ten bars. The start of the whole leg is the next magnet, but only if the correction turns into a reversal.",
     howTo: ["It starts when a trend's bars stop looking orderly and start getting bigger and steeper instead \u2014 three or more increasingly large bars in the same direction is the tell.", "It is still just a strong trend leg until the bars stop expanding and price prints a small, weak bar or reverses off the extreme \u2014 that deceleration is the actual exhaustion signal.", "There is no trendline-style break of structure here \u2014 the climactic leg itself IS the structure, and its low or high is the level everything else is measured from.", "The stop sits just beyond the climax extreme itself, since a genuine climax should not be revisited immediately if the exhaustion read is correct."],
     segs: function (R) {
       /* an orderly trend leg first, so there is something for the bars to stop
@@ -1354,10 +1354,16 @@ var Mkt = (function () {
     hU: function () { return 0.55; },
     gt: function (b, ax, C) {
       var cx = C.leg(b, ax.start.i - 2, ax.sig.i, -1), top = cx.hi, low = cx.lo;
+      /* the START OF THE CLIMAX: where the leg stops being orderly and the bars
+         get big and fast (the skeleton's d1, snapped to its swing). That is the
+         level a climax correction comes back to — a place on the chart, not a
+         ratio of the leg. The start of the whole leg is the next magnet. */
+      var st = C.ref(b, ax.d1.i, 1, 2);
+      if (!((st.p - low.p) * (top.p - st.p) > 0)) st = { i: ax.d1.i, p: C.mid(low.p, top.p) };
       return {
         sigIdx: ax.sig.i, measure: { a: low, b: top }, anchor: low,
-        target: C.lerp(low.p, top.p, 0.62), altTarget: C.lerp(low.p, top.p, 0.42), invalid: low.p,
-        labels: [[top, "climax start"], [low, "climax low"]]
+        target: st.p, altTarget: top.p, invalid: low.p,
+        labels: [[top, "start of the leg"], [st, "start of the climax = target"], [low, "climax low"]]
       };
     },
     /* "bars stop looking orderly and start getting bigger and steeper" — the
@@ -8046,7 +8052,7 @@ var PROG = (function () {
     var k = String(g.key || "").replace(/_D$/, ""), up = g.dir > 0;
     return { twoLegPullback: "leg 1 = leg 2", tightChannel: "leg 1 = leg 2", mtr: "first leg, from the test", spikeChannel: "spike height",
       broadChannel: up ? "prior high" : "prior low", successBo: "range height", rangeLow: up ? "top of the range" : "bottom of the range",
-      failedBo: "other side of the range", wedgeBottom: "start of the wedge", finalFlag: "measured from the flag", climax: "62% of the climax leg" }[k] || "";
+      failedBo: "other side of the range", wedgeBottom: "start of the wedge", finalFlag: "measured from the flag", climax: "start of the climax" }[k] || "";
   }
   /** a distance in the unit traders of that market use */
   function ldist(ex, d) {
@@ -8629,32 +8635,33 @@ var PROG = (function () {
 
   LVID.climax = {
     title: "Climax: take the correction",
-    example: function () { return lessonChart("climax_D", 1333, "XAUUSD", "15m"); },
-    check: function (ex) { var g = ex.gt; return g.dir === -1 && g.sigIdx === 38 && g.fillAt === 39 && g.hitTargetAt === 46; },
+    example: function () { return lessonChart("climax_D", 65704, "XAUUSD", "15m"); },
+    check: function (ex) {
+      var g = ex.gt, L = g.labels;
+      return g.dir === -1 && g.sigIdx === 39 && g.fillAt === 40 && g.hitTargetAt === 54 && !(g.hitInvalidAt >= 0 && g.hitInvalidAt < 54) &&
+        L[0][0].i === 6 && L[1][0].i === 26 && L[2][0].i === 35 && L[1][0].p === g.target;
+    },
     extraPrices: function (ex) { return [ex.gt.target, ex.gt.invalid]; },
     scenes: function (ex) {
-      var g = ex.gt, b = ex.bars;
+      var g = ex.gt, L = g.labels, leg = L[0][0], st = L[1][0], top = L[2][0], n = ex.bars.length;
+      var bars = g.hitTargetAt - g.fillAt, rr = Math.abs(g.target - g.entry) / Math.abs(g.entry - g.invalid);
       return [
-        { title: "A range", vis: 18, view: [5, 60],
-          say: "Gold on the 15 minute chart. A range around the EMA." },
-        { title: "A long run", vis: 34, add: [N.pt(19, b[19].l, "climax start", COL.violet), N.pt(34, b[34].h, "climax high", COL.violet, true, "left")],
-          say: "A long run of bull bars, some of them big, and the market far above the EMA. After a run like this, a buy climax is likely: the late buyers are exhausted, and the early buyers want to take profits." },
-        { title: "First selling", vis: 35, add: [N.bar(35, "", COL.dn)],
-          say: "The first bear bar closing on its low: the first sign of selling." },
-        { title: "A double top", vis: 37,
-          say: "The bulls try again and fail to make a new high: a double top." },
-        { title: "The signal", vis: 38, add: [N.bar(38, "signal bar", COL.amber, true)],
-          say: "A bear bar closing on its low at the second top: the sell signal.",
-          ask: { q: "After a buy climax, is this a scalp or a swing?", o: ["A scalp: take profit on the correction", "A swing: the trend has reversed"], a: 0,
-            why: "After a climax, the odds that the bull trend comes back later are still about even. Expect a two-legged correction of about ten bars and take it. Don't expect a new bear trend." } },
-        { title: "The orders", vis: 38, add: lorders(ex, 38).concat([N.ret({ i: 19, p: b[19].l }, { i: 34, p: b[34].h }, 0.62, "62% of the climax leg = target")]),
-          say: "Sell stop below it, stop above the climax high. The target: measure the climax leg from its start to its high, and take about 60 percent of it back. That's a correction, not a new trend." },
-        { title: "Filled", vis: 39, pos: lpos(g, 39, 42),
-          say: "Filled, on a strong bear bar." },
-        { title: "Target", vis: 46, pos: lpos(g, 39, 46),
-          say: "The correction reaches the target within a few bars." },
-        { title: "The bulls return", vis: 50,
-          say: "And then the bulls come back. That is exactly why you took a scalp and not a swing." }
+        { title: "A trend leg", vis: st.i, view: [0, n - 1], add: [N.pt(leg.i, leg.p, "start of the leg", COL.violet)],
+          say: "Gold on the 15 minute chart. A bull leg starts here, orderly at first: normal bars, small pullbacks, the EMA close by." },
+        { title: "The climax", vis: top.i, add: [N.pt(st.i, st.p, "start of the climax", COL.violet, false, "left"), N.pt(top.i, top.p, "climax high", COL.violet, true, "left")],
+          say: "Then the bars get big and fast, and the market runs far above the EMA. That is a buy climax: late buyers chasing, early buyers about to take profits. Mark where the big bars began: the start of the climax. That price matters in a moment." },
+        { title: "The signal", vis: g.sigIdx, add: [N.bar(g.sigIdx, "signal bar", COL.amber, true)],
+          say: "The bulls fail to go on, and this bear bar closes near its low: the sell signal.",
+          ask: { q: "After a buy climax, is this a scalp or a swing?", o: ["A scalp: take the correction", "A swing: the trend has reversed"], a: 0,
+            why: "After a climax the odds that the bull trend comes back later are still about even. Expect a correction of about two legs and ten bars, not a new bear trend." } },
+        { title: "The orders", vis: g.sigIdx, add: lorders(ex, g.sigIdx).concat([N.hl(g.target, st.i, "", COL.up, true)]),
+          say: "Sell stop below the signal bar, stop above the climax high. The target is the start of the climax: after a climax the market usually comes back to where the big bars began. Not a percentage of the leg, a place on the chart. Here that is about " + rr.toFixed(1) + " times the risk." },
+        { title: "Filled", vis: g.fillAt, pos: lpos(g, g.fillAt, g.fillAt + 3),
+          say: "Filled, on a bear bar." },
+        { title: "Target", vis: g.hitTargetAt, fast: true, pos: lpos(g, g.fillAt, g.hitTargetAt),
+          say: "The correction works its way down, and " + bars + " bars after the entry it reaches the start of the climax: the target fills." },
+        { title: "The next magnet", vis: n - 1,
+          say: "The start of the whole leg, further down, is the next magnet, but the market only goes there if the correction turns into a real reversal, with strong bear bars and follow-through. You don't plan for that in a climax trade. You take the correction to the start of the climax, and you're done." }
       ];
     }
   };
@@ -9105,7 +9112,7 @@ var PROG = (function () {
     wedge: [["wedgeBottom", 20145, "XAUUSD", "5m"], ["wedgeBottom", 20058, "XAUUSD", "5m"], ["wedgeBottom_D", 20058, "GER40", "15m"], ["wedgeBottom_D", 20029, "GER40", "15m"]],
     mtr: [["mtr", 21102, "NQ", "15m"], ["mtr", 20058, "NQ", "15m"], ["mtr_D", 20203, "CL", "15m"], ["mtr_D", 20145, "CL", "15m"]],
     flag: [["finalFlag", 20058, "CL", "15m"], ["finalFlag", 20116, "CL", "15m"], ["finalFlag_D", 20116, "EURUSD", "5m"], ["finalFlag_D", 20029, "EURUSD", "5m"]],
-    climax: [["climax", 20058, "XAUUSD", "15m"], ["climax", 20087, "XAUUSD", "15m"], ["climax_D", 20116, "BTCUSD", "15m"], ["climax_D", 20029, "BTCUSD", "15m"]]
+    climax: [["climax", 62666, "XAUUSD", "15m"], ["climax", 60434, "XAUUSD", "15m"], ["climax_D", 66200, "BTCUSD", "15m"], ["climax_D", 60186, "BTCUSD", "15m"]]
   };
   /* what the failed version teaches, per setup */
   var LEX_FAIL = {
@@ -9165,7 +9172,7 @@ var PROG = (function () {
             /* a short's stop label sits above the signal bar: a swing label there moves to the left;
                a label at the chart's left edge reads to the right */
             var al = q.i - I.v0 < 8 ? "right" : g.dir < 0 && top && Math.abs(q.i - g.sigIdx) <= 3 ? "left" : null;
-            add.push(N.pt(q.i, q.p, L[1], COL.violet, top, al));
+            add.push(N.pt(q.i, q.p, L[1].replace(/\s*=\s*target$/, ""), COL.violet, top, al));
           });
           add.push(N.bar(g.sigIdx, "", COL.amber));
           add.push(N.note(win ? "Target hit: " + lfx(I.T) : "Stopped: −1R" + (I.mfe >= 0.9 ? " (after " + lfx(I.mfe) + ")" : ""), 0, win ? COL.up : COL.dn));
@@ -9407,7 +9414,7 @@ var PROG = (function () {
           r("Wedge reversal", "wedgeBottom", "Three pushes, second entry after the third", "Stop order beyond the signal bar", "Beyond the third push", "The start of the wedge", "Swing, 2R+"),
           r("Major trend reversal", "mtr", "After a trend line break, at the test of the extreme", "Stop order beyond the signal bar", "Beyond the test", "Leg 1 projected from the test", "Swing, 2R+"),
           r("Final flag", "finalFlag", "A late flag whose breakout fails", "Stop order, second entry", "Beyond the failed breakout", "Flag top to failed low, added above the flag", "Swing, 2R+"),
-          r("Climax correction", "climax", "After a climax, at a second top / bottom", "Stop order beyond the signal bar", "Beyond the climax extreme", "About 60% of the climax leg back", "Scalp")
+          r("Climax correction", "climax", "After a climax, at a second top / bottom", "Stop order beyond the signal bar", "Beyond the climax extreme", "The start of the climax: where the big bars began", "Scalp")
         ]) + '<p class="mu" style="font-size:12px">Odds are the win rates this app teaches and tests with. A 40% setup needs a reward of at least 2R; a 60% setup can work with about 1R.</p>');
     },
     manage: function () {
@@ -9873,7 +9880,9 @@ var PROG = (function () {
     body: function () {
       return lvideo("climax") +
         lp("A climax is a trend that accelerates: several big trend bars in a row, often the biggest of the day, far from the EMA. It is exhaustion. After a climax, expect a <b>two-legged correction of about ten bars</b>.") +
-        lcard([["Where", "After the climax, at a second top or bottom"], ["Signal", "A reversal bar, ideally a second entry"], ["Entry", "Stop order beyond it"], ["Stop", "Beyond the climax extreme"], ["Target", "About 60% of the climax leg back (the lesson shows the ruler)"], ["Style", "Scalp"], ["Odds", lodds("climax") + " taught"]]) +
+        lcard([["Where", "After the climax, at a second top or bottom"], ["Signal", "A reversal bar, ideally a second entry"], ["Entry", "Stop order beyond it"], ["Stop", "Beyond the climax extreme"], ["Target", "The start of the climax: the price where the bars got big and fast"], ["Style", "Scalp"], ["Odds", lodds("climax") + " taught"]]) +
+        lh("Which start?") +
+        lp("A trend leg usually starts orderly and only later turns into a climax. The <b>start of the climax</b> is where the bars became big and fast, and that is where a climax correction usually comes back to: the first target. The <b>start of the whole leg</b> is further away. It is the next magnet, but the market only goes there if the correction turns into a real reversal, so it is not the plan for a climax scalp. No percentages and no Fibonacci: both targets are places you can point at on the chart.") +
         lp("After a climax the odds that the trend resumes later are still about even, so this is a scalp, not the start of a new trend. With-trend traders don't buy the climax either: they wait for the correction to finish and then buy its H2 if the trend is still intact.") +
         lex4("climax");
     },
@@ -9964,7 +9973,7 @@ var PROG = (function () {
           ["Wedge", "The start of the wedge"],
           ["Major trend reversal", "The first leg of the new trend, projected from the test"],
           ["Final flag", "The drop from the flag's top to the failed low, added again above the flag"],
-          ["Climax", "About 60% of the climax leg back"]
+          ["Climax", "The start of the climax: where the bars got big and fast"]
         ]) +
         lh("Every target on a chart") +
         lp("Each picture is a step from one of the lessons. The rulers show what is measured and where the same distance is laid off again.") +
@@ -9979,7 +9988,7 @@ var PROG = (function () {
           lfig("wedge", "The orders", "<b>The start of the wedge</b> (wedge reversals)."),
           lfig("mtr", "The orders", "<b>The first leg, from the test</b> (major trend reversals): the first leg of the new trend, laid off from the lower high."),
           lfig("flag", "The orders", "<b>Final flag</b>: the drop from the flag's top to the failed low, added again above the flag."),
-          lfig("climax", "The orders", "<b>About 60% of the climax leg</b> (climax corrections): a correction, not a new trend.")
+          lfig("climax", "The orders", "<b>The start of the climax</b> (climax corrections): where the big bars began. A correction, not a new trend.")
         ]) +
         lh("The trader's equation") +
         lp("<b>probability × reward &gt; (1 − probability) × risk.</b> Examples:") +
@@ -11409,7 +11418,9 @@ var PROG = (function () {
       if (!(d2 > 1.15 * d1) || !(r2 > 1.1 * r1)) return no(38);
       if (!turned(f, low, v)) return no(38);
       if (!firstTurn(f, low, v, true)) return no(39);
-      return { target: low.p + 0.62 * h, from: top.i, anchor: low.i, stopAt: low.p, stopName: "climax low", lab: [[top, "climax start"], [low, "climax low"]] };
+      /* the start of the climax: where the second, faster half of the leg began */
+      var stc = hiF(f, mid - 2, mid + 2);
+      return { target: stc.p, from: top.i, anchor: low.i, stopAt: low.p, stopName: "climax low", lab: [[top, "start of the leg"], [stc, "start of the climax = target"], [low, "climax low"]] };
     },
     /* a spike (a burst of mostly bull bars covering 2.5+ ATR), a channel that
        makes a higher high after it, and the first pullback in that channel */
