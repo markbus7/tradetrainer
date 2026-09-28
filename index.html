@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.63.2 (build 2026-09-28) — Al Brooks price action -->
+<!-- Trade Trainer v3.63.3 (build 2026-09-28) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.63.2 — Cadet to Master</title>
+<title>TRADE TRAINER v3.63.3 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -531,7 +531,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.63.2", build: "2026-09-28", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.63.3", build: "2026-09-28", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -756,7 +756,7 @@ var Mkt = (function () {
     family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.746, pWin: 0.62,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "first", probFirst: 0.52, exit: "trail",
     brooks: "A tight channel is a one-sided market: the pullbacks are tiny and every reversal attempt fails. Do not look for shorts here — bears keep getting trapped. Buy the first pullback (a High 1) and hold. Countertrend trading here is the worst trade on the chart: about four out of five attempts to reverse a strong trend fail, and in a genuinely tight channel it is worse than that. Bears do not get a good entry until the channel first breaks and price then returns to test the high.",
-    mmRule: "Measure the first leg of the channel and project it from the pullback low.",
+    mmRule: "Leg 1 = leg 2: measure the leg that ends where the pullback starts, from its last higher low to the high right before the pullback, and project it from the pullback low.",
     howTo: ["It starts at the first clear swing low that begins a run of higher highs and higher lows.", "It is still developing as long as every pullback stays small \u2014 shallow, only a few bars, bought quickly. That shallowness is what makes it 'tight'.", "Structure breaks the moment a pullback goes deeper than the one before it, or closes below the most recent higher low \u2014 that is the first real sign the sellers are doing more than taking profits.", "The stop sits just below that most recent higher low (the High 1 / High 2 pullback low) \u2014 that is the swing that has to hold for 'tight uptrend' to still be true."],
     segs: function (R) {
       return [
@@ -771,12 +771,17 @@ var Mkt = (function () {
     },
     hU: function () { return 0.45; },
     gt: function (b, ax, C) {
-      var l1 = C.leg(b, 0, ax.l1.i + 3, 1), a = l1.lo, bb = l1.hi;
+      /* LEG 1 is the leg that the pullback interrupts: from the last higher low
+         to the high right before the pullback. Not the channel's first push —
+         the pushes after it are part of the trend the pullback is correcting,
+         and leaving them out measures a leg that ended hours ago. The same rule
+         as the H2's "last higher low to the trend high". */
+      var lg = C.leg(b, ax.p2.i - 2, ax.l3.i + 2, 1), a = lg.lo, bb = lg.hi;
       var pb = C.lo(b, ax.l3.i, ax.sig.i + 2);
       return {
         sigIdx: ax.sig.i, measure: { a: a, b: bb }, anchor: pb,
         target: pb.p + (bb.p - a.p), invalid: pb.p,
-        labels: [[a, "first leg low"], [bb, "first leg high"], [pb, "pullback low"]]
+        labels: [[a, "last higher low"], [bb, "channel high"], [pb, "pullback low"]]
       };
     },
     valid: function (ch) { return hasTrend(BF(ch), Math.max(6, ch.gt.pbFrom)); }
@@ -8303,34 +8308,37 @@ var PROG = (function () {
 
   LVID.tight = {
     title: "Tight channel",
-    example: function () { return lessonChart("tightChannel", 9584, "USDJPY", "15m"); },
-    check: function (ex) { var g = ex.gt; return g.dir === 1 && g.sigIdx === 48 && g.fillAt === 49 && g.hitTargetAt === 84; },
+    example: function () { return lessonChart("tightChannel", 90529, "USDJPY", "15m"); },
+    check: function (ex) {
+      var g = ex.gt, b = ex.bars, L = g.labels;
+      return g.dir === 1 && g.sigIdx === 54 && g.fillAt === 55 && g.hitTargetAt === 81 && !(g.hitInvalidAt >= 0 && g.hitInvalidAt < 81) &&
+        L[0][0].i === 42 && L[1][0].i === 49 && L[2][0].i === 54 && b[54].c > b[54].o && lo(ex, 0, 42).i < 30;
+    },
     extraPrices: function (ex) { return [ex.gt.target, ex.gt.invalid]; },
     scenes: function (ex) {
-      var g = ex.gt, b = ex.bars;
+      var g = ex.gt, b = ex.bars, n = b.length, L = g.labels, hl = L[0][0], top = L[1][0], pb = L[2][0];
+      var s0 = lo(ex, 0, hl.i), R = g.entry - g.invalid, rr = (g.target - g.entry) / R;
       return [
-        { title: "The turn", vis: 22, view: [0, 90],
-          say: "USDJPY on the 15 minute chart. After a small sell-off, the market turns up and climbs above the EMA." },
-        { title: "A tight channel", vis: 43, add: [N.seg({ i: 23, p: b[23].l }, { i: 41, p: b[41].l }, "small, quick pullbacks", COL.blue), N.note("Tight channel: no shorts", 0, COL.up)],
-          say: "Look at the character of this move. Almost every bar is above the EMA, the pullbacks last one to three bars and are small, and every dip is bought right away. That is a tight bull channel: the bears can't even get a two-bar pullback going." },
-        { title: "Overbought?", vis: 43,
-          say: "The market has gone up for twenty bars without a real pullback.",
+        { title: "The turn", vis: s0.i + 4, view: [0, n - 1],
+          say: "USDJPY on the 15 minute chart. The market turns up here and climbs above the EMA." },
+        { title: "A tight channel", vis: top.i, add: [N.seg(s0, hl, "small, quick pullbacks", COL.blue), N.note("Tight channel: no shorts", 0, COL.up)],
+          say: "Look at the character of this move. Almost every bar is above the EMA, the pullbacks last one to three bars and are small, and every dip is bought right away. That is a tight bull channel." },
+        { title: "Overbought?", vis: top.i,
+          say: "The market has gone up for a long time without a real pullback.",
           ask: { q: "It must be overbought. Do you sell?", o: ["Yes: it went up too far", "No: in a tight channel you only buy pullbacks"], a: 1,
             why: "A tight channel is one-sided. About four out of five attempts to reverse a strong trend fail, and in a tight channel it's worse. Overbought is not a signal. Wait for a pullback and buy it." } },
-        { title: "The pullback", vis: 47,
-          say: "Here is the pullback: two bear bars, the deepest dip so far, down to the EMA. Get ready to buy. In a tight channel the first pullback to the EMA is usually bought; you don't need a second leg." },
-        { title: "The High 1", vis: 48, add: [N.bar(48, "H1 signal bar", COL.amber, true)],
-          say: "This bull bar closes near its high, on the EMA, and its high is above the prior bar's high: the High 1. The first pullback to the EMA in a tight channel is a buy." },
-        { title: "The orders", vis: 48, add: lorders(ex, 48).concat([lmm(ex)]),
-          say: "Buy stop one pip above its high, protective stop below its low. The target is the first leg of the channel, measured from its low to its high and added to this pullback's low: leg one equals leg two. About 12 pips of risk for 39 pips of reward." },
-        { title: "Filled", vis: 49, pos: lpos(g, 49, 53),
-          say: "Filled, and the entry bar closes near its high." },
-        { title: "Hold", vis: 66, fast: true, pos: lpos(g, 49, 68),
+        { title: "The pullback", vis: g.sigIdx - 1,
+          say: "Here is the pullback: a few bars down from the channel high. Get ready to buy. In a tight channel the first pullback is usually bought; you don't need a second leg." },
+        { title: "The High 1", vis: g.sigIdx, add: [N.bar(g.sigIdx, "H1 signal bar", COL.amber, true)],
+          say: "This bull bar ends the pullback, and the next bar only has to go above its high: that makes it the High 1. The first pullback in a tight channel is a buy." },
+        { title: "The orders", vis: g.sigIdx, add: lorders(ex, g.sigIdx).concat([lmm(ex), N.pt(hl.i, hl.p, "last higher low", COL.violet), N.pt(top.i, top.p, "channel high", COL.violet, true)]),
+          say: "Buy stop above its high, protective stop below its low. The target is leg one equals leg two, and leg one is the leg this pullback interrupted: from the last higher low to the channel high, right before the pullback. Not the channel's first push: the pushes after it are part of the same trend. That height, added to the pullback's low, is the target: about " + ldist(ex, R) + " of risk for " + ldist(ex, g.target - g.entry) + " of reward." },
+        { title: "Filled", vis: g.fillAt, pos: lpos(g, g.fillAt, g.fillAt + 4),
+          say: "Filled." },
+        { title: "Hold", vis: Math.round((g.fillAt + g.hitTargetAt) / 2), fast: true, pos: lpos(g, g.fillAt, Math.round((g.fillAt + g.hitTargetAt) / 2) + 2),
           say: "The channel resumes. Your job now is to hold. In a tight channel you swing: you don't take profits at every small high, because you can't know which leg will be the last." },
-        { title: "Room to breathe", vis: 78, pos: lpos(g, 49, 80),
-          say: "The next pullback reaches the EMA, far above your entry. This is where a trailing stop moves: once the market makes a new high after this pullback, the stop can go below its low." },
-        { title: "Target", vis: 84, pos: lpos(g, 49, 84),
-          say: "A strong bull bar takes the market to the target. In a tight channel: buy the first pullback, hold for the measured move, and never short it." }
+        { title: "Target", vis: g.hitTargetAt, fast: true, pos: lpos(g, g.fillAt, g.hitTargetAt),
+          say: "The target fills, about " + rr.toFixed(1) + " times the risk. In a tight channel: buy the first pullback, hold for the measured move of the leg it interrupted, and never short it." }
       ];
     }
   };
@@ -9111,7 +9119,7 @@ var PROG = (function () {
   var LEX = {
     count: [["twoLegPullback", 39343, "EURUSD", "15m"], ["twoLegPullback", 58889, "EURUSD", "15m"], ["twoLegPullback_D", 39894, "XAUUSD", "5m"], ["twoLegPullback_D", 33340, "XAUUSD", "5m"]],
     spike: [["spikeChannel", 20435, "GER40", "5m"], ["spikeChannel", 20145, "GER40", "5m"], ["spikeChannel_D", 20319, "NQ", "5m"], ["spikeChannel_D", 20029, "NQ", "5m"]],
-    tight: [["tightChannel", 20841, "USDJPY", "15m"], ["tightChannel", 20058, "USDJPY", "15m"], ["tightChannel_D", 20087, "ES", "15m"], ["tightChannel_D", 20580, "ES", "15m"]],
+    tight: [["tightChannel", 20841, "USDJPY", "15m"], ["tightChannel", 20058, "USDJPY", "15m"], ["tightChannel_D", 91909, "ES", "15m"], ["tightChannel_D", 90713, "ES", "15m"]],
     broad: [["broadChannel", 20406, "ES", "15m"], ["broadChannel", 20116, "ES", "15m"], ["broadChannel_D", 20029, "EURUSD", "15m"], ["broadChannel_D", 20261, "EURUSD", "15m"]],
     breakout: [["successBo", 20116, "NQ", "5m"], ["successBo", 20145, "NQ", "5m"], ["successBo_D", 20087, "GER40", "15m"], ["successBo_D", 20116, "GER40", "15m"]],
     range: [["rangeLow", 20087, "EURUSD", "5m"], ["rangeLow", 20058, "EURUSD", "5m"], ["rangeLow_D", 20029, "XAUUSD", "15m"], ["rangeLow_D", 20058, "XAUUSD", "15m"]],
@@ -9715,7 +9723,9 @@ var PROG = (function () {
     body: function () {
       return lvideo("tight") +
         lp("In a tight channel the pullbacks are tiny and short — one to three bars — and the bars stay on one side of the EMA. Every dip is bought right away. It is one of the strongest things a market does.") +
-        lcard([["Where", "The first pullback to (or near) the EMA"], ["Signal", "The H1: a bull bar going above the prior bar's high"], ["Entry", "Buy stop one tick above the signal bar"], ["Stop", "Below the signal bar or the pullback low"], ["Target", "Leg 1 = leg 2; trail the rest"], ["Style", "Swing"], ["Odds", lodds("tightChannel") + " taught"]]) +
+        lcard([["Where", "The first pullback to (or near) the EMA"], ["Signal", "The H1: a bull bar going above the prior bar's high"], ["Entry", "Buy stop one tick above the signal bar"], ["Stop", "Below the signal bar or the pullback low"], ["Target", "Leg 1 = leg 2: the leg the pullback interrupted — from the last higher low to the channel high — added to the pullback's low"], ["Style", "Swing"], ["Odds", lodds("tightChannel") + " taught"]]) +
+        lh("Which leg is leg 1?") +
+        lp("The leg that the pullback you are buying interrupted: from the <b>last higher low</b> to the <b>high right before the pullback</b>. Not the first push of the channel. The pushes after it belong to the same trend, and a leg that ended hours ago says nothing about the one the market is correcting now. It is the same rule as for the H2: the leg into the pullback, measured from where it started.") +
         lwarn("<b>Never sell a tight bull channel.</b> Brooks: countertrend trading in a tight channel is the worst trade on the chart. About four out of five attempts to reverse a strong trend fail, and in a tight channel it is worse. \"Overbought\" is not a signal.") +
         lh("How it ends") +
         lp("First a deeper pullback, then a break of the channel, then a test of the high. Only after that do the bears get a good sell: the major trend reversal. Until then, every strong bear bar is just a pullback.") +
@@ -11491,9 +11501,11 @@ var PROG = (function () {
       if (h / Math.max(1, top.i - cs.i) < 0.2 * A) return no(56);          /* it has to be going somewhere */
       var pl = loF(f, top.i, v);
       if (!turned(f, pl, v) || !firstTurn(f, pl, v, true)) return no(57);
-      var fh = pv(f, v, cs.i + 1, 1)[0], legH = fh && fh.i < top.i ? fh : hiF(f, cs.i, cs.i + 10);
-      return { target: pl.p + (legH.p - cs.p), from: cs.i, anchor: top.i, stopAt: pl.p, stopName: "pullback low",
-        lab: [[cs, "first leg low"], [legH, "first leg high"], [pl, "pullback low"]] };
+      /* leg 1 = the leg the pullback interrupts: last higher low -> the high before it */
+      var lows = pv(f, v, cs.i + 1, -1).filter(function (q) { return q.i < top.i; });
+      var hl = lows.length ? lows[lows.length - 1] : cs;
+      return { target: pl.p + (top.p - hl.p), from: hl.i, anchor: top.i, stopAt: pl.p, stopName: "pullback low",
+        lab: [[hl, "last higher low"], [top, "channel high"], [pl, "pullback low"]] };
     },
     /* rising highs and lows in big, two-sided swings; a deep pullback toward
        the channel low; the second attempt back up */
