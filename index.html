@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.62.1 (build 2026-09-28) — Al Brooks price action -->
+<!-- Trade Trainer v3.63.0 (build 2026-09-28) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.62.1 — Cadet to Master</title>
+<title>TRADE TRAINER v3.63.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -531,7 +531,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.62.1", build: "2026-09-28", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.63.0", build: "2026-09-28", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -9034,6 +9034,59 @@ var PROG = (function () {
     }
   };
 
+  /* ---------- late entries: the H2 of the first lesson, missed ---------- */
+  function llate(ex) {
+    var g = ex.gt, b = ex.bars, t = Math.pow(10, -ex.dec), st = g.invalid, T = g.target;
+    var q = function (p) { return (T - p) / (p - st); };
+    var eH1 = b[55].h + t, tight = b[57].l - t, hitTight = -1;
+    for (var i = 58; i < b.length && hitTight < 0; i++) if (b[i].l < tight) hitTight = i;
+    var e3 = b[71].h + t, s3 = b[70].l - t;
+    return { t: t, st: st, T: T, q: q, r53: q(b[53].c), r54: q(b[54].c), eH1: eH1, rH1: q(eH1), r56: q(b[56].c), r57: q(b[57].c),
+      tight: tight, hitTight: hitTight, e3: e3, s3: s3, r3: (T - e3) / (e3 - s3) };
+  }
+  LVID.late = {
+    title: "Missed the entry: which late entries, and which not",
+    example: LVID.every.example,
+    check: function (ex) {
+      var g = ex.gt, b = ex.bars, L = llate(ex);
+      return LVID.every.check(ex) && L.r53 > 3 && L.r54 > 1.5 && L.r54 < 2.2 && b[55].c < b[55].o && b[56].h >= L.eH1 && L.rH1 > 1.2 && L.rH1 < 1.8 &&
+        L.r56 < 1 && L.r57 < 0.7 && hi(ex, 57, 64).p >= b[36].h && L.hitTight > 57 && L.hitTight < 70 &&
+        lo(ex, 58, 69).p > g.entry && b[70].l <= g.entry && lo(ex, 53, 74).p > g.invalid && lo(ex, 60, 71).i === 70 &&
+        b[71].c > b[71].o && b[72].h >= L.e3 && lo(ex, 72, 74).p > L.s3 && L.r3 > 3;
+    },
+    extraPrices: function (ex) { var g = ex.gt; return [g.target + 2.2 * (g.entry - g.invalid), g.invalid]; },
+    scenes: function (ex) {
+      var g = ex.gt, b = ex.bars, L = llate(ex), fp = lfp(ex), f1 = function (x) { return x.toFixed(1); };
+      var plan = [N.hl(g.invalid, 50, "stop stays: below the signal bar", COL.dn, true, 37), N.hl(g.target, 50, "target: leg 1 = leg 2", COL.up, true, 40)];
+      return [
+        { title: "You missed it", vis: 53, view: [36, 78], add: plan.concat([N.bar(52, "H2 signal", COL.amber, true), N.bar(53, "entry bar", COL.txt)]),
+          say: "The High 2 from the first lesson. Its buy stop filled on this bar, and you weren't there. What changes? Only your price. The stop still belongs below the signal bar, because that is where the setup is wrong, and the target is still leg one equals leg two. So every bar you are later, you pay more risk for less reward. The question on every late bar is simple: is the reward to the target still big enough for the risk to that same stop?" },
+        { title: "The close of the entry bar", vis: 53, add: [N.pt(53, b[53].c, "close: " + f1(L.r53) + "R left", COL.up, false, "right")],
+          say: "The entry bar closed at " + fp(b[53].c) + ", even a pip below your planned entry.",
+          ask: { q: "The entry bar closed near your planned price. Can you still buy?", o: ["Yes: at market or a limit at the planned price, same stop, same target", "No: you missed it, wait for the next setup"], a: 0,
+            why: "Nothing has changed but a pip. The reward to the target is still about " + f1(L.r53) + " times the risk to the same stop." } },
+        { title: "One strong bar later", vis: 54, add: [N.pt(54, b[54].c, f1(L.r54) + "R left", COL.up, true, "right")],
+          say: "A strong bull bar closes on its high. Buying its close still leaves about " + f1(L.r54) + " R: fine for a setup that wins more than half the time. But the stop is further away now, so the position must be smaller for the same money at risk." },
+        { title: "A one-bar pause", vis: 56, add: [N.bar(55, "pause", COL.txt), N.pt(56, L.eH1, "buy stop above it: " + f1(L.rH1) + "R", COL.up, true, "left")],
+          say: "The next bar is a small bear bar: a one-bar pause in a strong move. That is a High 1. A buy stop above it fills on the next bar, with the stop still below the signal bar: about " + f1(L.rH1) + " R left. Still acceptable, and about the last one." },
+        { title: "Too late", vis: 57, add: [N.pt(57, b[57].c, "only " + f1(L.r57) + "R", COL.dn, true, "left"), N.hl(b[36].h, 36, "prior high: a magnet", COL.violet, true, 38)],
+          say: "Two more strong bull bars break the prior high. It looks like the best moment to buy.",
+          ask: { q: "A strong bull bar breaks the prior high. Buy it now, with the stop below the signal bar?", o: ["No: the target is now closer than the stop", "Yes: it's a breakout", "Yes, but with a stop just below this bar"], a: 0,
+            why: "From here the reward is only about " + f1(L.r57) + " times the risk, and price is at a magnet where the earlier buyers take profits. A stop just below this bar only makes the numbers look better: watch what the next pullback does to it." } },
+        { title: "The tight-stop trap", vis: L.hitTight, fast: true, add: [N.hl(L.tight, 57, "tight stop below the breakout bar", COL.dn, true, 58), N.pt(L.hitTight, b[L.hitTight].l, "hit", COL.dn, false, "right")],
+          say: "The market goes sideways and then pulls back. The tight stop under the breakout bar is hit by an ordinary pullback, while the real stop, below the signal bar, is nowhere near. Never move the stop closer to make a late entry look good." },
+        { title: "Your price again", vis: 70, add: [N.hl(g.entry, 58, "buy limit at your planned entry", COL.amber, true, 60), N.pt(70, g.entry, "filled", COL.up, false, "right")],
+          say: "Here is what to do instead of chasing. Put a buy limit at your original entry price and walk away. Markets often come back to test the breakout of the signal bar, and this one does: the limit fills on this bar. The same trade you missed, with the same stop and the same target." },
+        { title: "Or the next signal", vis: 72, add: [N.bar(71, "new signal", COL.amber, true)], pos: { i: 72, i2: 74, dir: 1, entry: L.e3, stop: L.s3, target: g.target, tl: "leg 1 = leg 2" },
+          say: "Or wait for the next with-trend signal: this bull bar ends the pullback, and the next bar triggers the buy stop above it. It's a new trade with its own stop, below this pullback's low, so the risk is small again: about " + f1(L.r3) + " R to the same target." },
+        { title: "What each late entry made", vis: 74, pos: { i: 72, i2: 74, dir: 1, entry: L.e3, stop: L.s3, target: g.target, tl: "leg 1 = leg 2" },
+          add: [N.note("Close of the entry bar: +" + f1(L.r53) + "R", 0, COL.up), N.note("Close of the next bar: +" + f1(L.r54) + "R", 1, COL.up), N.note("Above the one-bar pause: +" + f1(L.rH1) + "R", 2, COL.up),
+            N.note("Chasing the breakout: tight stop hit", 3, COL.dn), N.note("Limit at the planned entry: +" + f1((g.target - g.entry) / (g.entry - g.invalid)) + "R", 4, COL.up), N.note("The next signal: +" + f1(L.r3) + "R", 5, COL.up)],
+          say: "The target fills. Every late entry that kept the real stop and still had enough reward worked. The one that chased a strong bar at a magnet, with a stop made tight to look good, was stopped out. If you miss an entry: take it late only while the numbers still work, otherwise put a limit at your price, or wait for the next pullback's signal. There is always another bus." }
+      ];
+    }
+  };
+
   /* ---------- four examples per setup ----------
      Every setup chapter ends with the bull and the bear version, one that
      worked and one that failed. Each is a generated chart drawn complete:
@@ -9301,6 +9354,7 @@ var PROG = (function () {
       return lsheet("routine", "The every-bar routine",
         '<p><b>At the close of every bar, in this order:</b></p>' + lol([
           "<b>Am I in a trade?</b> Yes: go to the trade questions below.",
+          "<b>Missed an entry that triggered?</b> Take it late only if the setup is still valid and, from your price, the reward to the target is still at least 1.5× the risk to the <i>same</i> stop (2× for a reversal). Otherwise: a limit at your planned price, or the next pullback's signal.",
           "<b>Is an order waiting?</b> Still valid? A strong bar against it, or a changed market: cancel. Not filled after one bar: keep it one more bar, move it to a better new signal bar, or cancel.",
           "<b>News in the next few minutes?</b> Stay flat.",
           "<b>Phase?</b> Spike, tight channel, broad channel, trading range, barbwire or triangle.",
@@ -9947,6 +10001,48 @@ var PROG = (function () {
     practise: [{ label: "Drill: where you are getting paid", go: "node", node: "t0e" }, { label: "Drill: is it worth taking?", go: "node", node: "t8a" }, { label: "Drill: all measured moves", go: "node", node: "t6a" }, { label: "Drill: expectancy maths", go: "node", node: "t8c" }]
   });
 
+  lch({ id: "late", part: "Execution", title: "Late entries", video: "late",
+    sub: "You missed the entry. Which later bars can you still take, which not, and why.",
+    body: function () {
+      return lvideo("late") +
+        lp("You looked away, the order wasn't placed in time, or the market moved fast. The setup triggered without you. Brooks' answer is not \"never chase\" and not \"get in anyhow\". It is the trader's equation again, from your new price.") +
+        lkey("<b>The stop doesn't move because you are late.</b> It stays where the setup is wrong: below the signal bar or the pullback's low. So every bar you are later adds risk and takes away reward. Enter late only while the reward to the target is still at least what the setup needs — about <b>1.5 times the risk</b> for a with-trend trade, <b>2 times</b> for a reversal — and make the position smaller for the bigger stop.") +
+        lh("Late entries that work, best first") +
+        ltable(["Entry", "When", "Stop", "Why it's fine"], [
+          ["<b>The close of the entry bar</b> (at market, or a limit at your planned price)", "The entry bar closed near your planned entry and in your direction", "The original stop", "Nothing changed but a few pips"],
+          ["<b>A limit at your planned entry price</b>", "The market ran away from you", "The original stop", "Markets often come back to test the breakout of the signal bar. If it fills, it is the same trade; if not, you missed one winner"],
+          ["<b>The first small pause</b>: a buy stop above a one- or two-bar pullback (an H1)", "The move is strong and the reward is still 1.5R or more", "The original stop", "In a strong move the first pause is bought by everyone who missed the entry"],
+          ["<b>The next signal bar</b> at the end of the next pullback", "Always", "Below that pullback: a new stop", "A new trade with a small risk and the full reward. Often the best late entry of all"]
+        ]) +
+        lh("Late entries to skip") +
+        ltable(["Don't", "Why not"], [
+          ["Buy a big bar far from the stop", "The target is now closer than the stop: the equation is negative even if the trend goes on"],
+          ["Buy into a magnet (the prior high) with the target just beyond it", "That is where earlier buyers take profits; you'd be buying from them"],
+          ["Move the stop close to make the numbers look good", "An ordinary pullback takes it. The lesson shows it: the tight stop is hit, the real one never is"],
+          ["Enter late in a trading range", "Once price has left the edge it is in the middle: no edge. Wait for the next edge"],
+          ["Enter late in a reversal", "Reversals win about four times in ten and need 2R or more from a stop beyond the extreme. Late eats that"],
+          ["Enter after the entry bar closed strongly against the signal", "The setup failed before you got in"],
+          ["Buy after three or more big bars in a row, far from the EMA", "That can be a climax. Wait for the pullback"]
+        ]) +
+        lh("On every bar you are late, check") +
+        lol(["Is the setup still valid? No strong bar against it, nothing broken.",
+          "Where does the stop belong? Not where you'd like it: where the setup is wrong.",
+          "Risk = your price to that stop. Reward = your price to the target. Is the reward at least 1.5× the risk (2× for a reversal)?",
+          "Is there a magnet between your price and the target?",
+          "Yes to all → enter, smaller size. No → a limit at your planned price, or wait for the next pullback's signal."]) +
+        lh("Strong trends") +
+        lp("In a spike or a tight channel the market is always-in, and Brooks says experienced traders buy the close of strong bull bars with a wide stop below the spike, trading small. That is a real method, but it is for experienced traders. As a beginner, take the first pullback: the H1 in a strong trend, which comes within a few bars.") +
+        lkey("Missing a trade costs nothing. Chasing it with a bad equation costs money every time. There is always another pullback.");
+    },
+    quiz: [
+      { q: "You missed a buy. Price is now 1.5R above the entry and the target is 1R further. Buy with the original stop?", o: ["No: the reward (1R) is smaller than the risk (2.5R)", "Yes: the trend is up"], a: 0, why: "From your price the stop is 2.5R away and the target 1R. The trend being up doesn't fix the equation." },
+      { q: "To make that late entry work, can you put the stop just below the last bar?", o: ["No: the stop belongs where the setup is wrong", "Yes: that makes the risk small"], a: 0, why: "A stop inside the normal pullback just gets hit. The lesson shows it." },
+      { q: "What is often the best late entry?", o: ["The next signal bar at the end of the next pullback", "The biggest bull bar"], a: 0, why: "A new trade with its own stop: small risk, full reward." },
+      { q: "You missed a buy at the bottom of a trading range; price is now in the middle. What now?", o: ["Wait for the next edge", "Buy anyway"], a: 0, why: "The middle of a range has no edge." }
+    ],
+    practise: [{ label: "Desk: step a tape with the coach", go: "desk-coach" }, { label: "Drill: is it worth taking?", go: "node", node: "t8a" }]
+  });
+
   lch({ id: "scalpswing", part: "Execution", title: "Scalp or swing — or both",
     sub: "When you may only scalp, when you must swing, and the one reason to take half off early.",
     body: function () {
@@ -10306,7 +10402,9 @@ var PROG = (function () {
      Questions about the bar that just closed. Every path ends in one action.
      k: wait | order | hold | manage | exit — it colours the answer card. */
   var LTREE = {
-    start: { q: "Is a trade of yours open right now?", a: [["Yes, I'm in a trade", "m1"], ["No, but an order is waiting", "o1"], ["No, I'm flat", "n1"]] },
+    start: { q: "Is a trade of yours open right now?", a: [["Yes, I'm in a trade", "m1"], ["No, but an order is waiting", "o1"], ["No, I'm flat", "n1"], ["I missed an entry that already triggered", "l1"]] },
+    l1: { q: "Is the setup still valid: no strong bar against it, nothing broken, still in the same place?", a: [["No", "e_late_gone"], ["Yes", "l2"]] },
+    l2: { q: "From the current price, with the stop where the setup is wrong (not closer), is the reward to the target at least 1.5 times the risk (2 times for a reversal), with no magnet in between? In a range: is price still at the edge?", a: [["Yes", "e_late_go"], ["No", "e_late_wait"]] },
 
     m1: { q: "Did the bar that just closed hit your stop or your target?", a: [["Yes", "e_done"], ["No", "m2"]] },
     m2: { q: "Did this bar close strongly against you: a big bar closing near its extreme, or a close beyond your signal bar?", a: [["Yes, and it breaks the structure (beyond the signal bar, the EMA or the last swing)", "e_exit"], ["Yes, but it's one bar and the structure holds", "e_watch"], ["No", "m3"]] },
@@ -10349,6 +10447,9 @@ var PROG = (function () {
     sg_rev: { q: "Check the signal bar: does it close near its extreme in your direction, with any tail on the far side, and is it about normal size?", a: [["Yes, a good signal bar", "rv4"], ["A doji, or it closes against me", "e_weak"], ["It's much bigger than recent bars", "e_big"]] },
     rv4: { q: "Is there room for at least twice your risk to the first target (the start of the wedge, or the first leg projected from the test)?", a: [["Yes", "e_rev"], ["No", "e_noroom"]] },
 
+    e_late_go: { k: "order", t: "Enter late, smaller size", d: "Buy at market (or a limit at your planned price) with the <b>original</b> stop and target. The stop is further away now, so size the position for the bigger stop. From the next bar on, answer \"Yes, I'm in a trade\"." },
+    e_late_wait: { k: "wait", t: "Don't chase", d: "Put a limit order at your planned entry price, in case the market comes back to test it, or wait for the next pullback's signal bar: a new trade with its own stop. Never tighten the stop to make a late entry look good." },
+    e_late_gone: { k: "wait", t: "Let it go", d: "The setup changed before you got in. It is not a late entry any more; it is no trade. Start again from the top on the next bar." },
     e_done: { k: "exit", t: "The trade is over", d: "Your stop or target filled. Log it (the History tab reviews your Desk trades). You are flat now: start again from the top on the next bar." },
     e_exit: { k: "exit", t: "Exit now", d: "The reason for the trade is gone. Close at market, or put the stop just beyond this bar if you want one more bar of proof. Don't wait for the original stop and never widen it. A failed setup often leads to a new setup the other way — but only take it with its own signal bar, stop and target." },
     e_watch: { k: "hold", t: "Hold — and watch the next bar", d: "One strong bar against you is a warning, not an exit. If the next bar is also strong against you, or closes beyond your signal bar, get out. You may move the stop to just beyond this bar." },
