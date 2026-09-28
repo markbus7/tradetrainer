@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.62.0 (build 2026-09-28) — Al Brooks price action -->
+<!-- Trade Trainer v3.62.1 (build 2026-09-28) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.62.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.62.1 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -531,7 +531,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.62.0", build: "2026-09-28", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.62.1", build: "2026-09-28", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -8092,7 +8092,7 @@ var PROG = (function () {
         { title: "A strong breakout", vis: 26, add: [N.bar(25, "breakout bar", COL.up), N.bar(26, "follow-through", COL.up, true)],
           say: "Then a big bull trend bar closes near its high, far above the prior highs, and the next bar follows through. That is a strong breakout: the buyers are fully in control. Decision: no shorts, and don't chase it. Experienced traders buy the close of a bar like this with a wide stop. You wait for the first pullback, where your stop can be close." },
         { title: "The first pullback", vis: 34, add: [N.bar(34, "buy signal", COL.amber, true)],
-          say: "The first pullback after the breakout comes back to the EMA. On each of these bars you wait for a bull signal bar. This one closes near its high at the EMA: the buyers are back, and traders buy above it. We let this one go, and follow the next setup from the start to the finish." },
+          say: "The first pullback after the breakout comes back to the EMA. On each of these bars you wait for a bull signal bar. This one closes near its high at the EMA: the buyers are back, and traders buy above it. Decision: buy stop above it. The first pullback after a strong breakout is one of Brooks' most reliable buys, and this one reaches its target two bars later; the lesson The four answers trades it. Here we skip ahead, to follow the next setup from the start to the finish." },
         { title: "The trend high", vis: 36, add: [N.pt(36, b[36].h, "trend high", COL.violet, true)],
           say: "Two strong bull bars make a new high: the trend high. Decision: don't buy up here. After a strong move the market almost always pulls back, and the pullback is where the next buy comes from." },
         { title: "Leg one down", vis: 43, add: [N.pt(41, b[41].l, "leg 1 low", COL.violet)],
@@ -8122,7 +8122,7 @@ var PROG = (function () {
         { title: "Target", vis: 74, pos: lpos(g, 53, 74),
           say: "The bulls come back with three bull bars and the target is hit: about 3.2 R on the whole position." },
         { title: "What you did", vis: 78,
-          say: "Look back at the decisions. On almost every bar the answer was wait or hold. You placed one order and let the stop and the target do the rest. That's the whole routine: name the phase, name the always-in direction, know exactly what you are waiting for, and once you're in, manage by the plan." }
+          say: "Look back at the decisions. Most bars were wait or hold bars, but not because there was nothing to trade: you waited for signal bars inside a trend that kept giving them. Once in, you placed one order and let the stop and the target do the rest. That's the whole routine: name the phase, name the always-in direction, know exactly what you are waiting for, and once you're in, manage by the plan." }
       ];
     }
   };
@@ -8763,24 +8763,51 @@ var PROG = (function () {
   };
 
   /* ---------- lessons for the foundation chapters ---------- */
+  /* the three with-trend trades on the every-bar chart: the channel's H2 (bar 20),
+     the first pullback after the breakout (bar 34) and the H2 of the lesson (bar 52) */
+  function lans(ex) {
+    var b = ex.bars, t = Math.pow(10, -ex.dec), L6 = lo(ex, 0, 14);
+    var e1 = b[20].h + t, s1 = b[20].l - t, e2 = b[34].h + t, s2 = b[34].l - t;
+    return { e1: e1, s1: s1, R1: e1 - s1, T1: b[20].l + (b[14].h - L6.p), L6: L6,
+      e2: e2, s2: s2, R2: e2 - s2, T2: b[34].l + (b[28].h - b[24].l) };
+  }
   LVID.answers = {
     title: "The four answers, on one chart",
     example: LVID.every.example,
-    check: LVID.every.check,
-    extraPrices: LVID.every.extraPrices,
+    check: function (ex) {
+      var b = ex.bars, A = lans(ex), k = 2 / 21, v = b[0].c, E = b.map(function (q) { return (v = q.c * k + v * (1 - k)); }), c = b[24];
+      return LVID.every.check(ex) && hi(ex, 0, 19).i === 14 && lo(ex, 0, 14).i === 6 &&
+        b[21].h >= A.e1 && lo(ex, 21, 24).p > A.s1 && hi(ex, 21, 24).p < A.T1 && hi(ex, 21, 23).p >= A.e1 + A.R1 &&
+        c.c < c.o && (c.c - c.l) < 0.1 * (c.h - c.l) && c.c < E[24] && c.c > A.s1 &&
+        lo(ex, 29, 34).i === 34 && hi(ex, 24, 33).i === 28 && b[35].h >= A.e2 && lo(ex, 35, 36).p > A.s2 && b[35].h < A.T2 && b[36].h >= A.T2 &&
+        b[18].h > b[17].h && lo(ex, 18, 19).p >= b[17].l && b[20].l < b[17].l;
+    },
+    extraPrices: function (ex) { var g = ex.gt; return [g.target + 1.2 * (g.entry - g.invalid), g.invalid]; },
     scenes: function (ex) {
-      var g = ex.gt;
+      var g = ex.gt, b = ex.bars, A = lans(ex), fp = lfp(ex), r1 = (b[24].c - A.e1) / A.R1, r2 = (A.T2 - A.e2) / A.R2, r3 = (g.target - g.entry) / (g.entry - g.invalid);
+      var P = function (i, i2, e, st, tg, tl) { return { i: i, i2: i2, dir: 1, entry: e, stop: st, target: tg, tl: tl }; };
+      var ord = function (i, e, st, tg) { return [N.order(i, e, "buy stop " + fp(e), COL.up, 4, i + 1), N.order(i, st, "stop " + fp(st), COL.dn, 4, i + 1), N.order(i, tg, "target " + fp(tg), COL.up, 4, i + 1)]; };
       return [
-        { title: "Wait", vis: 51, view: [0, 78], add: [N.band(0, 51, "WAIT", COL.txt)],
-          say: "This is the EURUSD chart from the every-bar lesson, coloured by the answer on each bar. Grey means wait. From the first bar to the end of the pullback, the answer was wait: you named the phase, you knew what you were waiting for, and there was nothing to do yet." },
-        { title: "Order", vis: 52, add: [N.band(52, 52, "ORDER", COL.amber)].concat(lorders(ex, 52)),
-          say: "One bar: the High 2 signal bar closed, and you placed the order. Entry, stop and target, all at once." },
-        { title: "Manage", vis: 73, fast: true, add: [N.band(53, 73, "MANAGE", COL.blue)], pos: lpos(g, 53, 73),
-          say: "Then about twenty bars in the trade. On every one of them the answer was hold: change nothing." },
-        { title: "Exit", vis: 74, add: [N.band(74, 74, "EXIT", COL.up)], pos: lpos(g, 53, 74),
-          say: "The target fills: exit. And on the next bar, the answer is wait again." },
-        { title: "Mostly waiting", vis: 78,
-          say: "Fifty-two wait bars, one order bar, about twenty manage bars and one exit bar. That is what good trading looks like on a chart: mostly waiting, a little doing, and never a bar where you don't know which of the four it is." }
+        { title: "Wait: a quiet range", vis: 10, view: [0, 78], add: [N.band(0, 10, "WAIT", COL.txt, 0)],
+          say: "This is the EURUSD chart from the every-bar lesson, coloured by the answer on each bar, and this time with every trade the chart offered. Grey means wait. The first bars are a small, quiet range around a flat EMA. There is no room to buy low and sell high, and nothing is trending. Here, wait is the right answer." },
+        { title: "Wait: the channel is young", vis: 19, add: [N.band(11, 19, "WAIT", COL.txt, 0), N.bar(17, "H1", COL.txt)],
+          say: "Two bull bars break out of the range, and a channel starts, with overlapping bars. Its first buy signal, a High 1, fails: three bars later its stop is hit. In a channel this weak the first attempt often fails, so you wait for the second one." },
+        { title: "Order: the High 2", vis: 20, add: [N.band(20, 20, "ORDER", COL.amber, 1), N.bar(20, "H2", COL.amber, true)].concat(ord(20, A.e1, A.s1, A.T1)),
+          say: "This bull bar at the EMA ends the second leg down: the High 2 of the channel. Buy stop above it, stop below it, and the target is leg one equals leg two, about " + ((A.T1 - A.e1) / A.R1).toFixed(1) + " R away." },
+        { title: "Manage, then exit", vis: 24, add: [N.band(21, 23, "MANAGE", COL.blue, 2), N.band(24, 24, "EXIT", COL.dn, 3), N.pt(24, b[24].c, lfx(r1), COL.dn, false, "right")],
+          pos: P(21, 24, A.e1, A.s1, A.T1, "leg 1 = leg 2"),
+          say: "Filled, and the trade goes more than one R your way. Then a big bear bar closes on its low, below the EMA. One bar, but a strong one, and it breaks below the EMA: the premise is damaged. The rules say get out at its close, about " + Math.abs(r1).toFixed(1) + " R lost. The very next bar goes up again. That happens. Small losses like this are how you avoid the full ones." },
+        { title: "Wait: don't chase", vis: 33, add: [N.band(25, 33, "WAIT", COL.txt, 0)],
+          say: "A huge bull breakout bar, then more. Don't buy it: the stop would be far away. Wait for the first pullback, and on every pullback bar, wait for a bull signal bar." },
+        { title: "Order, manage, exit", vis: 36, add: [N.band(34, 34, "ORDER", COL.amber, 1), N.band(35, 35, "MANAGE", COL.blue, 2), N.band(36, 36, "EXIT", COL.up, 3), N.bar(34, "first pullback", COL.amber, true)].concat(ord(34, A.e2, A.s2, A.T2)),
+          pos: P(35, 36, A.e2, A.s2, A.T2, "spike height"),
+          say: "Here it is: a bull bar closing on its high at the EMA, the first pullback after a strong breakout. Brooks: the first pullback after a strong spike rarely fails, because everyone who missed the spike wants in. Buy stop above it. It fills on the next bar, and one bar later it reaches its target, the spike's height added to the pullback's low: about " + r2.toFixed(1) + " R." },
+        { title: "Wait for the High 2", vis: 51, add: [N.band(37, 51, "WAIT", COL.txt, 0), N.bar(44, "H1", COL.txt)],
+          say: "The next pullback is deeper and two-sided. Its first attempt up, the High 1, is weak, so you wait for the High 2. Every bar here is a wait bar, but you know exactly what you are waiting for." },
+        { title: "The High 2 trade", vis: 74, fast: true, add: [N.band(52, 52, "ORDER", COL.amber, 1), N.band(53, 73, "MANAGE", COL.blue, 2), N.band(74, 74, "EXIT", COL.up, 3)], pos: lpos(g, 53, 74),
+          say: "The High 2 from the first lesson: one order, about twenty bars of hold, and the target: " + r3.toFixed(1) + " R." },
+        { title: "Where the waiting is", vis: 78,
+          say: "Three trades on one chart: " + r1.toFixed(1) + ", plus " + r2.toFixed(1) + " and plus " + r3.toFixed(1) + " R. Waiting was right in the quiet range, during the spike, and inside each pullback until its signal bar closed. It is not waiting for one perfect trade. In a trend Brooks buys pullback after pullback, and the management decides what each one costs or pays." }
       ];
     }
   };
@@ -9361,11 +9388,11 @@ var PROG = (function () {
   lch({ id: "start", part: "Foundations", title: "Start here",
     sub: "How this tab works, and the one idea behind everything in it.",
     body: function () {
-      return lvideo("answers") + lp("This tab teaches one method: <b>Al Brooks' price action</b>. You read the bars, you know which phase the market is in and which way it is <i>always-in</i>, and you only take the handful of setups that have an edge in that phase. The only indicator is the <b>20-bar EMA</b>.") +
+      return lvideo("answers") + lp("This tab teaches one method: <b>Al Brooks' price action</b>. You read the bars, you know which phase the market is in and which way it is <i>always-in</i>, and you trade the setups that have an edge in that phase — in a trend that is every good pullback in its direction. The only indicator is the <b>20-bar EMA</b>.") +
         lp("The goal is simple to say: <b>when a bar closes, you know what to do.</b> Every bar has one of four answers:") +
-        lul(["<b>Wait</b> — you are flat and there is no setup yet (most bars).",
+        lul(["<b>Wait</b> — you are flat and the signal bar you are waiting for hasn't closed yet (or the market gives nothing: a quiet range, barbwire, the middle of a range).",
           "<b>Place an order</b> — a setup is complete: entry, stop and target go in together.",
-          "<b>Manage</b> — you are in a trade: hold, take a partial, or move the stop.",
+          "<b>Manage</b> — you are in a trade: hold, move the stop, or take half at a magnet that rejects price.",
           "<b>Exit</b> — the target or stop is hit, or the reason for the trade is gone."]) +
         lh("How to use this tab") +
         lol(["Read <b>Foundations</b> in order: reading bars, the EMA, the market cycle, always-in, and where we are.",
@@ -9375,7 +9402,8 @@ var PROG = (function () {
           "Then <b>your markets</b>: sessions in Amsterdam time, the open, 5 vs 15 minutes, higher timeframes, and position size."]) +
         lp("Most chapters have a <b>narrated lesson</b>: press Play and the chart builds bar by bar while a voice explains what matters on each bar. At some steps it stops and asks what you would do. Every chapter ends with a short check and buttons into the drills, a free Practice chart, or the Desk with the Coach. Mark a chapter <i>understood</i> when you can explain it without looking.") +
         lkey("<b>The one idea:</b> take a trade only when the odds and the reward together are in your favour. Brooks calls it the <b>trader's equation</b>: probability × reward must be bigger than (1 − probability) × risk. A 40% setup that pays 3R is a good trade. A 70% setup that pays 0.3R loses money. Everything in this tab is a way to find the good moments and skip the rest.") +
-        lp("Most bars are <b>wait</b> bars. A 5-minute session has well over a hundred bars; two to four good trades is a normal day. If you trade much more than that, you are trading bars that should have been wait bars.");
+        lp("Many bars are <b>wait</b> bars, but wait never means sitting out a trend. In a trend, wait means waiting for the next pullback's signal bar, and Brooks buys pullback after pullback in a bull trend (sells rallies in a bear trend). The lesson above shows it: three trades on one chart. Waiting for nothing is right only where there is no edge: a tiny quiet range, barbwire, the middle of a range, or when you can't say what you are waiting for.") +
+        lp("So the number of trades depends on the day, not on a quota. A trend day gives a with-trend entry at most pullbacks; a barbwire day gives none. What limits you is the rules: a real signal bar, a place that makes sense, a positive equation, and a plan to manage it.");
     },
     quiz: [
       { q: "A bar just closed. Which four answers can it have?", o: ["Buy, sell, hold, exit", "Wait, place an order, manage, exit", "Trend, range, breakout, reversal"], a: 1, why: "Every bar ends with one of these decisions. Most of the time it is wait (when flat) or manage and hold (when in a trade)." },
@@ -10058,10 +10086,10 @@ var PROG = (function () {
         lp("Take a trader whose trades win half the time and whose winners pay 1.6 times the loss: +0.3R per trade, a real edge. Over 100 trades the account's worst drop from a high is usually about <b>7R</b>, and in one run of ten <b>10R</b> or more. At 1% risk per trade that is 7–10% of the account, with nothing wrong. After 20 trades, one run in ten is still in minus.") +
         '<figure class="lfig"><div class="lfscr" data-equity></div><figcaption>Twenty traders with exactly the same edge (50% winners, winners 1.6R, losers 1R), 100 trades each. <b style="color:var(--amber)">Amber</b>: the typical one. <b class="dn">Red</b>: the unluckiest. Same skill, very different months.</figcaption></figure>' +
         lh("How often you'll trade") +
-        lul(["A US session on the 5-minute chart (15:30–22:00) is 78 bars. On most of them the answer is wait.",
-          "Expect <b>0 to 4 trades</b> per session that pass every rule; on the 15-minute chart about half that. A session with no trade is normal and often right.",
-          "Most of your time in a trade is hold bars: change nothing."]) +
-        lfig("answers", "Mostly waiting", "One session, coloured by the answer on each bar: 52 wait bars, one order bar, about twenty manage bars and one exit. That is a good day.") +
+        lul(["It depends on the market, not on a quota. In a trend there is a with-trend entry at most pullbacks: the chart below has three in about 75 bars. In a trading range there are fewer good ones, only at the edges. In barbwire there are none.",
+          "A US session on the 5-minute chart (15:30–22:00) is 78 bars. On a trend day that can be five or more trades that pass every rule; on a range day one or two; on a barbwire day none. A day without a trade is fine when the market gave nothing.",
+          "While you are in a trade, most bars are hold bars: change nothing."]) +
+        lfig("answers", "Where the waiting is", "One session with every trade it offered: a small loss where the rules got you out early, a quick win on the first pullback after the breakout, and the H2 to its target. The grey bars are where there was nothing yet: a quiet range, a spike you don't chase, pullbacks before their signal bar.") +
         lh("What a good month looks like") +
         lp("+0.3R per trade × 20 trades = +6R: about +6% at 1% risk. Some months will be in minus even with a real edge. Judge yourself per 20 trades, never per trade and never per day.") +
         lh("Normal, or not?") +
