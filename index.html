@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.63.1 (build 2026-09-28) — Al Brooks price action -->
+<!-- Trade Trainer v3.63.2 (build 2026-09-28) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.63.1 — Cadet to Master</title>
+<title>TRADE TRAINER v3.63.2 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -531,7 +531,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.63.1", build: "2026-09-28", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.63.2", build: "2026-09-28", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -788,7 +788,7 @@ var Mkt = (function () {
     family: "trend", cycle: "channel", dir: 1, alwaysIn: 1, prob: 0.632, pWin: 0.58,
     style: "scalp", mmType: "none", entryType: "stop", sigQ: "strong", attempt: "second", probFirst: 0.63, exit: "target",
     brooks: "A broad channel is really a trading range tilted upward — it is two-sided. Buying near the bottom of the channel is fine, but the swings are big and the follow-through is unreliable, so take profit at the top of the channel instead of holding for a big measured move.",
-    mmRule: "Measure the prior leg up and project it from the pullback low.",
+    mmRule: "The target is the prior high, the top of the channel: in a broad channel the bears sell every new high. A measured move of the prior leg is the stretch, only if the channel turns into a stronger trend.",
     howTo: ["It starts at whichever swing first defined a high-low-high sequence, but because it is broad and two-sided, do not expect a clean line \u2014 think of it as a wide box tilted in the trend's direction.", "It is still developing as long as pullbacks keep making higher lows, even if those pullbacks are large and choppy \u2014 that size and chop is normal here, not a warning sign by itself.", "Structure breaks with a wick or close that revisits or exceeds the PRIOR swing high or low that formed the edge nearest you \u2014 because it is wide, use the actual local extreme nearest your entry, not an older, more distant peak.", "Because the swings are big, the stop has to sit beyond that nearest real extreme specifically, not a round number or an average \u2014 that exact point is what would prove the channel read wrong."],
     segs: function (R) {
       return [
@@ -885,7 +885,7 @@ var Mkt = (function () {
     family: "range", cycle: "trading range", dir: 1, alwaysIn: 0, prob: 0.707, pWin: 0.61,
     style: "scalp", mmType: "range", entryType: "limit", sigQ: "strong", attempt: "second", probFirst: 0.64, exit: "target",
     brooks: "In a trading range you buy low, sell high and scalp. Price is at the bottom of the range with buyers stepping in, so buy — but take profit at the middle or the top, not beyond. There is no always-in direction in a range; anyone trading it like a trend gets cut to pieces.",
-    mmRule: "The range height is the measure. From the low, the realistic target is the middle; the top of the range is the stretch.",
+    mmRule: "The target is the top of the range. The middle is the first magnet on the way: take half there only if the market is rejected at it.",
     howTo: ["A trading range starts once price stops trending and starts reversing on itself \u2014 two clear touches near the same high and two near the same low, neither one broken.", "It is still 'the range' as long as both edges keep holding \u2014 a wick beyond an edge that snaps back inside still counts as the range holding, not breaking.", "Structure breaks when a CLOSE \u2014 not just a wick \u2014 goes through an edge, with real follow-through on the next bar. That is the point it stops being a range and starts being a breakout.", "At an edge, the stop sits just beyond that edge, because a close beyond it is exactly what would mean the range is no longer the range.", "Do not wait for a beautiful signal bar at the edge — <b>bad entry bars in a trading range are normal</b>, because both sides are still trading. What replaces bar quality here is <b>counting attempts</b>: the first try to turn the range usually fails, and the traders who took it are trapped, which is what fuels the next one. Brooks' standard trigger at a range edge is the <b>second entry</b>."],
     segs: function (R) {
       var top = R.f(0.96, 1.04), bot = R.f(-0.02, 0.03);
@@ -1282,8 +1282,8 @@ var Mkt = (function () {
     name: "Final flag reversal (bull)", twin: "Final flag reversal (bear)",
     family: "reversal", cycle: "breakout", dir: 1, alwaysIn: 1, prob: 0.44, pWin: 0.44,
     style: "swing", mmType: "leg", entryType: "stop", sigQ: "strong", attempt: "second", probFirst: 0.46, exit: "target",
-    brooks: "The bear trend made a small tight flag, broke out of it — and the breakout immediately failed. That flag was the final flag of the trend: the last of the sellers committed there and are now trapped. The move usually retraces to the start of the flag at least.",
-    mmRule: "Measure the leg into the final flag and project it back from the failed breakout.",
+    brooks: "The bear trend made a small tight flag, broke out of it — and the breakout immediately failed. That flag was the final flag of the trend: the last of the sellers committed there and are now trapped. The move usually gets back above the top of the flag at least, and often goes a measured move beyond it.",
+    mmRule: "A final flag is a small trading range. When its breakout fails, the market breaks out of the other side, and the target is the measured move of that breakout: the flag's height, from its top down to the failed breakout, added above the top. The top of the flag is the first magnet on the way.",
     howTo: ["It starts as an ordinary small flag or pullback late in a trend \u2014 nothing unusual about it yet.", "It is still just a normal continuation flag as long as its breakout in the trend's own direction actually works.", "It becomes a final-flag reversal signal specifically when that breakout FAILS immediately \u2014 the flag's own breakout reverses hard, trapping the last of the trend-followers who had just entered.", "The stop sits just beyond that failed breakout's own extreme, since that exact price is what would mean the trend-followers were right after all."],
     segs: function (R) {
       /* "an ordinary small flag late in a trend" — so there has to be a trend
@@ -1680,6 +1680,7 @@ var Mkt = (function () {
       if (first === null) first = ch;
       var vd = CTX[ch.gt.key] && CTX[ch.gt.key].valid;
       if (vd && !vd(ch)) continue;
+      if (ch.gt.noRoom) continue;
       if (structural === null) structural = ch;
       /* hold out for the payoff we asked for, but not forever: a context that
          almost never produces a thin setup should not spin */
@@ -2005,8 +2006,11 @@ var Mkt = (function () {
          close — the same defect as the ATR-derived stop: a level nobody can
          point at, manufactured to clear a threshold. A setup whose real target
          does not pay for its risk is not a trade, and is rejected by valid()
-         rather than dressed up. Only the side is enforced. */
-      if (dir * (target - entry) <= 0) target = entry + dir * Math.abs(entry - invalid) * 2;
+         rather than dressed up. And a structural target that sits on the wrong
+         side of the entry means there is no room at all: that chart is flagged
+         and re-rolled by the generator, never given a made-up 2R. */
+      var noRoom = dir * (target - entry) <= 0;
+      if (noRoom) target = entry + dir * Math.abs(entry - invalid) * 2;
     } else {
       if (Math.abs(entry - invalid) < 1.40 * A14) invalid = entry - 1.40 * A14;
       if (Math.abs(target - entry) < 1.0 * A14) target = entry + 1.6 * A14;
@@ -2030,6 +2034,7 @@ var Mkt = (function () {
       var eqn = def.pWin * refRR - (1 - def.pWin);
       if ((def.style === "swing" && refRR < 2.0) || eqn < 0.10) payoff = "thin";
     }
+    if (noRoom) payoff = "thin";          /* the last resort of the re-roll: never a trade */
 
     /* ---- initial risk, structural risk, and (later) actual risk ----
        Brooks' protective stop goes one tick beyond the signal bar's far
@@ -2183,7 +2188,7 @@ var Mkt = (function () {
            two-legged pullback as a first-entry setup, which is the one thing
            its own text rules out. */
         attempt: def.attempt || "second", exit: def.exit || "target",
-        payoff: payoff, wantThin: !!opts.wantThin,
+        payoff: payoff, wantThin: !!opts.wantThin, noRoom: !!noRoom,
         brooks: def.brooks, mmRule: def.mmRule,
         measure: g.measure, anchor: g.anchor, labels: g.labels || [],
         height: height, entry: entry, target: target, mmTarget: mmTarget, altTarget: g.altTarget,
@@ -3402,7 +3407,8 @@ Chart.prototype._drawPos = function (c, b, d) {
   /* i2, when given, closes the box at a bar (a finished trade under review) */
   var x0 = this.x(d.i), xr = b.r, xe = d.i2 != null ? Math.max(x0 + 4, Math.min(b.r, this.x(d.i2))) : b.r;
   var ye = this.y(d.entry), ys = this.y(d.stop), yt = this.y(d.target);
-  c.fillStyle = "rgba(63,191,127,.13)"; c.fillRect(x0, Math.min(ye, yt), xe - x0, Math.abs(yt - ye));
+  var ghost = d._ghostT != null && d.target === d._ghostT;
+  if (!ghost) { c.fillStyle = "rgba(63,191,127,.13)"; c.fillRect(x0, Math.min(ye, yt), xe - x0, Math.abs(yt - ye)); }
   c.fillStyle = "rgba(229,99,77,.15)"; c.fillRect(x0, Math.min(ye, ys), xe - x0, Math.abs(ys - ye));
   var self = this;
   function line(y, col, txt, val) {
@@ -3420,10 +3426,11 @@ Chart.prototype._drawPos = function (c, b, d) {
     c.fillStyle = col; c.fillText(txt, lx + 3, y - 3);
     self._tag(c, xr + 1, y, self.fmt(val), col, "#0B0E13");
   }
-  line(yt, COL.ok, (d.lesson && d.tl ? "TARGET · " + d.tl : "TARGET") + this._pnlTxt(d, d.target), d.target);
+  if (ghost) line(yt, "#8b93a3", "NO TARGET · drag to set one", d.target);
+  else line(yt, COL.ok, (d.lesson && d.tl ? "TARGET · " + d.tl : "TARGET") + this._pnlTxt(d, d.target), d.target);
   line(ye, COL.amber, d.dir > 0 ? "LONG ENTRY" : "SHORT ENTRY", d.entry);
   line(ys, COL.bad, "STOP" + this._pnlTxt(d, d.stop), d.stop);
-  this._rrTxt(c, b, d, ye, yt, xe);
+  if (!ghost) this._rrTxt(c, b, d, ye, yt, xe);
 };
 
 /* A lesson position whose stop has been trailed past the entry: the zone
@@ -11987,7 +11994,9 @@ var PROG = (function () {
     BT.pos.forEach(function (p) {
       chB.drawings.push({ type: "pos", _bt: "pos", _id: p.id, i: p.openIdx, dir: p.dir,
         pnl: pnlAt(function () { return p.units; }),
-        entry: p.entry, stop: p.sl, target: p.tp == null ? p.entry + p.dir * btATR() * 2 : p.tp });
+        entry: p.entry, stop: p.sl, target: p.tp == null ? p.entry + p.dir * btATR() * 2 : p.tp,
+        /* no take-profit: the target line is only a handle to drag one into place */
+        _ghostT: p.tp == null ? p.entry + p.dir * btATR() * 2 : null });
       (p.partials || []).forEach(function (pt, n) {
         if (!pt.done) chB.drawings.push({ type: "hline", _bt: "part", _id: p.id, _n: n, p: pt.price });
       });
@@ -11997,7 +12006,8 @@ var PROG = (function () {
       chB.drawings.push({ type: "pos", _bt: "ord", _id: o.id, i: Math.max(0, chB.vis - 18),
         pnl: pnlAt(function () { return o.units; }),
         dir: o.dir, entry: o.price, stop: o.sl,
-        target: o.tp == null ? o.price + o.dir * btATR() * 2 : o.tp });
+        target: o.tp == null ? o.price + o.dir * btATR() * 2 : o.tp,
+        _ghostT: o.tp == null ? o.price + o.dir * btATR() * 2 : null });
     });
     /* The ticket's own not-yet-placed order, previewed on the chart with the
        same draggable lines a real order gets -- so entry (for limit/stop),
@@ -12051,13 +12061,13 @@ var PROG = (function () {
       if (d._bt === "pos" && p) {
         d.entry = p.entry;            /* a fill cannot be dragged — snap it back */
         d.i = p.openIdx;
-        p.sl = d.stop; p.tp = d.target;
+        p.sl = d.stop; p.tp = d._ghostT != null && d.target === d._ghostT ? null : d.target;
         /* the one management move that is never OK: giving the loss more room */
         if (p.meta && (p.meta.sl0 - p.sl) * p.dir > 1e-12 && (p.entry - p.sl) * p.dir > 0) p.meta.widened = true;
       }
       if (d._bt === "part" && p && p.partials[d._n]) p.partials[d._n].price = d.p;
       if (d._bt === "ord" && o) {
-        o.price = d.entry; o.sl = d.stop; o.tp = d.target;
+        o.price = d.entry; o.sl = d.stop; o.tp = d._ghostT != null && d.target === d._ghostT ? null : d.target;
         /* still just a plan until it fills -- the review judges the plan as it stood */
         if (o.meta) { o.meta.entry0 = o.price; o.meta.sl0 = o.sl; o.meta.tp0 = o.tp; }
         /* dragging the entry across the current price flips limit <-> stop */
