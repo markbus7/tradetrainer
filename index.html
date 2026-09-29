@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.67.0 (build 2026-09-29) — Al Brooks price action -->
+<!-- Trade Trainer v3.68.0 (build 2026-09-29) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.67.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.68.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -554,7 +554,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.67.0", build: "2026-09-29", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.68.0", build: "2026-09-29", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -8773,7 +8773,7 @@ var PROG = (function () {
         { title: "Stop order", vis: 170, add: [N.order(170, b[170].h + pip, "buy STOP " + fp(b[170].h + pip), COL.up, 6)],
           say: "A buy stop sits above the market: here one pip above the signal bar's high. It only fills if price goes up through it. You pay a slightly higher price, but only once the market is already moving your way. That is trading with momentum, and it is what Brooks tells beginners to use, above all with the trend." },
         { title: "Limit order", vis: 170, add: [N.bar(158, "into the bottom third", COL.dn, true), N.hl(b[158].l - pip, 158, "buy LIMIT " + fp(b[158].l - pip), COL.blue, true, 143), N.pt(160, b[158].l - pip, "filled", COL.blue, false, "right"), N.pt(163, b[163].l, "then " + ldist(ex, b[158].l - pip - b[163].l) + " lower", COL.dn, false, "right")],
-          say: "A limit-order trader didn't wait for this signal bar. When this bear bar closed in the bottom third of the range, they put a buy limit one pip below its low, and it filled two bars later, at a better price than the stop order will get. But look what happened next: the market kept falling for a while before it turned. That is the price of a limit order: you buy while the market is still going against you, so you need a wide stop and a smaller size. The next chapter shows how." },
+          say: "A limit-order trader didn't wait for this signal bar. When this bear bar closed in the bottom third of the range, they put a buy limit one pip below its low, and it filled two bars later, at a better price than the stop order will get. But look what happened next: the market kept falling for a while before it turned. That is the price of a limit order: you buy while the market is still going against you, so you need a wide stop and a smaller size. The chapter on limit orders shows how." },
         { title: "Market order", vis: 170,
           say: "A market order fills right now, at the current price, plus the spread. Brooks uses it in one place: a strong breakout, when a big trend bar closes beyond an important level and waiting for a pullback may mean missing the move. Not here." },
         { title: "Which one?", vis: 170,
@@ -10117,6 +10117,21 @@ var PROG = (function () {
 
   /* ---------- sheets (printable, and reused inside the chapters) ---------- */
   var LSHEET = {
+    starter: function () {
+      return lsheet("starter", "My starter plan",
+        ltable(["", "The plan"], [
+          ["<b>Market</b>", "One market, the one you can watch in its busy hours. EURUSD 09:00–12:00, GER40 09:30–11:30 or US500 16:00–17:30, Amsterdam time"],
+          ["<b>Chart</b>", "15 minutes, the 20-bar EMA and nothing else"],
+          ["<b>When not</b>", "The first 15–30 minutes after the open; a few minutes before and after big news; after the daily limit"],
+          ["<b>Risk</b>", "0.5% of the account per trade while learning, 1% at most. Stop for the day after −2% or three losses"],
+          ["<b>Setups</b>", "Only two: the H2 / L2 pullback to the EMA in a clear trend, and a second entry or failed breakout at the edge of a range. Everything else: wait"],
+          ["<b>Before the order</b>", "Name the phase and always-in. A good signal bar. Entry, stop and target all on the chart. With the trend: at least 1.5R. At a range edge: the other side, about 1R or more"],
+          ["<b>The order</b>", "A stop order one tick beyond the signal bar, with the stop and the target on the order itself. Size from the stop"],
+          ["<b>In the trade</b>", "Hold. Half off only on a confirmed rejection at a magnet, the rest to breakeven. A trend trade trails only in the last quarter; a range trade keeps its target"],
+          ["<b>Out early</b>", "Only for a reason on the chart: the premise breaks, a strong signal the other way, a long stall"],
+          ["<b>After the session</b>", "Every trade in History. Every twenty trades: which rule did I break, and what did it cost?"]
+        ]));
+    },
     routine: function () {
       return lsheet("routine", "The every-bar routine",
         '<p><b>At the close of every bar, in this order:</b></p>' + lol([
@@ -10216,14 +10231,37 @@ var PROG = (function () {
           "<b>Manage</b> — you are in a trade: hold, move the stop, or take half at a magnet that rejects price.",
           "<b>Exit</b> — the target or stop is hit, or the reason for the trade is gone."]) +
         lh("How to use this tab") +
-        lol(["Read <b>Foundations</b> in order: reading bars, the EMA, the market cycle, always-in, and where we are.",
-          "Learn <b>the every-bar routine</b> and keep <b>the decision tree</b> open while you practise.",
-          "Learn the <b>setups</b> one at a time. Start with three: the two-legged pullback (H2/L2), the failed breakout and the major trend reversal — the same three the Path starts with.",
-          "Then <b>execution</b>: orders, stops, targets, scalp or swing, managing the trade, and what to do when it goes wrong.",
-          "Then <b>your markets</b>: sessions in Amsterdam time, the open, 5 vs 15 minutes, higher timeframes, and position size."]) +
+        lp("New to this? Read the next chapter first: " + lgo("starter", "What to start with") + ". It picks your first two setups and gives you the whole plan. Then the parts in order:") +
+        lol(["<b>Reading the chart</b>: a bar, the EMA, the market cycle, always-in, and where we are.",
+          "<b>The routine</b>: what to ask on every bar, and the decision tree to keep open while you practise.",
+          "<b>Setups</b>, in three groups: with the trend, in a trading range, and reversals. Learn your first two first.",
+          "<b>Placing the trade</b> and <b>managing the trade</b>: orders, stops, targets, late entries, scalp or swing, holding, getting out early, and what to do when it goes wrong.",
+          "<b>Risk and what to expect</b>, then <b>your markets</b>: position size, losing streaks, your hours in Amsterdam time, the open, and 5 or 15 minutes.",
+          "<b>Advanced</b>, after your first hundred trades: trading against the trend, limit orders and scaling in. And the <b>cheat sheets</b> and glossary at the end."]) +
         lp("Most chapters have a <b>narrated lesson</b>: press Play and the chart builds bar by bar while a voice explains what matters on each bar. At some steps it stops and asks what you would do. Every chapter ends with a short check and buttons into the drills, a free Practice chart, or the Desk with the Coach. Mark a chapter <i>understood</i> when you can explain it without looking.") +
         lkey("<b>The one idea:</b> take a trade only when the odds and the reward together are in your favour. Brooks calls it the <b>trader's equation</b>: probability × reward must be bigger than (1 − probability) × risk. A 40% setup that pays 3R is a good trade. A 70% setup that pays 0.3R loses money. Everything in this tab is a way to find the good moments and skip the rest.") +
         lp("Many bars are <b>wait</b> bars, but wait never means sitting out a trend. In a trend, wait means waiting for the next pullback's signal bar, and Brooks buys pullback after pullback in a bull trend (sells rallies in a bear trend). The lesson above shows it: three trades on one chart. Waiting for nothing is right only where there is no edge: a tiny quiet range, barbwire, the middle of a range, or when you can't say what you are waiting for.") +
+        lh("Where to find what") +
+        ltable(["If you want to know…", "Go to"], [
+          ["what to trade first, and the whole plan", lgo("starter", "What to start with")],
+          ["what to do on the bar that just closed", lgo("routine", "The every-bar routine") + ", " + lgo("tree", "The decision tree")],
+          ["which phase the market is in", lgo("cycle", "The market cycle") + ", " + lgo("alwaysin", "Always-in")],
+          ["how to trade a pullback in a trend", lgo("count", "Pullbacks: H1, H2, L1, L2")],
+          ["how to trade a range", lgo("range", "Trading ranges") + ", " + lgo("fbo", "Failed breakouts")],
+          ["when not to trade", lgo("nothing", "When to do nothing")],
+          ["which order to use, and where", lgo("orders", "Stop, limit and market orders")],
+          ["where the stop goes", lgo("stops", "Where the stop goes")],
+          ["where the target is, and whether a trade is worth it", lgo("targets", "Targets and the trader's equation")],
+          ["if you missed the entry", lgo("late", "Late entries")],
+          ["when to take profits, move the stop or trail", lgo("manage", "Managing a trade")],
+          ["when to get out before the stop or the target", lgo("early", "Getting out early")],
+          ["what happens at the target, and after it", lgo("after", "At the target, and after it")],
+          ["how big a position to take", lgo("sizing", "Position size")],
+          ["whether a losing streak is normal", lgo("expect", "What to expect")],
+          ["when your markets move, in Amsterdam time", lgo("markets", "Your markets and their hours")],
+          ["a word you don't know", lgo("glossary", "Glossary")],
+          ["everything on one page, to print", lgo("sheets", "Cheat sheets")]
+        ]) +
         lp("So the number of trades depends on the day, not on a quota. A trend day gives a with-trend entry at most pullbacks; a barbwire day gives none. What limits you is the rules: a real signal bar, a place that makes sense, a positive equation, and a plan to manage it.");
     },
     quiz: [
@@ -10232,6 +10270,46 @@ var PROG = (function () {
       { q: "What is the trader's equation?", o: ["The win rate must be above 50%", "Probability × reward must be bigger than (1 − probability) × risk", "The reward must always be 3× the risk"], a: 1, why: "You need both numbers. A 40% setup with 3R is good; a 70% setup with 0.3R is not." }
     ],
     practise: [{ label: "Start the Path", go: "path" }]
+  });
+
+  lch({ id: "starter", part: "Getting started", title: "What to start with",
+    sub: "Two setups, one market, one chart, and the whole plan for your first hundred trades.",
+    body: function () {
+      return lp("Brooks is clear about beginners: trade a handful of the strongest setups and pass on everything else. Not because the rest don't work, but because every extra setup is one more thing to get wrong while you are still learning to read the chart. Start with <b>two</b>, and add the third when the first two are routine.") +
+        lkey("<b>The starting rule:</b> if what you see is not one of your two setups, the answer is <b>wait</b>. Waiting costs nothing. A trade you didn't plan costs money every time.") +
+        lh("Your first two setups") +
+        lp("The market spends most of the day in one of two states: <b>trending</b> or <b>in a trading range</b>. These two setups cover both, so on almost every chart you know what you are looking for.") +
+        ltable(["", "1. The pullback in a trend (H2 / L2)", "2. The edge of a trading range"], [
+          ["When", "A clear trend: higher highs and higher lows (or lower), price mostly on one side of the EMA", "Sideways, overlapping bars around a flat EMA, with a clear top and bottom"],
+          ["What you wait for", "Two legs back to the EMA, then a signal bar in the trend's direction: the second attempt (" + lgo("count", "H2 / L2") + ")", "Price in the bottom (top) third, a second attempt to turn, or a breakout beyond the edge that fails (" + lgo("fbo", "failed breakout") + ")"],
+          ["Entry", "Stop order one tick beyond the signal bar", "Stop order one tick beyond the signal bar"],
+          ["Stop", "Beyond the signal bar, or beyond the pullback", "Beyond the range edge or the failed breakout's extreme"],
+          ["Target", "Leg 1 = leg 2 (" + lgo("targets", "measured move") + "); at least 1.5R", "The other side of the range; the middle is a magnet on the way"],
+          ["Odds taught", lodds("twoLegPullback") + ", with a big reward", lodds("rangeLow") + " (edge) and " + lodds("failedBo") + " (failed breakout), with a smaller one"],
+          ["Why it's a good start", "You trade with the market, the stop is clear, and the reward is big", "Most breakouts of a range fail, so you trade with the odds; the target is a line you can see"]
+        ]) +
+        lfigs([lfig("every", "The orders", "<b>Setup 1:</b> the High 2 at the EMA in a bull trend. Buy stop above the signal bar, stop below it, target leg 1 = leg 2."),
+          lfig("fbo", "The orders", "<b>Setup 2:</b> a failed breakout above a range. Sell stop below the signal bar, stop above the failed high, target the bottom of the range.")]) +
+        lp("<b>The third, later:</b> the " + lgo("mtr", "major trend reversal") + ". A trend line break, a test of the extreme, a second entry. It wins less often (about " + lodds("mtr") + ") and asks more reading, so add it after about fifty trades with the first two. The Path's first tier drills all three.") +
+        lh("Leave these for later") +
+        lul(["<b>Spikes and tight channels</b>: fast, first entries, easy to be late on.",
+          "<b>Wedges, final flags and climaxes</b>: reversals, lower odds, harder to read.",
+          "<b>Against the trend</b>, " + lgo("limits", "limit orders and scaling in") + ", and " + lgo("late", "late entries") + ".",
+          "<b>The first 15–30 minutes after the open</b>, and anything close to a big news release."]) +
+        lh("The plan") +
+        LSHEET.starter() +
+        lh("Your first hundred trades") +
+        lol(["<b>Read these chapters</b>, in this order: " + [["bars", "Reading a bar"], ["ema", "The 20-bar EMA"], ["cycle", "The market cycle"], ["alwaysin", "Always-in"], ["where", "Where are we?"], ["routine", "The every-bar routine"], ["count", "Pullbacks: H1, H2"], ["range", "Trading ranges"], ["fbo", "Failed breakouts"], ["orders", "Orders"], ["stops", "Where the stop goes"], ["targets", "Targets"], ["manage", "Managing a trade"], ["early", "Getting out early"]].map(function (x) { return lgo(x[0], x[1]); }).join(", ") + ".",
+          "<b>Pass the Path's first tier</b>, <i>The first three setups</i>: recognise them, place the order, the stop and the target, manage them.",
+          "<b>Trade the Desk with the Coach</b>, only your two setups, and review every twenty trades in History. The goal is a hundred trades in a row that follow the plan, with a positive total.",
+          "<b>Then live, with the smallest size you can.</b> Add the major trend reversal after about fifty good trades, and raise the size only after another hundred. More on this in " + lgo("expect", "What to expect") + "."]);
+    },
+    quiz: [
+      { q: "A beautiful wedge reversal forms. You are in your first month. What do you do?", o: ["Wait: it is not one of your two setups", "Take it: it looks perfect"], a: 0, why: "Every setup you add is one more thing to get wrong. Add reversals later." },
+      { q: "Which two setups cover most of the day?", o: ["The H2 / L2 pullback in a trend, and the edge of a trading range", "Climaxes and final flags"], a: 0, why: "The market is mostly trending or ranging. These two are the with-the-odds trade in each." },
+      { q: "How much do you risk per trade while you are learning?", o: ["0.5%, 1% at most", "3%, to grow faster"], a: 0, why: "Small losses keep you trading long enough to learn." }
+    ],
+    practise: [{ label: "Path: the first three setups", go: "node", node: "t0a" }, { label: "Desk with the Coach", go: "desk-coach" }]
   });
 
   lch({ id: "bars", part: "Foundations", title: "Reading a bar", video: "bars",
@@ -11288,7 +11366,7 @@ var PROG = (function () {
     sub: "Print them, or save them as PDF, and keep them next to your screen.",
     body: function () {
       return lp("Each sheet has its own print button. In the print dialog you can also choose <i>Save as PDF</i>.") +
-        LSHEET.routine() + LSHEET.phases() + LSHEET.setups() + LSHEET.manage() + LSHEET.wrong() + LSHEET_HOURS();
+        LSHEET.starter() + LSHEET.routine() + LSHEET.phases() + LSHEET.setups() + LSHEET.manage() + LSHEET.wrong() + LSHEET_HOURS();
     },
     quiz: [], practise: []
   });
@@ -11591,6 +11669,32 @@ var PROG = (function () {
       $$("lcP").value = Math.round(Mkt.CTX[k].pWin * 100); calc();
     };
   }
+
+  /* ---------- the order of the chapters ----------
+     One place decides it: beginner first, then what you need on every bar,
+     the setups in three groups, the trade from order to exit, risk, your
+     markets, and the advanced material last. The part names are what the
+     sidebar shows. */
+  (function () {
+    var ORDER = [
+      ["Getting started", ["start", "starter"]],
+      ["Reading the chart", ["bars", "ema", "cycle", "alwaysin", "where"]],
+      ["The routine", ["routine", "tree"]],
+      ["Setups: with the trend", ["count", "spike", "tight", "broad", "breakout"]],
+      ["Setups: trading ranges", ["range", "fbo", "nothing"]],
+      ["Setups: reversals", ["wedge", "mtr", "flag", "climax"]],
+      ["Placing the trade", ["orders", "stops", "targets", "late", "scalpswing"]],
+      ["Managing the trade", ["manage", "early", "after", "bad", "badgood"]],
+      ["Risk and what to expect", ["sizing", "expect"]],
+      ["Your markets", ["markets", "open", "timeframes"]],
+      ["Advanced: after your first 100 trades", ["counter", "limits"]],
+      ["Sheets & reference", ["sheets", "glossary"]]
+    ];
+    var out = [];
+    ORDER.forEach(function (pt) { pt[1].forEach(function (id) { var c = LCH_BY[id]; if (c) { c.part = pt[0]; out.push(c); } }); });
+    LCH.forEach(function (c) { if (out.indexOf(c) < 0) out.push(c); });   /* a chapter not listed still shows, at the end */
+    LCH.length = 0; out.forEach(function (c) { LCH.push(c); });
+  })();
 
   /* ---------- the pages ---------- */
   var learnPainted = false;
