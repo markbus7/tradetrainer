@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.65.0 (build 2026-09-29) — Al Brooks price action -->
+<!-- Trade Trainer v3.65.1 (build 2026-09-29) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.65.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.65.1 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -538,7 +538,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.65.0", build: "2026-09-29", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.65.1", build: "2026-09-29", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -896,9 +896,9 @@ var Mkt = (function () {
     name: "Trading range — price at the low", twin: "Trading range — price at the high",
     family: "range", cycle: "trading range", dir: 1, alwaysIn: 0, prob: 0.707, pWin: 0.68,
     style: "scalp", mmType: "range", entryType: "stop", sigQ: "strong", attempt: "second", probFirst: 0.64, exit: "target",
-    brooks: "In a trading range you buy low, sell high and scalp. Price is at the bottom of the range with buyers stepping in, so buy — but take profit at the middle or the top, not beyond. There is no always-in direction in a range; anyone trading it like a trend gets cut to pieces.",
+    brooks: "In a trading range you buy low, sell high and scalp. Price is at the bottom of the range with buyers stepping in, so buy — and take profit at the top, not beyond. The middle is a magnet on the way: half off there only if the market is rejected at it. There is no always-in direction in a range; anyone trading it like a trend gets cut to pieces.",
     mmRule: "The target is the top of the range. The middle is the first magnet on the way: take half there only if the market is rejected at it.",
-    howTo: ["A trading range starts once price stops trending and starts reversing on itself \u2014 two clear touches near the same high and two near the same low, neither one broken.", "It is still 'the range' as long as both edges keep holding \u2014 a wick beyond an edge that snaps back inside still counts as the range holding, not breaking.", "Structure breaks when a CLOSE \u2014 not just a wick \u2014 goes through an edge, with real follow-through on the next bar. That is the point it stops being a range and starts being a breakout.", "At an edge, the stop sits just beyond that edge, because a close beyond it is exactly what would mean the range is no longer the range.", "Do not wait for a beautiful signal bar at the edge — <b>bad entry bars in a trading range are normal</b>, because both sides are still trading. What replaces bar quality here is <b>counting attempts</b>: the first try to turn the range usually fails, and the traders who took it are trapped, which is what fuels the next one. Brooks' standard trigger at a range edge is the <b>second entry</b>."],
+    howTo: ["A trading range starts once price stops trending and starts reversing on itself \u2014 two clear touches near the same high and two near the same low, neither one broken.", "It is still 'the range' as long as both edges keep holding \u2014 a wick beyond an edge that snaps back inside still counts as the range holding, not breaking.", "Structure breaks when a CLOSE \u2014 not just a wick \u2014 goes through an edge, with real follow-through on the next bar. That is the point it stops being a range and starts being a breakout.", "At an edge, the stop sits just beyond that edge, because a close beyond it is exactly what would mean the range is no longer the range.", "Do not demand a perfect signal bar at the edge — <b>bars in a trading range are less clean</b>, because both sides are still trading. It still has to close in your direction: a doji or a bar closing against you is a reason to wait for the next bar. What matters more than bar quality here is <b>counting attempts</b>: the first try to turn the range usually fails, and the traders who took it are trapped, which is what fuels the next one. Brooks' standard trigger at a range edge is the <b>second entry</b>."],
     segs: function (R) {
       var top = R.f(0.96, 1.04), bot = R.f(-0.02, 0.03);
       return [
@@ -1003,9 +1003,9 @@ var Mkt = (function () {
     name: "Breakout mode", twin: "Breakout mode",
     family: "nothing", cycle: "trading range", dir: 0, alwaysIn: 0, prob: 0.72, pWin: 0.37,
     style: "none", mmType: "range", entryType: "stop", sigQ: "weak",
-    brooks: "The range has coiled: lower highs and higher lows, and it must break soon — but nobody knows which way. Guessing here is a coin flip. Wait for the breakout and then trade the follow-through, or fade it if it fails.",
+    brooks: "The range has coiled: lower highs and higher lows, and it must break soon — but nobody knows which way. Guessing here is a coin flip. Wait for the breakout with follow-through and then trade its first pullback, or fade it if it fails.",
     mmRule: "Measure the height of the coil; project it once a side actually breaks.",
-    howTo: ["It starts once a trading range's swings begin narrowing \u2014 lower highs AND higher lows converging toward a point, like a wedge lying on its side.", "It is still coiling as long as each new high is lower than the last one and each new low is higher than the last one.", "There is no valid break of structure while it is still coiling \u2014 genuinely nobody knows which way it resolves yet, which is exactly why guessing the direction here is a coin flip by design.", "The only correct move is to wait for the real breakout bar (not a probe \u2014 see the failed-breakout structure) and trade that, with a stop back inside the coil."],
+    howTo: ["It starts once a trading range's swings begin narrowing \u2014 lower highs AND higher lows converging toward a point, like a wedge lying on its side.", "It is still coiling as long as each new high is lower than the last one and each new low is higher than the last one.", "There is no valid break of structure while it is still coiling \u2014 genuinely nobody knows which way it resolves yet, which is exactly why guessing the direction here is a coin flip by design.", "The only correct move is to wait for the real breakout bar with follow-through (not a probe \u2014 see the failed-breakout structure), then trade its first pullback, with the stop beyond that pullback \u2014 or its failure, if it gets no follow-through."],
     segs: function (R) {
       return [
         /* the coil has to be big enough at the start for the narrowing to be
@@ -3619,6 +3619,27 @@ function ptol(ch) { return Math.max(0.55 * ch.atr, 0.11 * (ch.gt.height || ch.at
 function refRR(ch) { return ch.gt.refRR || 0; }
 /** Brooks' trader's equation: is probability x reward bigger than the rest? */
 function equation(p, rr) { return p * rr - (1 - p); }
+/** Is this a setup you pass on? The rule the Learn tab teaches: a reversal
+    (about 40%) needs 2R or more, a with-trend swing (50-60%) 1.5R or more,
+    and a scalp needs its win rate to carry a clearly positive equation.
+    The generator's own payoff tag is stricter (it prefers to show swings of
+    2R+), and that only steers which charts are drawn, not what is taught. */
+/** the reward a plan must reach, by the same rule: 2R for a reversal, 1.5R
+    for a with-trend swing, and for a scalp what the structure offers (the
+    node's own filter, capped at 1R) */
+function minRRFor(g, nodeMin) {
+  if (g && g.family === "reversal") return 2;
+  if (g && g.style === "swing") return 1.5;
+  return Math.min(1, nodeMin || 1);
+}
+function thinTrade(g) {
+  if (!g || !g.tradeable) return false;
+  if (g.noRoom) return true;
+  var e = equation(g.prob, g.refRR);
+  if (g.family === "reversal") return g.refRR < 2 || e < 0.10;
+  if (g.style === "swing") return g.refRR < 1.5 || e < 0.10;
+  return e < 0.10;
+}
 function rrScore(rr, goal, can) {
   if (rr >= goal) return 1;
   if (can < goal && rr >= can * 0.85) return 0.75;
@@ -3872,11 +3893,13 @@ function probLine(ch) {
   /* Say it wherever the chart appears, not only in the take-or-pass drill: a
      correct read on a setup that does not pay is still not a trade, and that
      is the half of the method a learner is most likely to skip. */
-  if (g.tradeable && g.payoff === "thin") {
+  if (thinTrade(g)) {
     s += " <b>Which is why this one is not a trade.</b> The pattern is real, the price is wrong — " +
-      (g.style === "swing"
+      (g.family === "reversal"
         ? "Brooks puts a reversal at roughly a 40% setup, so it has to be capable of two to one before it is worth taking."
-        : "a scalp can risk more than it makes only while the win rate carries it, and here it does not.") +
+        : g.style === "swing"
+          ? "a with-trend swing needs a reward of at least one and a half times the risk, and this target is closer than that."
+          : "a scalp can risk more than it makes only while the win rate carries it, and here it does not.") +
       " And the fix is not a bigger target. The objective is set by the structure — a measured move, a range edge, the level the " +
       "pattern is trying to reach — not by what the arithmetic needs it to be. Moving it further out until the ratio looks " +
       "acceptable does not make the market go there; it just hides a trade you should have passed on. Name it, and pass.";
@@ -4034,7 +4057,7 @@ KIND.takeSide = {
   /* A correct read is not a trade. Where the structural target does not pay
      for the risk the answer is stand aside, whatever the pattern is called —
      which is the whole reason Brooks states the arithmetic. */
-  right: function (p) { return p.ch.gt.payoff === "thin" ? "0" : String(p.ch.gt.dir); },
+  right: function (p) { return thinTrade(p.ch.gt) ? "0" : String(p.ch.gt.dir); },
   prepare: function (sp, seed) {
     var ch = Mkt.gen({ seed: seed, ctx: pickPool(sp.pool || POOL.all, seed) });
     return {
@@ -4050,7 +4073,7 @@ KIND.takeSide = {
     };
   },
   grade: function (p, ans) {
-    var g = p.ch.gt, thin = g.payoff === "thin";
+    var g = p.ch.gt, thin = thinTrade(g);
     var right = thin ? "0" : String(g.dir), ok = ans === right;
     var e = equation(g.prob, g.refRR);
     var lines = ["<b>" + g.name + "</b>. " + g.brooks];
@@ -4061,9 +4084,11 @@ KIND.takeSide = {
       lines.push("<b>The read is right and the price is wrong.</b> This is the pattern — but from " +
         "this entry the structural target is only <b>" + g.refRR.toFixed(2) + "R</b>, and at about " +
         pct(g.prob) + " that is <b>" + e.toFixed(2) + "R</b> per trade. " +
-        (g.style === "swing"
-          ? "Brooks is specific about this: a reversal is roughly a 40% setup, so it needs to be capable of <b>two to one</b> before it is worth taking. Below that the equation is negative no matter how good the pattern looks."
-          : "A scalp can have a reward smaller than its risk, but only if the win rate carries it — here it does not.") +
+        (g.family === "reversal"
+          ? "Brooks is specific about this: a reversal is roughly a 40% setup, so it needs to be capable of <b>two to one</b> before it is worth taking. Below that the equation is too thin, however good the pattern looks."
+          : g.style === "swing"
+            ? "A with-trend swing needs a reward of at least <b>one and a half times</b> the risk, the same line as for a late entry. Closer than that, a normal pullback costs more than the target pays."
+            : "A scalp can have a reward smaller than its risk, but only if the win rate carries it — here it does not.") +
         " Naming it correctly and taking it are two different skills; this is the one where you name it and pass.");
     } else {
       lines.push(probLine(p.ch));
@@ -4186,14 +4211,14 @@ KIND.scalpSwing = {
     lines.push("A word on the two meanings, because they get confused. " +
       "Brooks' <b>strict</b> definition is arithmetic: a <b>scalp</b> is a trade whose reward is <i>smaller</i> than its risk, " +
       "usually over in one to three bars — which is why it needs a win rate above 70%, and a good scalper runs 80&ndash;90%. " +
-      "A <b>swing</b> is a trade whose reward is at least <b>twice</b> the risk. " +
+      "A <b>swing</b> is held for a reward well beyond the risk: ideally <b>twice</b> it, at least one and a half times with the trend, and at least twice for a reversal. " +
       "The looser sense — the one in \"buy low, sell high and scalp\" — just means <i>take profit inside the range instead of holding for a trend</i>.");
     lines.push("This chart offers <b>" + g.refRR.toFixed(2) + "R</b>" +
       (g.refRR < 1
         ? " — reward below risk, so it is a scalp in the strict sense too, and it only pays if you win most of the time."
         : g.refRR >= 2
           ? " — reward more than twice risk, a swing on the arithmetic as well."
-          : " — reward above risk but under 2R. Note that is <b>not</b> a scalp in the strict sense even though you take profit inside the structure. It sits between the two, and the honest read is that it is a modest swing you are choosing to close early.") +
+          : " — reward above risk but under 2R. Note that is <b>not</b> a scalp in the strict sense. With the trend it is a swing worth taking from about 1.5R; in a two-sided market it is a scalp in the loose sense, profit taken inside the structure.") +
       " The stop, incidentally, goes in the same place either way. Scalp and swing differ in the target, never the stop.");
     return {
       score: ok ? 1 : 0, reveal: true,
@@ -4381,7 +4406,7 @@ KIND.plan = {
     };
   },
   grade: function (p, ans) {
-    var ch = p.ch, g = ch.gt, a = ch.atr, minRR = p.meta.minRR;
+    var ch = p.ch, g = ch.gt, a = ch.atr, minRR = minRRFor(g, p.meta.minRR);
     if (!ans) return { score: 0, verdict: "No plan submitted", lines: [], reveal: true };
     if (ans.passed) {
       if (!g.tradeable) return {
@@ -4425,7 +4450,7 @@ KIND.plan = {
     if (!entryOK) lines.push("Your entry is a long way from where this setup triggers. Chasing costs R, and entering early is a different trade needing a different stop.");
     if (stopS < 0.5) lines.push(beyond < 0 ? "The stop sits inside the structure; an ordinary pullback will take it." : "The stop is too wide for the target you chose.");
     if (rr < minRR) lines.push(can < minRR
-      ? "At " + rr.toFixed(2) + "R you are under the " + minRR + "R filter — but so is the context: it only offers about <b>" + can.toFixed(2) + "R</b> from here. That is the lesson. Wait for a better entry, take it as a scalp, or pass."
+      ? "At " + rr.toFixed(2) + "R you are under the " + minRR + "R this setup needs — but so is the context: it only offers about <b>" + can.toFixed(2) + "R</b> from here. That is the lesson. Wait for a better entry, take it as a scalp, or pass."
       : "At " + rr.toFixed(2) + "R you left reward behind — this context offers about " + can.toFixed(2) + "R.");
     lines.push(outcomeLine(ch));
     return { score: s, reveal: true, verdict: s >= 0.85 ? "Solid plan" : s >= 0.55 ? "Workable, with holes" : "Needs rework", lines: lines.filter(Boolean) };
@@ -4623,7 +4648,7 @@ KIND.replay = {
     var beyond = d > 0 ? (g.invalid - ans.stop) : (ans.stop - g.invalid);
     var stopS = beyond < -0.2 * a ? 0.15 : beyond <= 1.2 * a ? 1 : beyond <= 2.6 * a ? 0.65 : 0.3;
     var rr = Math.abs(ans.target - ans.entry) / Math.max(1e-9, Math.abs(ans.entry - ans.stop));
-    var can = refRR(ch), rrS = rrScore(rr, p.meta.minRR, can);
+    var can = refRR(ch), rrS = rrScore(rr, minRRFor(g, p.meta.minRR), can);
     var tgtS = band(Math.abs(ans.target - g.target), ptol(ch) * 1.4);
     if (d * (ans.target - g.entry) > 0 && d * (g.target - ans.target) > 0 && tgtS < 0.7) tgtS = 0.72;
     var s = dirOK ? clamp(0.32 * stopS + 0.26 * rrS + 0.24 * tgtS + 0.18, 0, 1) : 0.05;
@@ -4708,6 +4733,10 @@ KIND.entry = {
         s = clamp(band(intoRange, tol * 1.8) * 0.6, 0, 1); verdict = "Off the edge";
         note = "Fading a range means the edge itself is the trade. This far into the middle there is no edge left — and the middle of a range is where accounts go to die.";
       }
+    } else if (beyond < -0.15 * a && g.family === "range") {
+      s = 0.3; verdict = "Neither the stop entry nor the fade";
+      note = "At a range edge there are two right entries: the beginner's stop order one tick " + (d > 0 ? "above" : "below") + " the signal bar at <b>" + fmtN(g.entry, ch.dec) +
+             "</b>, or the experienced trader's limit at the range " + (d > 0 ? "low" : "high") + " itself. A limit in between buys before the turn is proven, without the better price that pays for that.";
     } else if (beyond < -0.15 * a) {
       s = 0.1; verdict = "That is a limit order, not a stop";
       note = "You placed the entry <b>inside</b> the signal bar, so you get filled without price ever proving it can go your way. " +
@@ -4840,9 +4869,9 @@ KIND.manage = {
     var scalp = g.style === "scalp";
     var q = stalled
       ? "You are " + (g.dir > 0 ? "long" : "short") + " this <b>" + g.name + "</b> from " + fmtN(g.entry, ch.dec) +
-        ". Price moved about 1R your way and has now spent eight bars going sideways in a tight overlapping cluster. Your stop has not been hit. What now?"
+        ". Price moved about 1R your way and has now spent about fifteen bars going sideways in a tight overlapping cluster. Your stop has not been hit. What now?"
       : "You are " + (g.dir > 0 ? "long" : "short") + " this <b>" + g.name + "</b> from " + fmtN(g.entry, ch.dec) +
-        ". Price has just reached your first target at " + fmtN(g.target, ch.dec) + ". What now?";
+        ". Price has just reached your target at " + fmtN(g.target, ch.dec) + ". What now?";
     return {
       ch: ch, meta: { stalled: stalled, scalp: scalp },
       q: q,
@@ -4859,7 +4888,7 @@ KIND.manage = {
   grade: function (p, ans) {
     var ch = p.ch, g = ch.gt, stalled = p.meta.stalled, scalp = p.meta.scalp;
     var right = stalled ? "all" : (scalp ? "all" : "partial");
-    var ok = ans === right;
+    var ok = ans === right || (!stalled && !scalp && ans === "all");
     var why;
     if (stalled) {
       why = "A tight overlapping cluster is a trading range, and a trading range means the market has gone two-sided. " +
@@ -4867,10 +4896,10 @@ KIND.manage = {
             "Holding here is how a winner becomes a scratch and then a loser.";
     } else if (scalp) {
       why = "This is a <b>scalp</b> context — " + g.name.toLowerCase() + ". You are being paid for being quick, not for being right for a long time. " +
-            "Take the target. In a trading range the move beyond the first target usually does not come, and holding for it hands back the edge you just earned.";
+            "Take the target. In a trading range the move beyond the target usually does not come, and holding for it hands back the edge you just earned.";
     } else {
-      why = "This is a <b>swing</b> context — " + g.name.toLowerCase() + ". The target is where the plan pays: take most of it off here. " +
-            "Brooks often keeps a small part as a runner, with its stop at breakeven and then under each pullback that is over, because he cannot know in advance which trend keeps going. " +
+      why = "This is a <b>swing</b> context — " + g.name.toLowerCase() + ". The target is where the plan pays: take it. Taking everything off is right; so is taking most of it and " +
+            "keeping a small runner, as Brooks often does, with its stop at breakeven and then under each pullback that is over, because he cannot know in advance which trend keeps going. " +
             "Holding everything for more turns a finished plan into a guess.";
     }
     var lines = [why];
@@ -4893,7 +4922,7 @@ KIND.manage = {
     if (ans === "hold" && !stalled && scalp) lines.push("Holding a scalp for a swing target is trading a different setup from the one the chart actually offered.");
     lines.push(outcomeLine(ch));
     return {
-      score: ok ? 1 : (ans === "partial" && right === "all" ? 0.4 : ans === "all" && right === "partial" ? 0.5 : 0),
+      score: ok ? 1 : (ans === "partial" && right === "all" ? 0.4 : 0),
       reveal: true,
       verdict: ok ? "Correct" : "Not what this one asks for",
       lines: lines.filter(Boolean)
@@ -5102,7 +5131,7 @@ KIND.manageLive = {
         m = Math.min(m, 0.6);
         notes.push("Dropping the target turns the whole position into a runner. Keep the target: a runner is a <b>small</b> part you keep after the target, with its stop at breakeven.");
       }
-      if (!isTrend && !tr && (find("partial") || ca)) { m = Math.max(m, 0.85); notes.push("Taking it off inside the range rather than trailing is the right shape for two-sided trading."); }
+      if (find("partial") || ca) notes.push("Taking some or all of it off before the target: right only for a reason on the chart — a rejection at a magnet on the way (half off, the rest to breakeven), a strong bar against you that breaks the structure, or a long sideways stall. Without one, the plan is the target.");
       if (si) {
         if (res.maxOpenR > 1.15) {
           m = Math.min(m, 0.5);
@@ -5274,7 +5303,7 @@ var TIERS = [
       { id: "t4c", kind: "stop", n: 6, title: "Stops at the edges", pool: POOL.rangeTradeable },
       { id: "t4d", kind: "target", n: 6, title: "Range targets", pool: POOL.rangeTradeable },
       { id: "t4e", kind: "scalpSwing", n: 6, title: "Ranges are scalps", pool: POOL.rangeTradeable.concat(POOL.trend) },
-      { id: "t4f", kind: "entry", n: 6, title: "Limit orders at the edge", pool: POOL.rangeTradeable },
+      { id: "t4f", kind: "entry", n: 6, title: "Entries at the edge: stop or limit", pool: POOL.rangeTradeable },
       { id: "t4g", kind: "secondEntry", n: 8, title: "Why the second entry", pool: POOL.rangeTradeable.concat(POOL.trend) }
     ]
   },
@@ -5681,7 +5710,7 @@ var PROG = (function () {
       L.push("Context: " + g.name + (g.tradeable
         ? " — " + (g.dir > 0 ? "long" : "short") + " bias, " + Math.round(g.prob * 100) + "% win rate, " +
           g.refRR.toFixed(2) + "R reference" +
-          (g.payoff === "thin" ? " (NOT A TRADE — the reward does not pay for the risk here)" : "")
+          (thinTrade(g) ? " (NOT A TRADE — the reward does not pay for the risk here)" : "")
         : " — not tradeable"));
       if (g.tradeable) {
         L.push("App's levels: entry " + fmtN(g.entry, ch.dec) +
@@ -9710,7 +9739,7 @@ var PROG = (function () {
           "<b>Where are we?</b> EMA, top / middle / bottom third, prior highs and lows, measured-move targets.",
           "<b>What am I waiting for here?</b> Say it in one sentence. If you can't, the answer is wait.",
           "<b>Did this bar complete it?</b> The right count (H1/H2, L1/L2), and a good signal bar: closes near its extreme in your direction, normal size.",
-          "<b>Is the equation positive?</b> About 60% or better with a reward of at least 1R, or 40–50% with at least 2R.",
+          "<b>Is the equation positive?</b> With the trend (50–60%): a reward of at least 1.5R. A reversal (about 40%): at least 2R. A range or other scalp (60–70%): about 1R, to the magnet.",
           "<b>Place the order:</b> stop order one tick beyond the signal bar, protective stop and target placed at the same time. Otherwise: wait."
         ]) +
         '<p><b>In a trade, at the close of every bar:</b></p>' + lol([
@@ -9756,7 +9785,7 @@ var PROG = (function () {
           r("Major trend reversal", "mtr", "After a trend line break, at the test of the extreme", "Stop order beyond the signal bar", "Beyond the test", "Leg 1 projected from the test", "Swing, 2R+"),
           r("Final flag", "finalFlag", "A late flag whose breakout fails", "Stop order, second entry", "Beyond the failed breakout", "Flag top to failed low, added above the flag", "Swing, 2R+"),
           r("Climax correction", "climax", "After a climax, at a second top / bottom", "Stop order beyond the signal bar", "Beyond the climax extreme", "The start of the climax: where the big bars began", "Scalp")
-        ]) + '<p class="mu" style="font-size:12px">Odds are the win rates this app teaches and tests with. A 40% setup needs a reward of at least 2R; a 60% setup can work with about 1R.</p>');
+        ]) + '<p class="mu" style="font-size:12px">Odds are the win rates this app teaches and tests with. A reversal (about 40%) needs a reward of at least 2R, a with-trend swing at least 1.5R, and a 60–70% scalp can work with about 1R.</p>');
     },
     manage: function () {
       return lsheet("manage", "Managing a trade",
@@ -10268,7 +10297,7 @@ var PROG = (function () {
       { q: "You short in cTrader. The signal bar's high is 2,350.00, the spread is 0.30 and a tick is 0.01. Where is the protective stop?", o: ["2,350.01", "2,350.31"], a: 1, why: "The stop of a short is a buy and triggers at the Ask. Add the spread, or you get stopped by the spread alone." },
       { q: "Which order fits fading the top of a range, for an experienced trader?", o: ["A sell limit above the prior bar's high", "A buy stop above the range"], a: 0, why: "At the top of a range you sell high; a limit order sells into the push up." }
     ],
-    practise: [{ label: "Drill: where the order goes", go: "node", node: "t0c" }, { label: "Drill: limit orders at the edge", go: "node", node: "t4f" }, { label: "Drill: stop entries with the trend", go: "node", node: "t3g" }]
+    practise: [{ label: "Drill: where the order goes", go: "node", node: "t0c" }, { label: "Drill: entries at the edge, stop or limit", go: "node", node: "t4f" }, { label: "Drill: stop entries with the trend", go: "node", node: "t3g" }]
   });
 
   lch({ id: "limits", part: "Execution", title: "Limit orders, wide stops and scaling in", video: "limitRange",
@@ -10305,7 +10334,7 @@ var PROG = (function () {
       { q: "A strong bear trend. Price falls fast. Do you buy below the last bar with a limit order?", o: ["No: never fade a strong trend", "Yes, with a wide stop"], a: 0, why: "Limit orders are for ranges and for pullbacks in the trend's direction." },
       { q: "With a stop three times wider than usual, your position size is…", o: ["About a third", "The same"], a: 0, why: "The money at risk stays the same; the size shrinks with the distance." }
     ],
-    practise: [{ label: "Drill: limit orders at the edge", go: "node", node: "t4f" }, { label: "Desk: practise a range fade, small size", go: "desk" }]
+    practise: [{ label: "Drill: entries at the edge, stop or limit", go: "node", node: "t4f" }, { label: "Desk: practise a range fade, small size", go: "desk" }]
   });
 
   lch({ id: "stops", part: "Execution", title: "Where the stop goes",
@@ -10340,7 +10369,7 @@ var PROG = (function () {
     sub: "Where you get paid, and whether the trade is worth taking at all.",
     body: function () {
       var row = function (name, k) {
-        var c = Mkt.CTX[k]; return [name, lodds(k), lneed(k), c.style === "scalp" ? "about 1R or the magnet" : "2R or more"];
+        var c = Mkt.CTX[k]; return [name, lodds(k), lneed(k), c.style === "scalp" ? "about 1R or the magnet" : c.family === "reversal" ? "at least 2R" : "at least 1.5R, ideally 2R+"];
       };
       return lp("<b>R</b> is your risk on the trade: the distance from the entry to the stop. Every target is measured in R.") +
         lh("Magnets") +
@@ -10375,7 +10404,7 @@ var PROG = (function () {
         lp("<b>probability × reward &gt; (1 − probability) × risk.</b> Examples:") +
         lul(["40% × 3R − 60% × 1R = <b>+0.6R</b> per trade: good.", "60% × 1R − 40% × 1R = <b>+0.2R</b>: fine.", "70% × 0.3R − 30% × 1R = <b>−0.09R</b>: a loser, even though it wins most of the time."]) +
         lp("The break-even win rate for a reward of X times the risk is 1 / (1 + X): 0.5R needs 67%, 1R needs 50%, 1.5R needs 40%, 2R needs 33%, 3R needs 25%.") +
-        ltable(["Setup", "Taught odds", "Break-even reward", "Aim for"], [
+        ltable(["Setup", "Taught odds", "Break-even reward", "Minimum reward"], [
           row("Two-legged pullback", "twoLegPullback"), row("Spike and channel", "spikeChannel"), row("Tight channel", "tightChannel"),
           row("Broad channel", "broadChannel"), row("Range edge", "rangeLow"), row("Failed breakout", "failedBo"),
           row("Breakout pullback", "successBo"), row("Wedge", "wedgeBottom"), row("Major trend reversal", "mtr"),
@@ -10436,7 +10465,7 @@ var PROG = (function () {
   lch({ id: "scalpswing", part: "Execution", title: "Scalp or swing — or both",
     sub: "When you may only scalp, when you must swing, and the one reason to take half off early.",
     body: function () {
-      return lp("A <b>scalp</b> takes a small profit, about as big as the risk or smaller. It only makes sense with high odds: better than about 55–60% at a reward of 1R, and 70% or more when the reward is smaller than the risk. A <b>swing</b> holds for a reward of at least twice the risk and works with 40–50% odds.") +
+      return lp("A <b>scalp</b> takes a small profit, about as big as the risk or smaller. It only makes sense with high odds: better than about 55–60% at a reward of 1R, and 70% or more when the reward is smaller than the risk. A <b>swing</b> holds for a reward well beyond the risk, ideally twice it: at least 1.5 times the risk with the trend (50–60% odds), and at least twice for a reversal (40–45%).") +
         ltable(["Scalp: all out at a close target", "Swing: hold to a far target", "Half at a magnet, the rest to the target"], [
           ["Trading ranges: every edge trade", "With-trend entries in a trend: H1 in a spike or tight channel, H2 at the EMA", "Any swing trade that is <b>rejected at a magnet</b> on the way: the prior high or low, a range edge"],
           ["Counter-trend trades in a trend (experienced only)", "Breakouts with strong follow-through: their edge is the measured move", "Rejected means a reversal bar or a long tail there, not just touching it"],
@@ -10821,7 +10850,7 @@ var PROG = (function () {
         ["Signal bar", "The bar before the entry. A good one closes near its extreme in your direction."],
         ["Spike", "A breakout of several big consecutive trend bars."],
         ["Stop order", "An order to buy above or sell below the current price: entering with momentum."],
-        ["Swing", "A trade held for 2R or more."],
+        ["Swing", "A trade held for a reward well beyond the risk: at least 1.5R with the trend, 2R or more for a reversal."],
         ["Tail", "The part of the bar outside the body: prices tried and rejected."],
         ["Test", "A return to an important price (a breakout point, a prior extreme) that either holds or breaks."],
         ["Tight channel", "A strong trend with tiny, short pullbacks, on one side of the EMA."],
@@ -10881,7 +10910,8 @@ var PROG = (function () {
     rv3: { q: "Is there a reversal signal bar at the test, ideally a second entry?", a: [["Yes", "sg_rev"], ["No", "e_test"]] },
     pb1: { q: "Count the pullback. Which attempt is the bar that just closed? (In a bull pullback the H1 is the first bar above the prior bar's high; L1 is the mirror.)", a: [["H1 / L1", "pb2"], ["H2 / L2", "sg_trend"], ["H3 / L3: a wedge flag", "sg_trend"], ["H4 / L4 or more", "e_tired"], ["None yet: still pulling back", "e_pbwait"]] },
     pb2: { q: "Is the trend strong: a spike, or a tight channel?", a: [["Yes", "sg_trend"], ["No, a normal or broad trend", "e_h2"]] },
-    sg_trend: { q: "Check the signal bar: does it close near its extreme in your direction, with any tail on the far side, and is it about normal size?", a: [["Yes, a good signal bar", "e_trend"], ["A doji, or it closes against me", "e_weak"], ["It's much bigger than recent bars", "e_big"]] },
+    sg_trend: { q: "Check the signal bar: does it close near its extreme in your direction, with any tail on the far side, and is it about normal size?", a: [["Yes, a good signal bar", "tr4"], ["A doji, or it closes against me", "e_weak"], ["It's much bigger than recent bars", "e_big"]] },
+    tr4: { q: "Is there room for at least 1.5 times your risk to the target (leg 1 = leg 2, or the spike's height), with no magnet much closer?", a: [["Yes", "e_trend"], ["No", "e_noroom_t"]] },
     sg_range: { q: "Check the signal bar: does it close near its extreme in your direction, with any tail on the far side, and is it about normal size?", a: [["Yes, a good signal bar", "e_range"], ["A doji, or it closes against me", "e_weak"], ["It's much bigger than recent bars", "e_big"]] },
     sg_rev: { q: "Check the signal bar: does it close near its extreme in your direction, with any tail on the far side, and is it about normal size?", a: [["Yes, a good signal bar", "rv4"], ["A doji, or it closes against me", "e_weak"], ["It's much bigger than recent bars", "e_big"]] },
     rv4: { q: "Is there room for at least twice your risk to the first target (the start of the wedge, or the first leg projected from the test)?", a: [["Yes", "e_rev"], ["No", "e_noroom"]] },
@@ -10925,6 +10955,7 @@ var PROG = (function () {
     e_rev: { k: "order", t: "Place a reversal order", d: "<b>Entry:</b> a stop order one tick beyond the signal bar. <b>Stop:</b> beyond the test's extreme (the third push, the lower high or higher low). <b>Target:</b> at least 2R — the start of the wedge, or the first leg projected from the test. Swing only: about four in ten reversals work, so the reward must be big." },
     e_weak: { k: "wait", t: "Wait for a better signal bar", d: "The place is right, the bar is not. A doji or a bar closing against you is a weak signal. Often the next bar is better — and then it may even be a second entry." },
     e_big: { k: "wait", t: "Skip it, or wait for a pullback", d: "A very large signal bar puts the stop far away and shrinks the reward. Brooks skips these, or waits for a smaller entry." },
+    e_noroom_t: { k: "wait", t: "Skip: not enough room", d: "A with-trend swing needs at least 1.5R to its target. If the target, or a magnet that could stop it, is closer, wait for the next pullback: a new signal with a smaller risk." },
     e_noroom: { k: "wait", t: "Skip: not enough room", d: "A reversal needs at least 2R to its first target. If the target is closer, the equation doesn't work." }
   };
   /* what each answer looks like on a chart, so the tree can sit next to your
