@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.65.1 (build 2026-09-29) — Al Brooks price action -->
+<!-- Trade Trainer v3.66.0 (build 2026-09-29) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.65.1 — Cadet to Master</title>
+<title>TRADE TRAINER v3.66.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -315,6 +315,8 @@
   .lfscr{height:clamp(220px,34vh,330px);background:#0B0E13;position:relative}
   .lfscr canvas{touch-action:pan-y;cursor:default}
   .lfig figcaption{padding:9px 12px;font-size:13.5px;line-height:1.55;color:#d6dae2;border-top:1px solid var(--line)}
+  .lfcopy{float:right;margin:0 0 4px 10px;padding:3px 10px;font:600 12px Archivo,sans-serif;color:#cfd4dd;background:var(--bg3,#1b2029);border:1px solid var(--line);border-radius:7px;cursor:pointer}
+  .lfcopy:hover{border-color:var(--amber,#e8a33d)}
   /* session timeline */
   .ltl{border:1px solid var(--line);border-radius:11px;background:var(--bg2);padding:12px 12px 8px;margin:12px 0 16px;overflow-x:auto}
   .ltlin{min-width:560px}
@@ -538,7 +540,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.65.1", build: "2026-09-29", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.66.0", build: "2026-09-29", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -1371,7 +1373,16 @@ var Mkt = (function () {
          level a climax correction comes back to — a place on the chart, not a
          ratio of the leg. The start of the whole leg is the next magnet. */
       var st = C.ref(b, ax.d1.i, 1, 2);
-      if (!((st.p - low.p) * (top.p - st.p) > 0)) st = { i: ax.d1.i, p: C.mid(low.p, top.p) };
+      if (!((st.p - low.p) * (top.p - st.p) > 0)) {
+        /* the snap fell outside the leg: take the swing inside the leg closest
+           to its middle, so the target is still a bar the chart shows */
+        var md = C.mid(low.p, top.p), best = null, k0 = Math.min(top.i, low.i) + 1, k1 = Math.max(top.i, low.i) - 1;
+        for (var k = k0; k <= k1; k++) {
+          var q = C.ref(b, k, 1, 1);
+          if ((q.p - low.p) * (top.p - q.p) > 0 && (!best || Math.abs(q.p - md) < Math.abs(best.p - md))) best = q;
+        }
+        st = best || top;
+      }
       return {
         sigIdx: ax.sig.i, measure: { a: low, b: top }, anchor: low,
         target: st.p, altTarget: top.p, invalid: low.p,
@@ -3466,7 +3477,7 @@ Chart.prototype._drawTrail = function (c, b, d) {
   }
   line(yt, COL.ok, d.tl ? "TARGET · " + d.tl : "TARGET", d.target);
   line(ye, COL.amber, d.dir > 0 ? "LONG ENTRY" : "SHORT ENTRY", d.entry);
-  line(ys, COL.bad, "STOP (trailed)", d.stop);
+  line(ys, COL.bad, Math.abs(d.stop - d.entry) < 1e-9 ? "STOP (breakeven)" : "STOP (trailed)", d.stop);
 };
 
 /* What hitting a level would make or lose, when the owner of the drawing can
@@ -7814,6 +7825,12 @@ var PROG = (function () {
     arrow: function (i, p, dir, text, col) { return { t: "arrow", i: i, p: p, dir: dir, text: text, col: col }; },
     order: function (i, p, text, col, len, until) { return { t: "order", i: i, p: p, text: text, col: col, len: len, until: until }; },
     note: function (text, row, col) { return { t: "note", text: text, row: row || 0, col: col }; },
+    /* a boxed panel of rows (a trade plan, a result): rows are [text, colour];
+       the first is the heading. at {i, p} pins its top-left corner to a bar
+       and a price, so it can sit in empty chart space; default is top left */
+    card: function (rows, at) { return { t: "card", rows: rows, at: at || null }; },
+    /* a price level from one bar to another: an order that lives for a while */
+    lvl: function (p, from, to, text, col, dash, lx) { return { t: "lvl", i: from, p: p, from: from, to: to, text: text, col: col, dash: dash, lx: lx }; },
     /* a measured move: the distance a→b is measured, then the same distance is
        laid off from the anchor to the target. Two equal rulers make it visible. */
     mm: function (a, b, anc, target, lab1, lab2) { return { t: "mm", i: Math.max(a.i, b.i), a: a, b: b, anc: anc, p: target, text: lab1, text2: lab2 }; },
@@ -7843,6 +7860,7 @@ var PROG = (function () {
       '<button class="lvb" data-a="rate" title="Voice speed"></button>' +
       '<button class="lvb" data-a="mute" title="Voice on / off"></button>' +
       '<button class="lvb" data-a="script" title="Show every word of this lesson">Script</button>' +
+      '<button class="lvb" data-a="copy" title="Copy this step as text: the bars, every line and label on the chart, and what the step says. Paste it into a chat to show exactly what you see.">Copy</button>' +
       '</div><div class="lvscript" style="display:none"></div>';
     this.cv = root.querySelector("canvas");
     this.ch = new Chart(this.cv);
@@ -7928,6 +7946,7 @@ var PROG = (function () {
     return st;
   };
   LessonPlayer.prototype.act = function (a) {
+    if (a === "copy") { lcopy(lessonText(this.vid, this.def, this.ex, this.scenes, this.k)); return; }
     if (a === "play") { if (this.playing) this.pause(); else this.play(); }
     if (a === "next") this.go(Math.min(this.scenes.length - 1, this.k + (this._started ? 1 : 0)), this.playing);
     if (a === "prev") this.go(Math.max(0, this.k - 1), this.playing);
@@ -8076,6 +8095,23 @@ var PROG = (function () {
         y = ch.y(n.p); x = ch.x(n.i) - ch.bw / 2; var x3 = ch.x(n.i + (n.len || 4));
         c.setLineDash([6, 3]); c.lineWidth = 2; c.beginPath(); c.moveTo(x, y); c.lineTo(x3, y); c.stroke(); c.setLineDash([]);
         lTag(c, n.text, x3 + 4, y, col, "left");
+      } else if (n.t === "lvl") {
+        y = ch.y(n.p); x = ch.x(n.from) - ch.bw / 2;
+        var xe = n.to != null ? ch.x(Math.min(n.to, vis)) + ch.bw / 2 : b.r;
+        c.beginPath(); c.moveTo(x, y); c.lineTo(xe, y); c.stroke();
+        if (n.text) lTag(c, n.text, n.lx != null ? ch.x(n.lx) : xe + 6, y, col, "left");
+      } else if (n.t === "card") {
+        var small = c.canvas.clientWidth < 500, fs = small ? 10 : 11.5, lh = fs + 6, w0 = 0;
+        c.setLineDash([]); c.textBaseline = "middle"; c.textAlign = "left";
+        n.rows.forEach(function (r, k) { c.font = (k === 0 ? "800 " : "600 ") + fs + "px Archivo,sans-serif"; w0 = Math.max(w0, c.measureText(r[0]).width); });
+        var cx = n.at ? ch.x(n.at.i) : 10, cy = n.at ? ch.y(n.at.p) : b.t + 8, hh = n.rows.length * lh + 10;
+        cx = Math.max(4, Math.min(cx, b.r - w0 - 24));
+        c.fillStyle = "rgba(11,14,19,.93)"; c.fillRect(cx, cy, w0 + 20, hh);
+        c.strokeStyle = "rgba(255,255,255,.18)"; c.lineWidth = 1; c.strokeRect(cx + 0.5, cy + 0.5, w0 + 19, hh - 1);
+        n.rows.forEach(function (r, k) {
+          c.font = (k === 0 ? "800 " : "600 ") + fs + "px Archivo,sans-serif";
+          c.fillStyle = r[1] || (k === 0 ? COL.amber : "#cfd4dd"); c.fillText(r[0], cx + 10, cy + 5 + lh * k + lh / 2);
+        });
       } else if (n.t === "note") {
         lTag(c, n.text, b.r - 8, b.t + 12 + (n.row || 0) * 19, col, "right");
       } else if (n.t === "mm") {
@@ -8111,6 +8147,60 @@ var PROG = (function () {
     });
     c.restore();
   };
+  /* ---------- Copy: one step of a lesson as plain text ----------
+     Everything on the chart in words and numbers — the bars with their index,
+     time and prices, every line and label with its bar and price, the
+     position, and what the step says — so it can be pasted into a chat and
+     read without the picture. */
+  function lcopy(txt) {
+    if (typeof copyText === "function") return copyText(txt);
+    try { navigator.clipboard.writeText(txt); } catch (e) { }
+  }
+  function lessonText(vid, def, ex, scenes, k) {
+    var st = LessonPlayer.prototype.stateAt.call({ scenes: scenes }, k), sc = scenes[k] || {}, B = ex.bars, n = B.length;
+    var d = ex.dec, f = function (p) { return (+p).toFixed(d); }, strip = function (h) { return Speech.strip(String(h || "")); };
+    var view = st.view || def.view || [0, n - 1], a = Math.max(0, view[0]), vis = Math.min(st.vis, n - 1);
+    var tm = function (i) { var t = new Date(B[i].t); return ("0" + t.getUTCHours()).slice(-2) + ":" + ("0" + t.getUTCMinutes()).slice(-2); };
+    var L = [];
+    L.push("TRADE TRAINER v" + (typeof APP !== "undefined" ? APP.version : "") + " · Learn · lesson \"" + strip(def.title) + "\" (" + vid + ")" +
+      (scenes.length > 1 ? " · step " + (k + 1) + " of " + scenes.length + (sc.title ? " \"" + strip(sc.title) + "\"" : "") : ""));
+    L.push("Chart: " + (ex.alias || ex.sym) + " " + (ex.tfLbl || ex.tf || "") + " · bars " + a + " to " + vis + " are on screen (bar numbers as below)");
+    if (sc.say) L.push("", "WHAT THE STEP SAYS", strip(sc.say));
+    if (sc.ask) L.push("", "QUESTION: " + strip(sc.ask.q), sc.ask.o.map(function (o, i) { return "  " + (i === sc.ask.a ? "* " : "- ") + strip(o); }).join("\n"), "Why: " + strip(sc.ask.why));
+    var marks = [];
+    (st.notes || []).forEach(function (m) {
+      if (m.i != null && m.i > vis) return;
+      if (m.until != null && vis >= m.until) return;
+      var t = m.text ? " \"" + strip(m.text) + "\"" : "";
+      if (m.t === "pt") marks.push("point at bar " + m.i + ", " + f(m.p) + t);
+      else if (m.t === "bar") marks.push("bar " + m.i + " boxed" + t);
+      else if (m.t === "hl") marks.push("level " + f(m.p) + " from bar " + m.from + t);
+      else if (m.t === "lvl") marks.push("level " + f(m.p) + " from bar " + m.from + (m.to != null ? " to bar " + m.to : "") + t);
+      else if (m.t === "order") marks.push("order line " + f(m.p) + " at bar " + m.i + t);
+      else if (m.t === "seg") marks.push("line from bar " + m.a.i + " (" + f(m.a.p) + ") to bar " + m.b.i + " (" + f(m.b.p) + ")" + t);
+      else if (m.t === "box") marks.push("box over bars " + m.i0 + "–" + m.i1 + ", " + f(m.p0) + " to " + f(m.p1) + t);
+      else if (m.t === "band") marks.push("bars " + m.i0 + "–" + m.i1 + " shaded" + t);
+      else if (m.t === "mm") marks.push("measured move: bar " + m.a.i + " (" + f(m.a.p) + ") to bar " + m.b.i + " (" + f(m.b.p) + "), laid off from bar " + m.anc.i + " (" + f(m.anc.p) + ") = " + f(m.p) + t + (m.text2 ? " / \"" + strip(m.text2) + "\"" : ""));
+      else if (m.t === "ret") marks.push("retracement of bar " + m.a.i + "–" + m.b.i + " at " + Math.round(m.frac * 100) + "%" + t);
+      else if (m.t === "note") marks.push("note" + t);
+      else if (m.t === "card") marks.push("panel: " + m.rows.map(function (r) { return strip(r[0]); }).join(" | "));
+    });
+    if (marks.length) L.push("", "DRAWN ON THE CHART", marks.map(function (x) { return "  - " + x; }).join("\n"));
+    if (st.pos) {
+      var P = st.pos, R = Math.abs(P.entry - P.stop);
+      L.push("", "POSITION BOX: " + (P.dir > 0 ? "long" : "short") + " from bar " + P.i + (P.i2 != null ? " to bar " + P.i2 : "") +
+        " · entry " + f(P.entry) + " · stop " + f(P.stop) + " · target " + f(P.target) + (P.tl ? " (" + strip(P.tl) + ")" : "") +
+        (R > 0 ? " · " + (Math.abs(P.target - P.entry) / R).toFixed(2) + "R" : ""));
+    }
+    var kk = 2 / 21, e = B[0].c, E = B.map(function (q) { return (e = q.c * kk + e * (1 - kk)); });
+    L.push("", "BARS ON SCREEN (bar, time, open, high, low, close, 20 EMA, bull/bear)");
+    for (var i = a; i <= vis; i++) {
+      var q = B[i];
+      L.push(i + "  " + tm(i) + "  O " + f(q.o) + "  H " + f(q.h) + "  L " + f(q.l) + "  C " + f(q.c) + "  EMA " + f(E[i]) + "  " + (q.c > q.o ? "bull" : q.c < q.o ? "bear" : "doji"));
+    }
+    return L.join("\n");
+  }
+
   /* ---------- a figure: one step of a lesson as a still picture ---------- */
   function LessonFigure(root, vid, title, crop) {
     this.root = root; this.vid = vid; this.def = LVID[vid]; this.playing = false; this.crop = !!crop;
@@ -8129,6 +8219,13 @@ var PROG = (function () {
     var self = this;
     this.ch.overlayFn = function (c, b, ch) { self._drawNotes(c, b, ch); };
     this.apply(k, true);
+    var fc = root.querySelector("figcaption");
+    if (fc && !fc.querySelector(".lfcopy")) {
+      var cb = document.createElement("button");
+      cb.className = "lfcopy"; cb.textContent = "Copy"; cb.title = "Copy this picture as text: the bars, every line and label, and the caption. Paste it into a chat to show exactly what you see.";
+      cb.onclick = function (e) { e.stopPropagation(); lcopy(lessonText(self.vid, self.def, self.ex, self.scenes, self.k) + "\n\nCAPTION\n" + Speech.strip(fc.innerHTML.replace(/<button[\s\S]*$/, ""))); };
+      fc.appendChild(cb);
+    }
   }
   LessonFigure.prototype.stateAt = LessonPlayer.prototype.stateAt;
   LessonFigure.prototype.apply = LessonPlayer.prototype.apply;
@@ -9090,11 +9187,11 @@ var PROG = (function () {
     check: function (ex) {
       var g = ex.gt, b = ex.bars, r = lr(g), c = b[64];
       return g.dir === 1 && g.sigIdx === 56 && g.fillAt === 57 && g.hitInvalidAt === 66 && hi(ex, 25, 56).i === 41 && r(b[41].h) > 1.5 && r(b[41].h) < 2 &&
-        r(hi(ex, 57, 59).p) < 1 && r(b[60].h) >= 1 && hi(ex, 57, 65).i === 64 && c.h < b[41].h && (c.c - c.l) / (c.h - c.l) < 0.35 && r(c.c) > 0.6 && b[65].l < g.entry;
+        r(hi(ex, 57, 59).p) < 1 && r(b[60].h) >= 1 && hi(ex, 57, 65).i === 64 && c.h < b[41].h && (c.c - c.l) / (c.h - c.l) < 0.35 && r(c.l) > 0.5 && b[65].l < c.l && b[65].l < g.entry;
     },
     extraPrices: function (ex) { var g = ex.gt; return [g.target + 2.6 * (g.entry - g.invalid), g.invalid]; },
     scenes: function (ex) {
-      var g = ex.gt, b = ex.bars, R = g.entry - g.invalid, r = lr(g), hc = r(b[64].c);
+      var g = ex.gt, b = ex.bars, R = g.entry - g.invalid, r = lr(g), hc = r(b[64].l - Math.pow(10, -ex.dec));
       return [
         { title: "Another High 2", vis: 57, view: [22, 72], pos: lpos(g, 57, 60),
           add: [N.hl(b[41].h, 41, "prior high: a magnet", COL.violet, true, 44), N.hl(g.entry + R, 57, "1R", COL.txt, true, 50)],
@@ -9103,10 +9200,10 @@ var PROG = (function () {
           say: "Price reaches one R. As before, one R is not a reason. You hold." },
         { title: "Stalled below the magnet", vis: 64, pos: lpos(g, 57, 66), add: [N.bar(61, "push 1", COL.dn, false, "left"), N.bar(64, "push 2: tail on top", COL.dn, false, "right")],
           say: "The bulls push up twice, and both times they stop short of the prior high. This bar closes near its low with a long tail on top.",
-          ask: { q: "Two pushes stall below the prior high, and this bar has a long tail on top. What now?", o: ["Take half off, and move the stop to breakeven", "Hold everything for the target", "Add to the position"], a: 0,
-            why: "The market is rejected just below a magnet: the bulls can't even reach the prior high. That is a reason on the chart. Take half off at the close, about " + hc.toFixed(1) + " R on that half, and put the stop for the rest at breakeven: if the bulls are still in charge, the market has no business back at your entry." } },
+          ask: { q: "Two pushes stall below the prior high, and this bar has a long tail on top. What now?", o: ["An order to take half off one tick below this bar; if it fills, the stop on the rest goes to breakeven", "Hold everything for the target", "Add to the position"], a: 0,
+            why: "The market is being rejected just below a magnet: the bulls can't even reach the prior high. This bar is a sell signal bar for the bears, and like any signal bar it counts when the next bar trades beyond it. So the order to take half goes one tick below its low, about " + hc.toFixed(1) + " R, and once it fills the stop for the rest goes to breakeven: if the bulls are still in charge, the market has no business back at your entry." } },
         { title: "It fails", vis: 66, pos: lpos(g, 57, 66),
-          say: "The next bar is back at the entry, and the one after crashes through the original stop. The High 2 failed." },
+          say: "The next bar trades below the tail bar, so half comes off at about " + hc.toFixed(1) + " R and the stop on the rest goes to breakeven. The same bar falls back to the entry and takes the rest out at breakeven, and the one after crashes through the original stop. The High 2 failed." },
         { title: "Four traders", vis: 70,
           add: [N.note("Hold everything: −1R", 0, COL.dn), N.note("Half at 2R: never reached, −1R", 1, COL.dn), N.note("Half at 1R: 0R", 2, COL.txt), N.note("Half at the rejection + breakeven: " + lfx(hc / 2), 3, COL.up)],
           say: "Holding everything lost one R. Half at two R never happened: also minus one. Half at one R made nothing. The trader who took half where the chart gave the reason, the rejection below the magnet, and moved the stop to breakeven, made about " + (hc / 2).toFixed(1) + " R. So the rule is not one R and not two R. You hold to the target, and you take half only when the market is rejected at, or just before, a magnet on the way." }
@@ -9224,6 +9321,119 @@ var PROG = (function () {
             N.note("Chasing the breakout: tight stop hit", 3, COL.dn), N.note("Limit at the planned entry: +" + f1((g.target - g.entry) / (g.entry - g.invalid)) + "R", 4, COL.up), N.note("The next signal: +" + f1(L.r3) + "R", 5, COL.up)],
           say: "The target fills. Every late entry that kept the real stop and still had enough reward worked. The one that chased a strong bar at a magnet, with a stop made tight to look good, was stopped out. If you miss an entry: take it late only while the numbers still work, otherwise put a limit at your price, or wait for the next pullback's signal. There is always another bus." }
       ];
+    }
+  };
+
+  /* ---------- against the trend: both sides of a broad channel ----------
+     The counter-trend sell is read off the bars by Brooks' rule: two pushes to
+     the top (a double top), the first attempt down fails, the second entry is
+     a bear bar closing near its low; sell stop below it, stop above the double
+     top, target the bottom of the channel, where the with-trend buy comes. */
+  function lct(ex) {
+    var g = ex.gt, B = ex.bars, t = Math.pow(10, -ex.dec), L = g.labels;
+    var lowL = L.filter(function (x) { return x[1] === "prior leg low"; })[0][0], top = L.filter(function (x) { return x[1] === "channel high"; })[0][0];
+    var a1 = top.i + 1, t2 = 40, s = 42, en = B[s].l - t, st = Math.max(top.p, B[t2].h) + t, tg = lowL.p;
+    var hit = -1, out = -1; for (var i = s + 1; i < B.length; i++) { if (B[i].h >= st) { out = i; break; } if (B[i].l <= tg) { hit = i; break; } }
+    return { lowL: lowL, top: top, a1: a1, t2: t2, s: s, en: en, st: st, tg: tg, hit: hit, out: out, R: st - en, rr: (en - tg) / (st - en), a1stop: B[a1].h + t };
+  }
+  LVID.counter = {
+    title: "Against the trend: both sides of a broad channel",
+    example: function () { return lessonChart("broadChannel", 519, "ES", "15m"); },
+    check: function (ex) {
+      var g = ex.gt, B = ex.bars, C = lct(ex), sb = B[C.s], E = lema(ex);
+      return g.dir === 1 && g.sigIdx === 49 && g.fillAt === 50 && g.worked && C.top.i === 37 && lo(ex, 10, 30).p < C.lowL.p &&
+        B[C.a1].c < B[C.a1].o && B[C.a1 + 1].l < B[C.a1].l && B[C.t2].h > C.a1stop && B[C.t2].h < C.top.p && hi(ex, C.a1, C.t2).i === C.t2 &&
+        sb.c < sb.o && (sb.c - sb.l) < 0.2 * (sb.h - sb.l) && B[C.s + 1].l <= C.en && C.hit > C.s && C.out < 0 && C.hit < g.sigIdx && C.rr > 1.2 &&
+        Math.abs(g.target - C.top.p) < 1e-9 && g.hitTargetAt > 0;
+    },
+    extraPrices: function (ex) { var C = lct(ex); return [C.st, ex.gt.invalid]; },
+    scenes: function (ex) {
+      var g = ex.gt, B = ex.bars, C = lct(ex), fp = lfp(ex), n = B.length, R1 = lr(g);
+      var sPos = function (i2) { return { i: C.s + 1, i2: i2, dir: -1, entry: C.en, stop: C.st, target: C.tg, tl: "bottom of the channel" }; };
+      var ord = [N.order(C.s, C.en, "sell stop " + fp(C.en), COL.dn, 4), N.order(C.s, C.st, "stop above the double top " + fp(C.st), COL.dn, 4), N.order(C.s, C.tg, "target: bottom of the channel " + fp(C.tg), COL.up, 4)];
+      return [
+        { title: "A broad bull channel", vis: C.top.i, view: [8, Math.min(n - 1, g.hitTargetAt + 4)], add: [N.pt(C.lowL.i, C.lowL.p, "higher low", COL.violet, false), N.pt(C.top.i, C.top.p, "new high", COL.violet, true)],
+          say: "US500 on the 15 minute chart. A leg up, a deep pullback through the EMA to a higher low, and a strong leg to a new high. Higher highs and higher lows, but with big swings both ways: a broad bull channel, a trading range tilted up. Always-in is long. But it is two-sided, and that is what this lesson is about: in a two-sided market, both sides make money." },
+        { title: "The first attempt down", vis: C.t2, add: [N.bar(C.a1, "first attempt", COL.dn, true), N.pt(C.t2, B[C.t2].h, "second push up", COL.up, true, "right")],
+          say: "At the top the bears try: a bear bar and a lower low. That is the first attempt to turn the market down, and first attempts usually fail. Here it does: the bulls push back up to the high, and a bear who sold with the stop above that bar is stopped out." },
+        { title: "A double top", vis: C.t2 + 1, clear: true, add: [N.pt(C.lowL.i, C.lowL.p, "higher low", COL.violet, false), N.bar(C.a1, "first attempt", COL.dn, true), N.seg({ i: C.top.i, p: C.top.p }, { i: C.t2, p: B[C.t2].h }, "double top", COL.dn, true)],
+          say: "But the second push stops just below the first high. The bulls tried twice at the top and failed twice: a double top, at the top of a broad channel." },
+        { title: "The counter-trend sell", vis: C.s, clear: true, add: [N.pt(C.lowL.i, C.lowL.p, "higher low", COL.violet, false), N.seg({ i: C.top.i, p: C.top.p }, { i: C.t2, p: B[C.t2].h }, "", COL.dn, true), N.bar(C.s, "second entry", COL.amber, true)].concat(ord),
+          say: "Then this bear bar closes on its low: the bears' second attempt. Sell stop below it. The stop goes above the double top, where the idea is wrong, and the target is the bottom of the channel, the last higher low, where the bulls bought before: about " + C.rr.toFixed(1) + " R.",
+          ask: { q: "Always-in is still long. Do you sell below this bar?", o: ["Experienced: yes, small, as a scalp to the bottom of the channel. Beginners: no, wait for the buy there", "Yes: the trend has turned, hold it for a big move", "Never: you don't sell in a bull trend"], a: 0,
+            why: "A broad channel is a trading range on a tilt, so its top is a place to sell, the way the top of a range is. It is a second entry at a double top, with a bear bar closing on its low. But always-in is still long, so it is a scalp to the bottom of the channel, not a swing, and it is for experienced traders with a smaller size. In a tight channel or a spike you would never do this." } },
+        { title: "Filled", vis: C.s + 1, pos: sPos(C.s + 2),
+          say: "Filled on a strong bear bar." },
+        { title: "The bottom of the channel", vis: C.hit, fast: true, pos: sPos(C.hit),
+          say: "The market falls to the bottom of the channel and the target fills: " + lfx(C.rr) + ". The bears take their profit exactly where the bulls start to buy." },
+        { title: "The with-trend buy", vis: g.fillAt, clear: true, add: [N.bar(g.sigIdx, "H2: the with-trend buy", COL.amber, true)], pos: lpos(g, g.fillAt, g.fillAt + 2),
+          say: "And here they are: a bull reversal bar ends the second leg down, near the bottom of the channel. This is the with-trend trade, the one for everybody: buy stop above it, stop below it, target the prior high at the top of the channel, about " + R1(g.target).toFixed(1) + " R." },
+        { title: "Both sides", vis: g.hitTargetAt, fast: true, pos: lpos(g, g.fillAt, g.hitTargetAt),
+          say: "The buy reaches the top of the channel: " + lfx(R1(g.target)) + ". In a broad channel both sides make money: the bears sell the top for a scalp, the bulls buy the bottom and hold to the prior high. The with-trend side is the bigger and more reliable one, and it is the only side a beginner takes." }
+      ];
+    }
+  };
+
+  /* ---------- getting out early: a reversal bar just short of the target ----------
+     A reversal bar is a signal bar for the other side: it counts when the next
+     bar trades beyond it. Then half comes off there and the rest goes to
+     breakeven. Two charts: one where that saves the trade, one where the bar
+     was only a pause and the order never filled. */
+  function lnear(ex, rb) {
+    var g = ex.gt, B = ex.bars, t = Math.pow(10, -ex.dec), d = g.dir, x = d > 0 ? B[rb].l - t : B[rb].h + t, be = -1;
+    for (var i = rb + 2; i < B.length; i++) if (d * ((d > 0 ? B[i].l : B[i].h) - g.entry) <= 0) { be = i; break; }
+    return { rb: rb, x: x, conf: d * ((d > 0 ? B[rb + 1].l : B[rb + 1].h) - x) <= 0, be: be };
+  }
+  function lstrongAgainst(q, d) { var rg = q.h - q.l; return (d > 0 ? q.c < q.o : q.c > q.o) && Math.abs(q.c - q.o) >= 0.5 * rg && (d > 0 ? q.c - q.l : q.h - q.c) < 0.3 * rg; }
+  LVID.nearTarget = {
+    title: "A reversal bar just short of the target",
+    example: function () { return lessonChart("twoLegPullback", 958, "XAUUSD", "5m"); },
+    check: function (ex) {
+      var g = ex.gt, B = ex.bars, r = lr(g), K = lnear(ex, 61), th = g.labels[1][0], tR = r(g.target);
+      return g.dir === 1 && g.fillAt === 58 && !g.worked && g.hitInvalidAt === 72 && th.i === 38 && Math.abs(B[60].h - th.p) < 0.1 * (g.entry - g.invalid) &&
+        lstrongAgainst(B[61], 1) && B[61].h > th.p && r(B[61].h) >= 0.8 * tR && r(B[61].h) < tR && hi(ex, 58, 72).i === 61 && K.conf && K.be === 67 && r(K.x) > 1.8;
+    },
+    extraPrices: function (ex) { return [ex.gt.target, ex.gt.invalid]; },
+    scenes: function (ex) {
+      var g = ex.gt, B = ex.bars, r = lr(g), K = lnear(ex, 61), th = g.labels[1][0], fp = lfp(ex), h = r(K.x), at = { i: 31, p: g.invalid - (g.target - g.invalid) * 0.14 };
+      var mag = N.hl(th.p, th.i, "prior high: a magnet", COL.violet, true, th.i + 2);
+      return [
+        { title: "The trade", vis: 58, view: [30, 76], add: [mag, N.bar(57, "H2", COL.amber, true)], pos: lpos(g, 58, 58),
+          say: "Gold on the 5 minute chart. A High 2 in a bull trend, filled. The target is leg one equals leg two, about " + r(g.target).toFixed(1) + " R away, just above the prior trend high, a magnet." },
+        { title: "Almost there", vis: 60, pos: lpos(g, 58, 60),
+          say: "Two big bull bars, and the trade is " + r(B[60].h).toFixed(1) + " R in profit, more than three quarters of the way, right up at the prior high." },
+        { title: "A reversal bar", vis: 61, pos: lpos(g, 58, 61), add: [N.bar(61, "reversal bar", COL.dn, false, "right")],
+          say: "Then this bar pokes a little above the prior high and closes near its low, with a big bear body. Just short of the target, at a magnet.",
+          ask: { q: "A strong bear reversal bar, just short of your target, at the prior high. What do you do?", o: ["An order to take half off one tick below this bar; if the next bar fills it, the rest goes to breakeven", "Get out of everything at the close", "Nothing: hold everything to the target"], a: 0,
+            why: "One bar is a warning, not yet a rejection. This bar is a sell signal bar for the bears, and it counts when the next bar trades below it: then the market has been rejected at a magnet just short of your target, and the rule is half off, the rest to breakeven. Everything out on one bar gives away too much: most trades that get this far still reach the target." } },
+        { title: "Confirmed: half off", vis: 62, add: [N.lvl(K.x, 61, 62, "half off here", COL.amber, true, 63), N.pt(62, K.x, "", COL.amber),
+            N.card([["HALF OFF · THE REJECTION IS CONFIRMED", COL.amber], ["The next bar traded below the reversal bar", null], ["Half out at " + fp(K.x) + ": " + lfx(h) + " on that half", COL.up], ["The rest: stop to breakeven, " + fp(g.entry), null]], at)], pos: lpos(g, 58, 62, g.entry),
+          say: "The next bar trades below the reversal bar, and the order fills: half is out at " + lfx(h) + ". The stop on the other half goes to breakeven. The target stays where it is: if the bulls take it up again, the rest still gets paid." },
+        { title: "Lower highs", vis: 66, pos: lpos(g, 58, 66, g.entry),
+          say: "The bulls try again, three times, and each high is lower than the one before. The market is going sideways and down under the prior high. Nothing to do: the plan for the rest is already in." },
+        { title: "Breakeven", vis: K.be, clear: true, add: [mag, N.pt(K.be, g.entry, "the rest: out at breakeven", COL.txt, false, "right"),
+            N.card([["THE TRADE", COL.amber], ["Half at " + fp(K.x) + ": " + lfx(h / 2) + " on the whole", COL.up], ["Half at breakeven: 0", null], ["Total: " + lfx(h / 2), COL.up]], at)], pos: lpos(g, 58, K.be, g.entry),
+          say: "The market drifts back to the entry and the rest is out at breakeven. On the whole trade that is " + lfx(h / 2) + "." },
+        { title: "The original stop", vis: g.hitInvalidAt, clear: true, add: [mag, N.pt(K.be, g.entry, "the rest: out at breakeven", COL.txt, false, "right"), N.pt(g.hitInvalidAt, g.invalid, "the original stop", COL.dn, false, "right"),
+            N.card([["SAME ENTRY, TWO TRADERS", COL.amber], ["Held everything: −1R", COL.dn], ["Half on the confirmed rejection, rest at breakeven: " + lfx(h / 2), COL.up]], at)],
+          say: "Five bars later the market breaks down through the original stop. Holding everything lost one R. The half taken on the confirmed rejection turned a full loss into " + lfx(h / 2) + "." },
+        { title: "How often", vis: g.hitInvalidAt + 4, clear: true,
+          add: [mag, N.card([["IN THIS APP'S TREND TRADES", COL.amber], ["After a confirmed reversal bar near the target,", null], ["93 in 100 still reached it", null], ["Hold everything: +1.19R a trade", null], ["Half on confirmation, rest to breakeven: +1.12R", null], ["All out on confirmation: +1.09R", COL.dn]], at)],
+          say: "This trade needed it. Most don't. In this app's trend trades, 93 in 100 that print a confirmed reversal bar this close to the target still reach it, so holding everything averaged 1.19 R a trade, half on confirmation 1.12 R, and all out 1.09 R. This app's charts are generous near the target: real markets miss a target by a few ticks more often. So the rule is the one Brooks uses: half, not all, and only when the next bar confirms the rejection." }
+      ];
+    }
+  };
+  LVID.nearPause = {
+    title: "Only a pause", ex: true,
+    example: function () { return lessonChart("twoLegPullback", 874, "EURUSD", "15m"); },
+    check: function (ex) {
+      var g = ex.gt, B = ex.bars, r = lr(g), K = lnear(ex, 82);
+      return g.dir === 1 && g.worked && g.fillAt === 59 && g.hitTargetAt === 86 && lstrongAgainst(B[82], 1) && !K.conf && r(B[82].h) >= 0.8 * r(g.target) && lo(ex, 83, 86).p > K.x;
+    },
+    extraPrices: function (ex) { return [ex.gt.target, ex.gt.invalid]; },
+    scenes: function (ex) {
+      var g = ex.gt, K = lnear(ex, 82);
+      return [{ title: "Example", vis: 86, view: [40, 88], add: [N.bar(82, "reversal bar", COL.dn, false, "left"), N.lvl(K.x, 82, 83, "half-off order: never filled", COL.txt, true, 70)], pos: lpos(g, 59, 86) }];
     }
   };
 
@@ -9381,36 +9591,59 @@ var PROG = (function () {
     return { j: j, T: T, PL: PL, H: H, mid: mid, third: PL + H / 3, L1: L1, L2: L2, S: S, f1: f1, f2: f2, st: st, e1: e1, hm: hm,
       rFirst: (L1 - L2) / risk, rMid: ((mid - L1) + (mid - L2)) / risk, avg: (L1 + L2) / 2 };
   }
-  function lscaleLines(ex, P, i) {
-    var fp = lfp(ex);
-    return [N.hl(P.T, i - 60, "range top", COL.txt, true, i - 58), N.hl(P.third, i - 60, "bottom third", COL.txt, true, i - 58),
-      N.hl(P.mid, i - 60, "middle = target", COL.up, true, i - 58), N.hl(P.PL, i - 60, "range low (known before)", COL.blue, true, i - 58)];
+  function lscaleLines(ex, P, i, lx) {
+    var fp = lfp(ex); lx = lx != null ? lx : i - 58;
+    return [N.hl(P.T, i - 60, "range top", COL.txt, true, lx), N.hl(P.third, i - 60, "bottom third", COL.txt, true, lx),
+      N.hl(P.mid, i - 60, "middle = target", COL.up, true, lx), N.hl(P.PL, i - 60, "range low (known before)", COL.blue, true, lx)];
   }
+  /* the money behind the range fade: a 10,000 account risking 1% on the whole
+     plan, EURUSD at 10 USD a pip per lot, the same size on both orders */
+  function lplan(P) {
+    var pip = 1e-4, d1 = (P.L1 - P.S) / pip, d2 = (P.L2 - P.S) / pip, lots = Math.floor(100 / ((d1 + d2) * 10) * 100) / 100;
+    var r1 = lots * d1 * 10, r2 = lots * d2 * 10, tot = r1 + r2;
+    return { lots: lots, d1: d1, d2: d2, r1: r1, r2: r2, tot: tot, atE1: lots * ((P.L1 - P.L2) / pip) * 10, atMid: lots * ((P.mid - P.L1) + (P.mid - P.L2)) / pip * 10 };
+  }
+  function lusd(x) { return (x < 0 ? "−$" : "$") + Math.round(Math.abs(x)); }
   LVID.limitRange = {
     title: "Fading a range with limit orders, a wide stop and a scale-in",
     example: function () { return lessonChart("rangeLow", 30456, "EURUSD", "5m"); },
-    check: function (ex) { var P = lscale(ex); return !!P && P.j === 147 && P.f1 === 148 && P.f2 === 160 && P.st < 0 && P.e1 === 163 && P.hm === 167; },
-    extraPrices: function (ex) { var P = lscale(ex); return [P.S, P.T]; },
+    check: function (ex) { var P = lscale(ex), M = lplan(P); return !!P && P.j === 147 && P.f1 === 148 && P.f2 === 160 && P.st < 0 && P.e1 === 163 && P.hm === 167 && M.tot <= 100 && M.tot > 95; },
+    extraPrices: function (ex) { var P = lscale(ex); return [P.S - (P.T - P.S) * 0.12, P.T]; },
     scenes: function (ex) {
-      var P = lscale(ex), b = ex.bars, fp = lfp(ex), d = function (x) { return ldist(ex, x); };
-      var pos = function (i2, e) { return { i: P.f1, i2: i2, dir: 1, entry: e, stop: P.S, target: P.mid, tl: "middle of the range" }; };
+      var P = lscale(ex), M = lplan(P), fp = lfp(ex), d = function (x) { return ldist(ex, x); }, j = P.j, lot = M.lots.toFixed(2);
+      var at = { i: j - 58, p: P.PL - (P.PL - P.S) * 0.3 };
+      var rng = function () { return lscaleLines(ex, P, j); };
+      var pend = function (to1, to2) {
+        return [N.lvl(P.L1, j, to1, "buy limit 1", COL.blue, true, j + 2), N.lvl(P.L2, j, to2, "buy limit 2", COL.blue, true, j + 2), N.lvl(P.S, j, null, "one stop for both " + fp(P.S), COL.dn, true, j + 2)];
+      };
+      var planRows = [["THE PLAN · all of it before the first order", COL.amber],
+        ["Account 10,000 · 1% = $100 for the whole plan", null],
+        ["Buy limit 1   " + fp(P.L1) + "   " + lot + " lot   " + lusd(M.r1) + " to the stop", COL.blue],
+        ["Buy limit 2   " + fp(P.L2) + "   " + lot + " lot   " + lusd(M.r2) + " to the stop", COL.blue],
+        ["One stop       " + fp(P.S) + "   both together: " + lusd(M.tot) + ", just under 1%", COL.dn],
+        ["Target          " + fp(P.mid) + "   the middle of the range", COL.up]];
       return [
-        { title: "A range", vis: P.j - 1, view: [P.j - 60, P.hm + 12], add: lscaleLines(ex, P, P.j),
+        { title: "A range", vis: j - 1, view: [j - 60, P.hm + 12], add: rng(),
           say: "EURUSD on the 5 minute chart, in a trading range. Limit-order traders fade its edges: they buy low without waiting for a buy signal, because in a range most moves to an edge turn back. It's a method for experienced traders, and it only works with a wide stop and a plan made before the first order." },
-        { title: "Into the bottom third", vis: P.j, add: [N.bar(P.j, "into the bottom third", COL.dn, true),
-            N.order(P.j, P.L1, "buy limit 1: half size " + fp(P.L1), COL.blue, 5, P.f1), N.order(P.j, P.L2, "buy limit 2: half size " + fp(P.L2), COL.blue, 5, P.f2), N.order(P.j, P.S, "one stop for both " + fp(P.S), COL.dn, 5, P.f1)],
-          say: "This bear bar closes in the bottom third. Now the whole plan goes in at once. Buy limit one: one pip below this bar's low. Buy limit two: at the range low. One stop for both, half the range's height below the low, because a failed breakout below a range often runs a bit past the low before it turns. Each order is half the size, and both together risk your one percent. The target is the middle of the range." },
-        { title: "Entry one", vis: P.f1, add: [N.pt(P.f1, P.L1, "filled 1", COL.blue, false, "right")], pos: pos(P.f1 + 3, P.L1),
-          say: "The next bar trades below that low and the first limit fills. Notice what that means: you bought while the market was still falling. That is the nature of a limit order, and the reason for the wide stop." },
-        { title: "Lower: entry two", vis: P.f2, add: [N.pt(P.f2, P.L2, "filled 2", COL.blue, false, "right")], pos: pos(P.f2 + 2, P.avg),
-          say: "The market keeps drifting down, to the range low, and the second limit fills. Your average price is now halfway between the two entries.",
+        { title: "The plan", vis: j, clear: true, add: rng().concat([N.bar(j, "", COL.dn)]).concat(pend(null, null)).concat([N.card(planRows, at)]),
+          say: "This bear bar closes in the bottom third, and the whole plan goes in at once. Buy limit one, one pip below this bar's low. Buy limit two, at the range low. One stop for both, half the range's height below the low, because a failed breakout below a range often runs past the low before it turns. The same size on both orders, " + lot + " lot each, chosen so that if both fill and the stop is hit, the loss is " + lusd(M.tot) + ", just under one percent. The first order is further from the stop, so it carries more of that risk. The target is the middle of the range." },
+        { title: "Entry one", vis: P.f1, clear: true, add: rng().concat(pend(P.f1, null)).concat([N.lvl(P.L1, P.f1, null, "entry 1 · " + lot + " lot", COL.blue, false, P.f1 + 3), N.pt(P.f1, P.L1, "", COL.blue),
+            N.card([["FILLED 1 OF 2", COL.blue], [lot + " lot at " + fp(P.L1), null], ["Open risk " + lusd(M.r1) + ", less than the plan", null], ["Buy limit 2 still waits at " + fp(P.L2), COL.blue]], at)]),
+          say: "The next bar trades below that low and the first limit fills. You bought while the market was still falling: that is the nature of a limit order, and the reason for the wide stop. Right now only " + lusd(M.r1) + " is at risk. The second order is still waiting." },
+        { title: "Entry two", vis: P.f2, clear: true, add: rng().concat([N.lvl(P.S, j, null, "stop " + fp(P.S), COL.dn, true, j + 2), N.lvl(P.L1, P.f1, null, "entry 1", COL.blue, false, P.f1 + 3), N.lvl(P.L2, P.f2, null, "entry 2", COL.blue, false, P.f2 + 3),
+            N.lvl(P.avg, P.f2, null, "average " + fp(P.avg), COL.amber, true, P.f2 + 3), N.pt(P.f1, P.L1, "", COL.blue), N.pt(P.f2, P.L2, "", COL.blue),
+            N.card([["FILLED 2 OF 2 · THE PLAN IS COMPLETE", COL.blue], [(2 * M.lots).toFixed(2) + " lot, average " + fp(P.avg), null], ["Risk to the stop " + lusd(M.tot) + ": the risk you planned", null], ["No more orders. The stop stays.", COL.dn]], at)]),
+          say: "The market keeps drifting down to the range low, and the second limit fills. Now you hold " + (2 * M.lots).toFixed(2) + " lot at an average of " + fp(P.avg) + ", and the risk to the stop is the " + lusd(M.tot) + " you planned. Not a dollar more.",
           ask: { q: "You are " + d(P.L1 - P.L2) + " below your first entry. What do you do?", o: ["Nothing: both orders and the stop were planned", "Move the stop lower to give it more room", "Add a third order, the price is even better"], a: 0,
             why: "This is scaling in by a plan, not adding to a loser. The risk was fixed before the first order: both entries, one stop, one percent. Moving the stop or adding more turns a plan into hope." } },
-        { title: "Back to entry one", vis: P.e1, add: [N.pt(P.e1, P.L1, "first entry price", COL.up, true, "right")], pos: pos(P.e1, P.avg),
-          say: "The range low holds and the market comes back up to your first entry. Some scalpers get out of everything right here: breakeven on the first half, a profit on the second, about " + P.rFirst.toFixed(2) + " R on the whole. A small win, taken as soon as it is safe." },
-        { title: "The middle", vis: P.hm, fast: true, pos: pos(P.hm, P.avg),
-          say: "Holding for the plan's target, the middle of the range, makes about " + P.rMid.toFixed(2) + " R on the whole position. Small, and that is normal: fading a range with a wide stop wins often and wins little, so it only works where the range is clear and the odds are high." },
+        { title: "Back to entry one", vis: P.e1, clear: true, add: rng().concat([N.lvl(P.S, j, null, "stop", COL.dn, true, j + 2), N.lvl(P.L1, P.f1, null, "entry 1", COL.blue, false, P.f1 + 3), N.lvl(P.avg, P.f2, null, "average", COL.amber, true, P.f2 + 3)]).concat([N.pt(P.e1, P.L1, "back at entry 1", COL.up, true, "right"),
+            N.card([["OPTION A · OUT OF EVERYTHING HERE", COL.up], ["Entry 1: breakeven · entry 2: +" + d(P.L1 - P.L2), null], ["Result " + lusd(M.atE1) + ", " + (M.atE1 / M.tot).toFixed(2) + " R of the plan", COL.up]], at)]),
+          say: "The range low holds and the market comes back up to your first entry. Some scalpers get out of everything right here: breakeven on the first order and a profit on the second, " + lusd(M.atE1) + " on the whole. A small win, taken as soon as it is safe." },
+        { title: "The middle", vis: P.hm, fast: true, clear: true, add: rng().concat([N.lvl(P.S, j, null, "stop", COL.dn, true, j + 2), N.lvl(P.avg, P.f2, P.hm, "average " + fp(P.avg), COL.amber, true, P.f2 + 3), N.pt(P.hm, P.mid, "target", COL.up, true, "right"),
+            N.card([["OPTION B · THE PLAN'S TARGET", COL.up], ["Both orders out at the middle, " + fp(P.mid), null], ["Result " + lusd(M.atMid) + ", " + (M.atMid / M.tot).toFixed(2) + " R of the plan", COL.up]], at)]),
+          say: "Holding for the plan's target, the middle of the range, makes " + lusd(M.atMid) + ", about " + (M.atMid / M.tot).toFixed(2) + " R. Small, and that is normal: fading a range with a wide stop wins often and wins little, so it only works where the range is clear and the odds are high." },
         { title: "The rules", vis: P.hm + 8,
+          add: [N.card([["SCALING IN: THE RULES", COL.amber], ["1  Only in a clear range, or with a strong trend", null], ["2  Every order, the stop and the total risk: before the first fill", null], ["3  The same total risk as one trade: 1%", null], ["4  A fill never changes the stop or adds an order", null], ["5  The range breaks: take the planned loss, 1R", COL.dn]], at)],
           say: "The rules of a scale-in. Only in a clear trading range, or in the direction of a strong trend, never against a trend. Every order, the stop and the total risk are decided before the first fill. The stop is wide, so every piece is small. And when the range breaks, you take the planned loss: the next picture shows one." }
       ];
     }
@@ -9419,12 +9652,12 @@ var PROG = (function () {
     title: "When the range breaks", ex: true,
     example: function () { return lessonChart("rangeLow", 31387, "EURUSD", "5m"); },
     check: function (ex) { var P = lscale(ex); return !!P && P.f1 > 0 && P.f2 > P.f1 && P.st > P.f2 && P.hm < 0; },
-    extraPrices: function (ex) { var P = lscale(ex); return [P.S, P.T]; },
+    extraPrices: function (ex) { var P = lscale(ex); return [P.S - (P.T - P.S) * 0.12, P.T]; },
     scenes: function (ex) {
-      var P = lscale(ex);
-      return [{ title: "Example", vis: Math.min(ex.bars.length - 1, P.st + 6), view: [P.j - 50, Math.min(ex.bars.length - 1, P.st + 6)],
-        add: lscaleLines(ex, P, P.j).concat([N.bar(P.j, "", COL.dn), N.pt(P.f1, P.L1, "1", COL.blue, false, "right"), N.pt(P.f2, P.L2, "2", COL.blue, false, "right"), N.pt(P.st, P.S, "stop: −1R", COL.dn, false, "right")]),
-        pos: { i: P.f1, i2: P.st, dir: 1, entry: (P.L1 + P.L2) / 2, stop: P.S, target: P.mid, tl: "middle of the range", ra: true } }];
+      var P = lscale(ex), M = lplan(P), fp = lfp(ex), lot = M.lots.toFixed(2), v = Math.min(ex.bars.length - 1, P.st + 6);
+      return [{ title: "Example", vis: v, view: [P.j - 50, v],
+        add: lscaleLines(ex, P, P.j, P.j - 48).concat([N.bar(P.j, "", COL.dn), N.pt(P.f1, P.L1, "1", COL.blue, false, "right"), N.pt(P.f2, P.L2, "2", COL.blue, false, "right")]),
+        pos: { i: P.f2, i2: P.st, dir: 1, entry: P.avg, stop: P.S, target: P.mid, tl: "middle of the range", ra: true } }];
     }
   };
 
@@ -9442,24 +9675,44 @@ var PROG = (function () {
     return { hl: hl, top: top, k: k, Lim: Lim, S: S, f: f, st: st, nh: nh, tg: tg, R: Lim - S };
   }
   LVID.limitTrend = {
-    title: "Buying a pullback with a limit order in a strong trend",
+    title: "Scaling into a strong trend with limit orders",
     example: function () { return lessonChart("tightChannel", 40136, "NQ", "5m"); },
-    check: function (ex) { var L = ltrendLim(ex), b = ex.bars; return L.k === 52 && b[52].c < b[52].o && L.f === 53 && L.st < 0 && L.nh === 57 && L.tg === 62; },
-    extraPrices: function (ex) { return [ex.gt.target, ltrendLim(ex).S]; },
+    /* the plan: limit 1 below the first bear bar, limit 2 at the EMA as it was
+       then, one stop below the last higher low; the second never fills */
+    check: function (ex) {
+      var L = ltrendLim(ex), b = ex.bars, E = lema(ex), L2 = +E[L.k].toFixed(2), pb = lo(ex, L.f, L.nh - 1);
+      return L.k === 52 && b[52].c < b[52].o && b[50].c < b[50].o && b[51].c > b[51].o && L.top.i === 51 && L.f === 53 && L.st < 0 && L.nh === 57 && L.tg === 62 && pb.p > L2 && pb.p - L2 < 0.25 * (L.Lim - L2);
+    },
+    extraPrices: function (ex) { var L = ltrendLim(ex); return [ex.gt.target + (ex.gt.target - L.S) * 0.1, L.S - (ex.gt.target - L.S) * 0.1]; },
     scenes: function (ex) {
-      var g = ex.gt, b = ex.bars, L = ltrendLim(ex), fp = lfp(ex);
+      var g = ex.gt, b = ex.bars, L = ltrendLim(ex), fp = lfp(ex), E = lema(ex), L2 = +E[L.k].toFixed(2), pb = lo(ex, L.f, L.nh - 1);
+      var d1 = L.Lim - L.S, d2 = L2 - L.S, lots = Math.floor(100 / (d1 + d2) * 100) / 100, r1 = lots * d1, r2 = lots * d2, lot = lots.toFixed(2);
+      var res = lots * (g.target - L.Lim), at = { i: L.top.i - 39, p: g.target + (g.target - L.S) * 0.08 };
       var pos = function (i2) { return { i: L.f, i2: i2, dir: 1, entry: L.Lim, stop: L.S, target: g.target, tl: "leg 1 = leg 2" }; };
+      var base = function () { return [N.pt(L.hl.i, L.hl.p, "last higher low", COL.violet), N.pt(L.top.i, L.top.p, "channel high", COL.violet, true, "left")]; };
       return [
-        { title: "A tight channel", vis: L.top.i, view: [L.top.i - 40, Math.min(b.length - 1, L.tg + 8)], add: [N.pt(L.hl.i, L.hl.p, "last higher low", COL.violet), N.pt(L.top.i, L.top.p, "channel high", COL.violet, true)],
-          say: "US100 on the 5 minute chart, in a tight bull channel: small pullbacks, every dip bought. In a trend this strong, Brooks says experienced traders buy below the low of the prior bar with limit orders. They don't wait for a signal bar at the end of the pullback: they buy the pullback itself." },
-        { title: "The first bear bar", vis: L.k, add: [N.bar(L.k, "first bear bar", COL.dn), N.order(L.k, L.Lim, "buy limit below its low " + fp(L.Lim), COL.blue, 5, L.f), N.order(L.k, L.S, "stop below the last higher low " + fp(L.S), COL.dn, 5, L.f), N.order(L.k, g.target, "target " + fp(g.target), COL.up, 5, L.f)],
-          say: "The first bear bar after the high. The buy limit goes one tick below its low. And the stop? There is no signal bar to put it under, so it goes where the trend would be broken: below the last higher low. That is about " + ldist(ex, L.R) + " away, a wide stop, so the position is small." },
-        { title: "Filled", vis: L.f, add: [N.pt(L.f, L.Lim, "filled", COL.blue, false, "right")], pos: pos(L.f + 3),
-          say: "The next bar dips below that low and fills the limit. You bought a falling bar, in a market where falling bars get bought." },
-        { title: "A new high", vis: L.nh, pos: pos(L.nh + 1), add: [N.pt(L.nh, L.top.p, "new high: +" + ((L.top.p - L.Lim) / L.R).toFixed(2) + "R", COL.up, true, "right")],
-          say: "Four bars later the market makes a new high. Scalpers take profits here: about " + ((L.top.p - L.Lim) / L.R).toFixed(2) + " R, a small win with a high probability. Swing traders hold for the measured move." },
+        { title: "A tight channel", vis: L.top.i, view: [L.top.i - 40, Math.min(b.length - 1, L.tg + 8)], add: base(),
+          say: "US100 on the 5 minute chart, in a tight bull channel: small pullbacks, every dip bought. In a trend this strong, Brooks says experienced traders buy below the low of the prior bar with limit orders. They don't wait for a signal bar at the end of the pullback: they buy the pullback itself, and some scale in, a second order lower." },
+        { title: "The plan", vis: L.k, clear: true, add: base().concat([N.bar(L.k - 2, "before the high", COL.txt, true, "left"), N.bar(L.k, "1st bear bar after the high", COL.dn, true, "right"),
+            N.lvl(L.Lim, L.k, null, "buy limit 1", COL.blue, true, L.k + 2), N.lvl(L2, L.k, null, "buy limit 2: the EMA", COL.blue, true, L.k + 2),
+            N.lvl(L.S, L.k, null, "one stop " + fp(L.S), COL.dn, true, L.k + 2), N.lvl(g.target, L.k, null, "target " + fp(g.target), COL.up, true, L.k + 2),
+            N.card([["THE PLAN · before the first order", COL.amber], ["Account 10,000 · 1% = $100 · 1 USD a point per lot*", null],
+              ["Buy limit 1   " + fp(L.Lim) + "   " + lot + " lot   $" + Math.round(r1) + " to the stop", COL.blue],
+              ["Buy limit 2   " + fp(L2) + "   " + lot + " lot   $" + Math.round(r2) + " to the stop", COL.blue],
+              ["One stop       " + fp(L.S) + "   below the last higher low", COL.dn],
+              ["New high before limit 2 fills? Cancel limit 2", null], ["* check your broker's contract size", "#8a93a3"]], at)]),
+          say: "The first bear bar after the new high. The bear bar two bars earlier doesn't count: the market made a new high after it, so the pullback hadn't started yet. This one comes after the high, so the pullback has begun, and the plan goes in now. Buy limit one, a tick below this bar's low. Buy limit two, lower, at the EMA, where pullbacks in this channel have been ending. One stop for both, below the last higher low, where the trend would be broken. " + lot + " lot on each, so both together risk about one percent. And one more rule, decided now: if the market makes a new high before limit two fills, the pullback is over, and limit two is cancelled." },
+        { title: "Filled: one", vis: L.f, clear: true, add: base().concat([N.lvl(L.Lim, L.f, null, "entry 1", COL.blue, false, L.f + 2), N.lvl(L2, L.k, null, "buy limit 2 waits", COL.blue, true, L.k + 2), N.lvl(L.S, L.k, null, "stop", COL.dn, true, L.k + 2), N.pt(L.f, L.Lim, "", COL.blue),
+            N.card([["FILLED 1 OF 2", COL.blue], [lot + " lot at " + fp(L.Lim), null], ["At risk: $" + Math.round(r1) + ", less than the plan", null]], at)]),
+          say: "The next bar dips below that low and fills the first limit. You bought a falling bar, in a market where falling bars get bought. Half the plan is on, with about $" + Math.round(r1) + " at risk." },
+        { title: "Almost", vis: pb.i, add: [N.pt(pb.i, pb.p, ldist(ex, pb.p - L2) + " short of limit 2", COL.blue, false, "right")],
+          say: "The pullback goes lower, toward the EMA, and stops " + ldist(ex, pb.p - L2) + " short of the second limit. It doesn't fill. That happens often in a strong trend: the pullbacks are small, and that is exactly why it is a strong trend." },
+        { title: "New high: cancel limit 2", vis: L.nh, clear: true, add: base().concat([N.lvl(L.Lim, L.f, null, "entry 1", COL.blue, false, L.f + 2), N.lvl(L2, L.k, L.nh, "limit 2 cancelled", COL.txt, true, L.k + 2), N.lvl(L.S, L.k, null, "stop", COL.dn, true, L.k + 2),
+            N.pt(L.nh, L.top.p, "new high", COL.up, true, "right"), N.card([["LIMIT 2: CANCELLED", COL.txt], ["The pullback is over: a new high", null], ["You hold " + lot + " lot, half the plan", null], ["At risk: $" + Math.round(r1) + ". Less than planned, never more", COL.up]], at)]),
+          say: "Four bars later the market makes a new high. The pullback is over, so the rule you made before the first order applies: cancel limit two. Don't chase it higher with a new order. You hold half the plan, and you risk less than you planned, never more." },
         { title: "Target", vis: L.tg, fast: true, pos: pos(L.tg),
-          say: "The measured move fills: about " + ((g.target - L.Lim) / L.R).toFixed(1) + " R. Only do this in strong trends, a spike or a tight channel, where pullbacks are small and bought. In a weak trend the bar you buy below can be the start of a reversal, and then the wide stop gets hit." }
+          add: [N.card([["RESULT", COL.up], ["Entry 1 to the target: " + lot + " lot", null], ["+$" + Math.round(res) + ", " + (res / (r1 + r2)).toFixed(2) + " R of the planned risk", COL.up]], at)],
+          say: "The measured move fills. On the one order that filled that is $" + Math.round(res) + ", about " + (res / (r1 + r2)).toFixed(2) + " R of the risk you planned. Only do this in strong trends, a spike or a tight channel, where pullbacks are small and bought. In a weak trend the bar you buy below can be the start of a reversal, and then the wide stop gets hit." }
       ];
     }
   };
@@ -9746,7 +9999,7 @@ var PROG = (function () {
           "Stop or target hit? The trade is over: log it, back to question 3.",
           "A strong bar against you that breaks the structure? Exit, or put the stop just beyond that bar.",
           "A strong signal the other way (strong breakout, second-entry reversal)? Exit.",
-          "Rejected at a magnet before the target (a reversal bar or a long tail at the prior high or low, or the range edge)? Take half, stop to breakeven.",
+          "Rejected at a magnet before the target, or just short of the target itself (a reversal bar or a long tail at the prior high or low, the range edge)? An order to take half one tick beyond that bar; when the next bar fills it, the stop on the rest goes to breakeven.",
           "A reversal trade that has gone 1R? Stop to breakeven. (1R itself is never a reason to take profits.)",
           "Most of the way to the target (about 75%) and a pullback is over — a new extreme beyond where it started? Move the stop one tick beyond that pullback. Before that the original stop stays (trends only; never before 1R).",
           "Sideways for a long time (10–20 bars on 5 min)? The trade has turned into a small range and lost its premise: take what is there, or put the stop just beyond that range.",
@@ -9794,7 +10047,7 @@ var PROG = (function () {
           "<b>Entry bar:</b> closes your way — good. Closes strongly against you — warning; beyond the signal bar — get out.",
           "<b>Next bars:</b> follow-through expected. Sideways right away — expect less.",
           "<b>At 1R:</b> nothing — 1R is a number, not a reason. Only in a reversal trade (wedge, major trend reversal, final flag) the stop now goes to breakeven.",
-          "<b>At a magnet before the target:</b> rejected there (reversal bar, long tail)? Take half, stop to breakeven. Goes through it? Hold.",
+          "<b>At a magnet before the target, or just short of it:</b> rejected there (reversal bar, long tail)? An order to take half one tick beyond that bar; when the next bar fills it, the stop on the rest goes to breakeven. One bar is a warning; the next bar trading beyond it makes it a rejection. Goes through it? Hold.",
           "<b>Trends:</b> the original stop stays until the trade is most of the way to its target (about 75%): never before 1R, not at breakeven, not under every pullback. From there, when a pullback is over — the market goes above the high it started from — move the stop one tick below that pullback's low. A small runner kept past the target: stop to breakeven, then the same rule.",
           "<b>Ranges:</b> fixed target (middle, other side). No trailing.",
           "<b>Exit early:</b> strong breakout against you, second-entry signal the other way, a long sideways stall (the trade has become a small range: take what is there, or put the stop just beyond that range). Back at your entry after the premise broke: take the breakeven exit.",
@@ -9806,7 +10059,7 @@ var PROG = (function () {
         ltable(["What you see", "What you do"], [
           ["The entry bar closes against you (one bar)", "Hold; watch the next bar"],
           ["Two strong bars against you, or a close beyond the signal bar", "Exit, or put the stop just beyond the bad bar"],
-          ["A magnet reached before the target (prior high / low, range edge) and rejected there", "Take half (or all); stop to breakeven"],
+          ["A magnet reached before the target (prior high / low, range edge), or the target nearly reached, and rejected there", "Half off with an order one tick beyond the rejection bar; the rest to breakeven"],
           ["Sideways for 10–20 bars after the entry", "The premise (follow-through) is gone: take what is there, or put the stop just beyond the small range it made"],
           ["A strong breakout against you", "Exit now; don't wait for the stop"],
           ["Stop hit", "Accept it, log it, look for the next setup (it may be the other way)"],
@@ -10100,7 +10353,7 @@ var PROG = (function () {
       return lvideo("broad") +
         lp("A broad channel is a trend with deep pullbacks, overlapping bars and frequent crossings of the EMA. Brooks calls it a <b>trading range tilted in the direction of the trend</b>. That tells you how to trade it: like a range, but only on the trend's side.") +
         lcard([["Where", "A second leg down near the bottom of the channel, at or below the EMA"], ["Signal", "A bull reversal bar ending the second leg (the entry makes it the H2)"], ["Entry", "Buy stop above the signal bar"], ["Stop", "Below the signal bar"], ["Target", "The prior high (the top of the channel)"], ["Style", "Take profits at the prior high; no big measured move"], ["Odds", lodds("broadChannel") + " taught"]]) +
-        lp("Experienced traders also sell near the top of a broad bull channel, as scalps. If you are new, trade only the trend's side.") +
+        lp("Experienced traders also sell near the top of a broad bull channel, as scalps. If you are new, trade only the trend's side. Both sides, bar by bar: " + lgo("counter", "Trading against the trend") + ".") +
         lp("<b>Bear version:</b> sell second legs up near the top of the channel, take profits at the prior low.") +
         lex4("broad");
     },
@@ -10109,6 +10362,41 @@ var PROG = (function () {
       { q: "A broad channel behaves most like…", o: ["A tight channel", "A trading range tilted up or down"], a: 1, why: "Big swings both ways, overlapping bars: it is two-sided." }
     ],
     practise: [{ label: "Drill: scalp or swing?", go: "node", node: "t3e" }, { label: "Free chart: broad channel", go: "prac", ctx: "broadChannel" }]
+  });
+
+  lch({ id: "counter", part: "Setups", title: "Trading against the trend", video: "counter",
+    sub: "When a counter-trend trade is allowed, when it never is, and how it differs from a with-trend trade.",
+    body: function () {
+      return lp("About four out of five attempts to reverse a trend fail. That is why most of this tab is about trading <b>with</b> the trend. But Brooks does trade against it, in a few places and in a specific way: in two-sided markets, at an extreme, on a second entry, for a scalp.") +
+        lkey("<b>With the trend</b> you swing, and you can be early. <b>Against the trend</b> you scalp, you wait for the second entry, you trade smaller, and you get out fast. A counter-trend trade that is going against you is not a trade to be patient with.") +
+        lvideo("counter") +
+        lh("Where it is allowed, and where it never is") +
+        ltable(["The market", "Against the trend?", "How"], [
+          ["<b>Broad channel</b>, at its top (bull) or bottom (bear)", "Yes, experienced traders, as a scalp", "Second entry (often a double top or a wedge), strong signal bar, stop beyond the extreme, target the bottom of the channel or the EMA"],
+          ["<b>Trading range</b>, at its edges", "It isn't against anything: a range has no trend", "Range rules: " + lgo("range", "Trading ranges")],
+          ["<b>After a climax</b>, far from the EMA", "Yes, a scalp", "Second entry, target the start of the climax: " + lgo("climax", "Climaxes")],
+          ["<b>After a trend line break and a test</b>", "Yes, as a swing: it is a reversal now", "Major trend reversal, wedge or final flag, 2R or more: " + lgo("mtr", "Major trend reversal")],
+          ["<b>Tight channel or spike</b>", "Never", "Every bear bar is a pullback. Wait for the break of the channel and the test"],
+          ["<b>The first attempt</b> at any extreme", "No", "First attempts usually fail and trap the traders who took them. Wait for the second"]
+        ]) +
+        lh("How a counter-trend trade differs") +
+        ltable(["", "With the trend", "Against the trend"], [
+          ["Entry", "The first or second pullback", "Only the second entry, at an extreme"],
+          ["Signal bar", "A good one", "A strong one: closing on its extreme, not a doji"],
+          ["Target", "The measured move", "A close magnet: the EMA, the bottom of the channel, the start of the climax"],
+          ["Size", "Normal", "Smaller"],
+          ["When it goes wrong", "Hold to the stop unless the premise breaks", "Out on the first strong bar against you"],
+          ["Who", "Everyone", "Experienced traders. Beginners wait for the with-trend trade that follows"]
+        ]) +
+        lp("The best part of a counter-trend scalp is where it ends: at the bottom of a broad bull channel, where the bears take profits, the bulls start to buy. If you are new, skip the sell and take that buy. It is the same chart, the bigger trade, and the side the market is on.") +
+        lwarn("The mistake to avoid: selling a strong bull trend because it \"went too far\". Overbought is not a signal. A counter-trend trade needs a two-sided market, an extreme, and a second entry, all three.");
+    },
+    quiz: [
+      { q: "A tight bull channel has gone up for 25 bars. A big bear bar forms. Do you sell?", o: ["No: in a tight channel every bear bar is a pullback", "Yes, as a scalp"], a: 0, why: "Counter-trend trades need a two-sided market. A tight channel is one-sided." },
+      { q: "At the top of a broad bull channel, the first attempt down just failed and the market made a double top. A bear bar now closes on its low. For an experienced trader this is…", o: ["A small counter-trend scalp to the bottom of the channel", "A swing short for a new bear trend"], a: 0, why: "Always-in is still long. Against the trend you scalp, to a close magnet." },
+      { q: "You are new. Where is your trade on that chart?", o: ["The buy at the bottom of the channel, where the bears take profits", "The sell at the top"], a: 0, why: "The with-trend side is bigger and more reliable. Beginners take only that one." }
+    ],
+    practise: [{ label: "Drill: take it or fade it", go: "node", node: "t7b" }, { label: "Free chart: broad channel", go: "prac", ctx: "broadChannel" }]
   });
 
   lch({ id: "breakout", part: "Setups", title: "Breakouts", video: "bo",
@@ -10314,15 +10602,28 @@ var PROG = (function () {
         ]) +
         lwarn("<b>Never</b> fade with a limit order against a strong trend: buying below bars in a strong bear trend is catching a falling knife. Limit orders are for ranges, and for pullbacks <b>in the direction</b> of a strong trend.") +
         lh("Lesson: fading a range, with a scale-in") +
-        lp("The lesson at the top of this page plays it bar by bar: two buy limits, one wide stop, the size split so both together risk your one percent.") +
-        lfig("limitRangeFail", "Example", "<b>And when the range breaks.</b> Both limits fill, the range breaks down, and the one planned stop takes the whole position: exactly one R, no more. That is why the stop and the total risk are fixed before the first order.") +
-        lh("Lesson: a limit order in a strong trend") +
+        lp("The lesson at the top of this page plays it bar by bar. The panel on the chart is the plan: every order, its size and its risk, the one stop and the target, written down before the first order and updated as each order fills.") +
+        lh("Your scale-in plan, on paper") +
+        lp("Here is that plan worked out, the way you would do it before placing anything. A 10,000 account, EURUSD, where one lot is worth 10 USD a pip.") +
+        ltable(["Step", "What you decide", "In the lesson"], [
+          ["1. The orders", "Where each one goes, from the chart", "Buy limit 1 one pip below the bar that closed in the bottom third: 1.14147. Buy limit 2 at the range low: 1.14058"],
+          ["2. One stop", "Where the whole idea is wrong", "Half the range's height below the low: 1.13900"],
+          ["3. Each order's distance", "Entry to the one stop", "Order 1: 24.7 pips. Order 2: 15.8 pips. Together 40.5"],
+          ["4. The total risk", "Your normal risk for one trade", "1% = 100 USD, for the whole plan"],
+          ["5. The size", "100 USD ÷ (40.5 pips × 10 USD a pip)", "0.24 lot on each order, rounded down: 59 + 38 = 97 USD at risk if both fill"],
+          ["6. The target", "One target for everything", "The middle of the range, 1.14216"],
+          ["7. The unfilled order", "When you cancel it", "When the market reaches the target, or turns up without it: never chase it"]
+        ]) +
+        lp("The same size on each order is the simple way, and the one Brooks describes: the first order is further from the stop, so it carries more of the risk. Before the second order fills, you risk less than planned. After it fills, exactly what you planned. Never more.") +
+        lfig("limitRangeFail", "Example", "<b>And when the range breaks.</b> Both limits fill (1 and 2), the range breaks down, and the one planned stop takes the whole position: the 1% you planned, one R, no more. No second stop, no third order. That is why the stop and the total risk are fixed before the first order.") +
+        lh("Lesson: scaling into a strong trend") +
+        lp("The same plan in a tight channel: a limit below the first bear bar, a second at the EMA, one stop below the last higher low. Here the second order never fills, and the rule for that was part of the plan too.") +
         lvideo("limitTrend") +
         lh("The wide stop") +
         lp("A limit order has no signal bar to hide its stop behind. The stop goes where the idea is wrong: below the range with room for a failed breakout, or below the last higher low in a trend. That is often two or three times further than a signal-bar stop, so the position is two or three times smaller. The <b>money</b> at risk stays the same. " + lgo("sizing", "Position size") + " has the calculator.") +
         lh("Scaling in: the rules") +
         lol(["<b>Only where the odds are high</b>: a clear trading range, or a pullback in a strong trend. Never against a trend.",
-          "<b>Decide everything first</b>: how many entries (two is plenty), where each goes, one stop for all, and the total risk (your normal 1%). Each entry gets its share of that risk.",
+          "<b>Decide everything first</b>: how many entries (two is plenty), where each goes, one stop for all, the total risk (your normal 1%), the size of each, the target, and when an unfilled order is cancelled. Write it down.",
           "<b>Place it all at once.</b> Adding an order that wasn't in the plan, or moving the stop because you are losing, is averaging down, and that is how accounts die.",
           "<b>The exit</b>: the planned target for the whole position (the middle of the range), or, more conservative, everything out when price gets back to your first entry: breakeven on the first, profit on the second.",
           "<b>Expect small wins and a rare full loss.</b> Fading with a wide stop wins often and wins little. The equation only works where the range is clear."]) +
@@ -10500,7 +10801,7 @@ var PROG = (function () {
         lp("Management is decided <b>before</b> you enter: the stop and the target. During the trade you only check, bar by bar, whether the market is doing what the plan needs.") +
         LSHEET.manage() +
         lh("Taking profits: one rule") +
-        lkey("<b>You take profits at your target.</b> You take half off earlier for one reason only: the market is <b>rejected at a magnet</b> on the way — the prior high or low, a range edge — with a reversal bar or a long tail. Then the stop for the rest goes to breakeven. 1R and 2R are numbers on your ruler, not reasons on the chart. (The one reason off the chart: a big scheduled news release while you are in profit, see Your markets.)") +
+        lkey("<b>You take profits at your target.</b> You take half off earlier for one reason only: the market is <b>rejected at a magnet</b> on the way — the prior high or low, a range edge, or just short of the target itself — with a reversal bar or a long tail. The half comes off with an order one tick beyond that bar, so the next bar has to confirm it; then the stop for the rest goes to breakeven. All the reasons for getting out early are in " + lgo("early", "Getting out early") + ". 1R and 2R are numbers on your ruler, not reasons on the chart. (The one reason off the chart: a big scheduled news release while you are in profit, see Your markets.)") +
         lp("So it is not \"sometimes half at 1R and sometimes not\". It is: never at a fixed number, only at a rejection. The two lessons below are the same kind of trade, an H2 on EURUSD. In the first the market runs through the magnet and every partial costs money. In the second it is rejected below the magnet and fails; there the half taken at the rejection is what saves the trade.") +
         lvideo("partA") + lvideo("partB") +
         lh("Why not half at 1R? And why not at 2R?") +
@@ -10544,6 +10845,46 @@ var PROG = (function () {
     practise: [{ label: "Drill: managing what you took", go: "node", node: "t0f" }, { label: "Drill: manage a trend", go: "node", node: "tMb" }, { label: "Drill: manage a range trade", go: "node", node: "tMc" }, { label: "Drill: trail it or take the target?", go: "node", node: "tMa" }]
   });
 
+  lch({ id: "early", part: "Execution", title: "Getting out early", video: "nearTarget",
+    sub: "Every reason to leave before the stop or the target, in one place: what each looks like, and what you do.",
+    body: function () {
+      return lp("The plan is the stop and the target. You leave earlier only for a <b>reason on the chart</b>, and there are only a few. Everything else, a number on your ruler, one ordinary bar against you, being tired of waiting, is not a reason.") +
+        lh("The reasons, and what each asks of you") +
+        ltable(["Reason", "What you see", "What you do", "Where it is shown"], [
+          ["<b>The premise breaks</b>", "A strong bar against you closing beyond the signal bar, the EMA or the last swing", "Out at its close, or a stop just beyond that bar", lgo("bad", "When a good trade goes bad")],
+          ["<b>A strong signal the other way</b>", "A second-entry reversal, or a strong breakout against you", "Out", lgo("bad", "When a good trade goes bad")],
+          ["<b>Rejected at a magnet on the way</b>", "A reversal bar or a long tail at the prior high or low, a range edge or its middle", "An order to take half one tick beyond that bar; when it fills, the rest to breakeven", lgo("manage", "Managing a trade")],
+          ["<b>Rejected just short of the target</b>", "The same, with the target a few ticks away", "The same: half on confirmation, the rest to breakeven. Never all on one bar", "The lesson below"],
+          ["<b>A long stall</b>", "10–20 bars sideways after the entry: the follow-through is gone", "Take what is there, or a stop just beyond the stall", lgo("bad", "When a good trade goes bad")],
+          ["<b>Back at the entry after the premise broke</b>", "The other side's pullback lets you out", "Out at breakeven: take the gift", lgo("badgood", "When a bad trade goes good")],
+          ["<b>A big scheduled release</b>", "News due while you are in profit", "Half or all off before it", lgo("markets", "Your markets")]
+        ]) +
+        lh("Not reasons") +
+        lul(["<b>1R, 2R, or any number.</b> A number on your ruler is not a reason on the chart.",
+          "<b>One ordinary bar against you</b>, or a pullback that holds above the signal bar. Most winners pull back first: in this app's trend trades, 63% came back at least half R toward the stop before they reached the target.",
+          "<b>A reversal bar that isn't confirmed.</b> If the next bar doesn't trade beyond it, it was a pause.",
+          "<b>Time alone.</b> A few quiet bars are not a stall. Ten to twenty sideways bars are.",
+          "<b>How you feel</b>: after a loss, after a big win, or because the open profit is big."]) +
+        lh("A reversal bar just short of the target") +
+        lp("A reversal bar is a signal bar for the other side, and a signal bar counts when the next bar trades beyond it. So near the target you don't react to the bar itself. You put an order to take half off one tick beyond it. If the next bar triggers it, the market has been rejected at a magnet: half is out, and the stop on the rest goes to breakeven. If not, cancel the order: it was a pause.") +
+        lvideo("nearTarget") +
+        lfig("nearPause", "Example", "<b>Only a pause.</b> The same kind of bar near the target, but the next bar stays above it: the half-off order never fills, and the whole position reaches the target four bars later.") +
+        ltable(["In this app's trend trades, after a confirmed reversal bar near the target", "Average per trade"], [
+          ["Hold everything to the target or the stop", "+1.19R"],
+          ["Half off on the confirmation, the rest to breakeven", "+1.12R"],
+          ["All out on the confirmation", "+1.09R"]
+        ]) +
+        lp("93 in 100 of those trades still reached the target, which is why every early exit costs a little here, and all out costs most. These charts are generous near the target; a real market misses by a few ticks more often, and then the half you took is the difference between a loss and a win. That is the reason for the rule: <b>half, not all, and only on confirmation</b>.") +
+        lkey("On every bar in a trade, don't ask \"should I take profits?\". Ask: <b>is there a reason on the chart?</b> If there isn't, the answer is hold.");
+    },
+    quiz: [
+      { q: "Your long is 85% of the way to the target. A bear reversal bar closes near its low. What do you do?", o: ["An order to take half one tick below it; if it fills, the rest to breakeven", "Get out of everything now", "Move the target down to lock it in"], a: 0, why: "One bar is a warning. The next bar confirms it or not." },
+      { q: "The next bar stays above the reversal bar's low and closes up. What happens to your half-off order?", o: ["Cancel it: it was a pause", "Leave it there for the rest of the trade"], a: 0, why: "The signal failed to trigger. You are back to holding the plan." },
+      { q: "Your trade is at 1.5R, the bars are strong, nothing has happened at any magnet. Is there a reason to take something off?", o: ["No", "Yes: 1.5R is a lot"], a: 0, why: "A number is not a reason on the chart." }
+    ],
+    practise: [{ label: "Drill: managing what you took", go: "node", node: "t0f" }, { label: "Drill: manage a trend", go: "node", node: "tMb" }]
+  });
+
   lch({ id: "after", part: "Execution", title: "At the target, and after it", video: "afterOn",
     sub: "A measured move is a magnet, not a wall. What happens there, what comes after, and where the next trade is.",
     body: function () {
@@ -10566,7 +10907,7 @@ var PROG = (function () {
         lul(["<b>There is always a next magnet.</b> The same leg laid off again (leg 1 = leg 2 = leg 3), the spike's height again, a prior swing high further to the left. A runner uses them; a new trade measures from its own pullback.",
           "<b>The old target often becomes support</b> (resistance in a bear trend). When the market comes back to it and holds, that pullback is often the next with-trend entry.",
           "<b>A little past the target is normal.</b> Many limit orders sit there, so the market often overshoots by a few ticks and pulls back. Your limit at the target is filled; don't move it further because the bars look strong.",
-          "<b>Stopped a tick short of the target?</b> Without a rejection nothing changes: the plan is the target and the stop. With a reversal bar or a long tail right there, it is a rejection at a magnet: take half (or all), and the stop on the rest to breakeven."]) +
+          "<b>Stopped a tick short of the target?</b> Without a rejection nothing changes: the plan is the target and the stop. With a reversal bar or a long tail right there, it is a rejection at a magnet: an order to take half one tick beyond that bar, and when it fills, the stop on the rest to breakeven."]) +
         lh("On every bar after the target") +
         lul(["Did it go through with follow-through? Then wait for the next with-trend pullback and its signal bar.",
           "Is it going sideways around the target? Then treat it as a trading range: its edges, nothing in the middle.",
@@ -10878,7 +11219,7 @@ var PROG = (function () {
     m2: { q: "Did this bar close strongly against you: a big bar closing near its extreme, or a close beyond your signal bar?", a: [["Yes, and it breaks the structure (beyond the signal bar, the EMA or the last swing)", "e_exit"], ["Yes, but it's one bar and the structure holds", "e_watch"], ["No", "m3"]] },
     m3: { q: "Is the reason for the trade gone: a strong breakout against you, or a good second-entry signal the other way?", a: [["Yes", "e_exit"], ["No", "m3b"]] },
     m3b: { q: "Earlier in this trade, did a strong bar against you break the structure (and you stayed in), and is price now back near your entry?", a: [["Yes", "e_gift"], ["No", "m4"]] },
-    m4: { q: "Has the market reached a magnet on the way to your target (the prior high or low, a range edge, the middle of a range) and been rejected there: a reversal bar or a long tail against you?", a: [["Yes, and I still hold the full position", "e_magnet"], ["Yes, but I already took half there", "m5"], ["No, or it went straight through", "m5"]] },
+    m4: { q: "Has the market reached a magnet on the way to your target (the prior high or low, a range edge, the middle of a range), or come just short of the target itself, and been rejected there: a reversal bar or a long tail against you?", a: [["Yes, and I still hold the full position", "e_magnet"], ["Yes, but I already took half there", "m5"], ["No, or it went straight through", "m5"]] },
     m5: { q: "Is it a reversal trade (wedge, major trend reversal, final flag) that has gone at least 1R, with the stop not yet at breakeven?", a: [["Yes", "e_be_rev"], ["No", "m6"]] },
     m6: { q: "Is it a with-trend trade that is most of the way to its target (about 75%), or a runner you kept past the target — and since your last stop move, is a pullback over, with a new extreme beyond where it started? (In a tight channel, a triggered signal bar at the pullback's end is enough.)", a: [["Yes", "e_trail"], ["No: the original stop stays (and a range trade is never trailed)", "m7"]] },
     m7: { q: "Has the market gone sideways for a long time since the entry (about 10–20 bars on 5 min)?", a: [["Yes", "e_tighten"], ["No", "e_hold"]] },
@@ -10922,7 +11263,7 @@ var PROG = (function () {
     e_done: { k: "exit", t: "The trade is over", d: "Your stop or target filled. Log it (the History tab reviews your Desk trades). You are flat now: start again from the top on the next bar. After a target, no new trade on that bar: the next one comes from what the market does with it (through it, a range, or a reversal)." },
     e_exit: { k: "exit", t: "Exit now", d: "The reason for the trade is gone. Close at market, or put the stop just beyond this bar if you want one more bar of proof. Don't wait for the original stop and never widen it. A failed setup often leads to a new setup the other way — but only take it with its own signal bar, stop and target." },
     e_watch: { k: "hold", t: "Hold — and watch the next bar", d: "One strong bar against you is a warning, not an exit. If the next bar is also strong against you, or closes beyond your signal bar, get out. You may move the stop to just beyond this bar." },
-    e_magnet: { k: "manage", t: "Take half off, stop to breakeven", d: "The market is rejected at a magnet on the way to your target: that is a reason on the chart. Close half now. Move the stop for the rest to your entry: if the move is still healthy, the market has no business back there. Keep the original target." },
+    e_magnet: { k: "manage", t: "Take half off, stop to breakeven", d: "The market is rejected at a magnet on the way to your target: that is a reason on the chart. Put an order to take half off one tick beyond the rejection bar: if the next bar trades there, the rejection is confirmed and half is out. Then move the stop for the rest to your entry: if the move is still healthy, the market has no business back there. Keep the original target. If the next bar doesn't trade beyond it, cancel the order: it was only a pause." },
     e_be_rev: { k: "manage", t: "Stop to breakeven", d: "In a reversal trade, once it has gone 1R, the stop goes to your entry. A real reversal should not come back there; if it does, the old trend is still in control. Take no profits yet: your target is at least 2R away." },
     e_gift: { k: "exit", t: "Take the gift: get out at breakeven", d: "The reason for the trade broke when that strong bar went against you. Price coming back to your entry doesn't repair it; it is only a pullback of the other side. Close at or near breakeven. (If nothing broke and a new signal in your direction formed, you would hold instead: that is a bad trade going good.)" },
     e_trail: { k: "manage", t: "Move the stop behind the pullback that ended", d: "Put the stop one tick beyond that pullback's extreme (below its low for a long, above its high for a short). Never while a pullback is still going, never under the first attempt of a two-legged pullback, and never under a bar that ended nothing. It never moves back." },
