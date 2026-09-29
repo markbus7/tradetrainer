@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.64.3 (build 2026-09-29) — Al Brooks price action -->
+<!-- Trade Trainer v3.64.4 (build 2026-09-29) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.64.3 — Cadet to Master</title>
+<title>TRADE TRAINER v3.64.4 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -538,7 +538,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.64.3", build: "2026-09-29", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.64.4", build: "2026-09-29", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -3673,7 +3673,8 @@ function entryHow(g, ch) {
   var trapVerb = g.dir > 0 ? "selling" : "buying";
   var trapEdge = g.dir > 0 ? "range low" : "range high";
   return g.entryType === "limit"
-    ? "You get in here with a <b>limit order</b> at the range edge, not a stop — in a range you are fading the edge, so you want to be filled as price reaches it. Brooks puts the limit at the prior extreme or a few ticks through it, so the probe that pokes past the edge fills you and then fails; much further out than that and you are catching a real breakout instead of fading a probe. " +
+    ? "At a range edge Brooks tells beginners to enter with a <b>stop order</b> just " + side + " a good signal bar, so the turn is proven before you are in. " +
+      "Experienced traders fade the edge with a <b>limit order</b> instead, at the prior extreme or a few ticks through it, so the probe that pokes past the edge fills them and then fails — with a wider stop and a smaller size, because a limit buys while the market is still going against it. " +
       trapVerb.charAt(0).toUpperCase() + trapVerb.slice(1) + " a stop " + other + " the " + trapEdge +
       " is exactly how traders get trapped here, because about eight out of ten range breakouts fail." + stopLine(g, ch)
     : "You get in here with a <b>stop order</b> just " + side + " the signal bar: price has to trade there to fill you, which is the confirmation. The protective stop then sits " + other + " the bar or the swing behind it." + stopLine(g, ch);
@@ -4019,7 +4020,7 @@ KIND.signalBar = {
             ". A bad signal bar then costs you <b>twice</b>: the probability drops, and the risk grows, because your protective stop still has to sit beyond the whole bar — mostly tail — so you pay a wide stop for a bar that proved nothing. Worse odds and worse reward-to-risk on the same setup.",
         entryHow(g, ch) + (g.sigKind === "strong"
           ? (g.entryType === "limit"
-            ? " A clean bar at the edge does not change the order type — in a range the edge is still where you want your fill, so the limit order stays. What a good bar buys you here is confidence that the edge is holding."
+            ? " A clean bar at the edge is what the beginner's stop entry waits for: it shows the edge is holding. Experienced traders who fade the edge with a limit don't need the bar, but they need the wider stop."
             : " With a bar this clean you also have a choice: entering <b>at market on its close</b> gets a better price and a smaller risk to the same stop, but you give up the proof that price actually continued. Brooks' default is the stop entry; take the market entry only when the trend is strong enough that waiting means missing it.")
           : " Note that this is the same way you would enter on a good bar — the order type is set by the context, not by the bar. What a bad bar changes is whether the trade is worth taking at all.")
       ]
@@ -4231,7 +4232,7 @@ KIND.measure = {
       "Correct height <b>" + fmtN(g.height, ch.dec) + "</b> · yours " + fmtN(userLeg, ch.dec) +
       " — target <b>" + fmtN(want, ch.dec) + "</b> · yours " + fmtN(userTgt, ch.dec) + "."
     ];
-    if (alt) lines.push("You landed on the conservative target rather than the full projection. Defensible — Brooks takes partial profit there — but graded against the full measured move.");
+    if (alt) lines.push("You landed on the other level this setup is drawn to, not the plan's target. It is a real level, so it gets partial credit — but the plan's target is the one above, and you take profits before it only if the market is rejected at a magnet on the way.");
     lines.push(g.hitTargetAt >= 0 && g.worked
       ? "Price <b>reached</b> it " + (g.hitTargetAt - g.decision) + " bars later."
       : "Price <b>never got there</b> — it failed first. A measured move is where the market is aiming, not a promise it arrives.");
@@ -4268,7 +4269,7 @@ KIND.stop = {
           "<b>" + g.name + "</b>. " + g.brooks,
           "One tick beyond the signal bar at <b>" + fmtN(g.sigStop, ch.dec) + "</b>. That distance from your entry — <b>" +
           fmtN(g.initialRisk, ch.dec) + "</b> — is your <b>initial risk</b>: the number you size from, and the number that " +
-          "belongs in the trader's equation. You do not tighten it just because the market goes sideways after you enter — the trade has not proven anything yet. That is a rule about the <b>initial</b> stop before the trade works. Once it is working and you are protecting an open profit, moving the stop is a different decision entirely, and a legitimate one.",
+          "belongs in the trader's equation. You do not tighten it just because the market goes sideways after you enter — the trade has not proven anything yet. That is a rule about the <b>initial</b> stop, and it holds for most of the trade: the stop starts to follow the market only late, in a trend, once the trade is most of the way to its target (breakeven at 1R only in reversals).",
           "A stop beyond the structure at <b>" + fmtN(g.invalid, ch.dec) + "</b> risks <b>" + fmtN(g.structureRisk, ch.dec) +
           "</b> instead — also defensible, but it is simply a wider stop, so smaller size and a different equation (<b>" +
           g.sigRR.toFixed(2) + "R</b> here versus <b>" + g.refRR.toFixed(2) + "R</b> on the same target). " +
@@ -4641,10 +4642,11 @@ KIND.replay = {
 /* --- 17. entry placement ------------------------------------------
    Brooks' entry is mechanical, and it is the half of the trade the old
    curriculum never tested: with the trend you enter on a STOP one tick beyond
-   the signal bar, because making price trade there is the confirmation. In a
-   range you fade the edge with a LIMIT, because waiting for confirmation means
-   paying the edge away. Getting this backwards is the single most common way a
-   correct read turns into a losing trade. */
+   the signal bar, because making price trade there is the confirmation. At a
+   range edge beginners do the same (Brooks' advice), and experienced traders
+   fade the edge with a LIMIT instead; both are graded as correct. Getting the
+   with-trend entry backwards is the most common way a correct read turns into
+   a losing trade. */
 KIND.entry = {
   skill: "execution", skill2: "risk",
   prepare: function (sp, seed) {
@@ -4671,7 +4673,12 @@ KIND.entry = {
     var tol = 0.30 * a;
     var s, verdict, note;
 
-    if (g.entryType === "limit") {
+    var stopEntry = trigger + d * 0.02 * a;
+    if (g.entryType === "limit" && beyond >= -0.15 * a && Math.abs(ans - stopEntry) <= tol) {
+      s = 1; verdict = "Exact: the beginner's entry";
+      note = "A stop order one tick " + (d > 0 ? "above" : "below") + " the signal bar at the edge: the market has to prove the turn before you are in. That is what Brooks tells beginners to do here. " +
+             "Experienced traders fade the edge with a limit at the prior extreme instead, getting a better price but buying while the market still falls, with a wider stop.";
+    } else if (g.entryType === "limit") {
       /* Brooks fades a range edge by placing the limit AT or JUST BEYOND the
          prior extreme — "buy limit orders below prior lows to get long" — so
          the probe through the low fills you and then fails. Past roughly an
@@ -4680,7 +4687,7 @@ KIND.entry = {
       var edge = d > 0 ? g.rangeBot : g.rangeTop;
       var past = edge === undefined ? 0 : -d * (ans - edge);   /* >0 = beyond the edge */
       var intoRange = edge === undefined ? 0 : d * (ans - edge); /* >0 = inside the range */
-      var beginnerNote = " Brooks tells beginners to enter on stops even here; fading an edge with limits is the experienced, aggressive version of this trade.";
+      var beginnerNote = " That is the experienced trader's version; Brooks tells beginners to enter with a stop order one tick beyond a good signal bar at the edge, which is graded as correct too.";
       if (past >= -0.1 * a && past <= 0.85 * a) {
         s = 1; verdict = "Exact";
         note = "A limit at the edge, or a few ticks beyond it, so the probe through the " +
@@ -4814,10 +4821,10 @@ KIND.barCount = {
 };
 
 /* --- 19. trade management ------------------------------------------
-   The equation is only realised if the trade is managed. Brooks: scalps come
-   off at the scalp target, swings take partial profit and move to breakeven,
-   and a market that goes two-sided has ended your swing whatever your stop
-   says. */
+   The equation is only realised if the trade is managed. Scalps come off at
+   their target; swings come off at theirs, with at most a small runner kept
+   (stop at breakeven); and a market that goes two-sided has ended your swing
+   whatever your stop says. */
 KIND.manage = {
   skill: "execution", skill2: "discipline",
   prepare: function (sp, seed) {
@@ -4981,7 +4988,7 @@ KIND.secondEntry = {
       lines.push("Worth being precise here, because two things called \u201csecond\u201d meet on the same bar. A <b>second entry</b> is the second <i>bar count</i> attempt — the <b>High 2</b>. A <b>second leg</b> is the second <i>leg</i> of the correction. They are different lenses and they usually disagree; in a two-legged pullback they agree, because the H2 that triggers you is the one that comes off the second leg. That is exactly why Brooks calls this the cleanest second-entry setup there is.");
     }
     if (ans === "quality") {
-      lines.push("Judging it on the signal bar is the trap. <b>Bad entry bars are normal wherever the market is two-sided</b> — if you hold out for a clean one you will take almost nothing. Counting attempts is what replaces waiting for a pretty bar.");
+      lines.push("The signal bar is not what decides <b>which</b> attempt you trade — the count does. The bar then decides whether that attempt is good enough: in two-sided markets bars are often less clean, so don't demand a perfect one, but a doji or a bar closing against you is still a reason to wait for the next bar.");
     }
     if (g.firstEntry && g.secondEntry) {
       var tg = g.dir > 0 ? "H" : "L";
@@ -7348,13 +7355,15 @@ var PROG = (function () {
       'good edge compounds and how fast a bad one kills you, not whether you have one.</p>' +
 
       '<h3>When to move to breakeven, and when not to</h3>' +
-      '<p>Moving the stop to your entry is worth having, and it is also the most over-used button in trading. ' +
-      'Brooks moves to breakeven <b>once the trade has moved about 1R and the structure is intact</b> — and ' +
-      '<b>not</b> early in choppy tape. The reasoning is that a good trade should not come back through your entry, ' +
-      'so once it has proven itself the stop can come up. Before it has proven anything, a breakeven stop sitting where ' +
-      'ordinary pullbacks reach simply hands the trade back, and you get the loss without the trade.</p>' +
-      '<p>The management drills grade the <b>timing</b>, not the action. Press it at 0.2R and you will be marked ' +
-      'down with the reason; press it at 1R and you will not.</p>' +
+      '<p>Moving the stop to your entry feels safe, and it is the most over-used button in trading. Most winning ' +
+      'trades come back toward the entry before they reach the target, so a breakeven stop turns many of them into ' +
+      'scratches. Measured on this app\'s trend trades, breakeven at 1R cut the average from about 1.3R to 0.75R.</p>' +
+      '<li><b>Reversals</b> (wedge, major trend reversal, final flag): move to breakeven once the trade has gone about ' +
+      '<b>1R</b>. A real reversal should not come back to its entry, and here it helped.</li>' +
+      '<li><b>After a rejection at a magnet</b> on the way to the target: take half off, and the rest goes to breakeven.</li>' +
+      '<li><b>Everywhere else</b>: the stop stays where the setup is wrong.</li>' +
+      '<p>The management drills grade exactly that: breakeven at 1R in a reversal earns credit, in a with-trend or ' +
+      'range trade it is explained with the numbers.</p>' +
 
       '<h3>Trail, or hold a target?</h3>' +
       '<p>Hold the target, and let the stop start to follow the market only late, and only in a trend.</p>' +
@@ -7373,14 +7382,15 @@ var PROG = (function () {
       'that stops being true. Winners come back at varying sizes and losers come back <i>smaller</i> than 1R, ' +
       'because part was already off.</p>' +
       '<p>So if you scale out, the equation has to be computed on <b>what you actually do</b>, not on the plan you ' +
-      'drew. And the direction is not a matter of opinion — this app measured it over 660 of its own charts:</p>' +
-      '<li>hold to target: <b>59%</b> win rate, mean <b>0.75R</b></li>' +
-      '<li>half off then stop to breakeven: <b>69%</b> win rate, mean <b>0.29R</b></li>' +
-      '<p>Ten points of win rate bought with about 60% of the average reward. That is not an argument against taking ' +
-      'partials — it is Brooks\' law stated exactly: <i>whenever a trader does something to increase his ' +
-      'probability, he pays for it with a smaller reward, an increased risk, or both.</i> Knowing which side of that ' +
-      'trade you are making is the point. After every managed trade the app shows you both numbers on that tape: ' +
-      'what your management returned, and what holding untouched would have.</p>' +
+      'drew. This app ran every plan on about 15,000 of its own charts. On trend setups, per trade:</p>' +
+      '<li>hold everything to the target: <b>57%</b> win rate, mean <b>+1.32R</b></li>' +
+      '<li>half off at 2R: mean <b>+1.03R</b> · half off at 1R: <b>+0.85R</b></li>' +
+      '<li>half off at 1R and the stop to breakeven: <b>70%</b> win rate, mean <b>+0.57R</b></li>' +
+      '<p>A higher win rate bought with a much smaller reward — Brooks\' law stated exactly: <i>whenever a trader does ' +
+      'something to increase his probability, he pays for it with a smaller reward, an increased risk, or both.</i> ' +
+      'So the rule is: take profits at the target, and take half earlier only when the market is rejected at a magnet ' +
+      'on the way. After every managed trade the app shows you both numbers on that tape: what your management ' +
+      'returned, and what holding untouched would have.</p>' +
 
       '<h3>Managing a live trade</h3>' +
       '<p>Once you press Execute the tape runs, and you can now actually <b>manage</b> the position rather than watch ' +
@@ -7393,7 +7403,7 @@ var PROG = (function () {
       '<li><b>Scale in</b> — arm a second leg a little beyond price. Watch the <b>at risk now</b> figure when it ' +
       'fills: at the same stop, a second leg puts more than 1R at stake. That is why the total has to be planned ' +
       'before the first entry.</li>' +
-      '<li><b>Drop target</b> — hold a runner with no target and let the trail decide the exit.</li>' +
+      '<li><b>Drop target</b> — hold what is left with no target and let the trail decide the exit. Use it for a small runner after the target, not for the whole position.</li>' +
       '<li><b>Close all</b> — take what is there.</li>' +
       '<p>The read-out shows the open size, your average, what you have <b>banked</b> so far and what is still ' +
       '<b>at risk</b>, all in R. The result you are graded on is the blended total — so half off at 1R and the rest ' +
@@ -10288,7 +10298,7 @@ var PROG = (function () {
   lch({ id: "scalpswing", part: "Execution", title: "Scalp or swing — or both",
     sub: "When you may only scalp, when you must swing, and the one reason to take half off early.",
     body: function () {
-      return lp("A <b>scalp</b> takes a small profit, about as big as the risk or smaller, and only makes sense with high odds (60% or better). A <b>swing</b> holds for a reward of at least twice the risk and works with 40–50% odds.") +
+      return lp("A <b>scalp</b> takes a small profit, about as big as the risk or smaller. It only makes sense with high odds: better than about 55–60% at a reward of 1R, and 70% or more when the reward is smaller than the risk. A <b>swing</b> holds for a reward of at least twice the risk and works with 40–50% odds.") +
         ltable(["Scalp: all out at a close target", "Swing: hold to a far target", "Half at a magnet, the rest to the target"], [
           ["Trading ranges: every edge trade", "With-trend entries in a trend: H1 in a spike or tight channel, H2 at the EMA", "Any swing trade that is <b>rejected at a magnet</b> on the way: the prior high or low, a range edge"],
           ["Counter-trend trades in a trend (experienced only)", "Breakouts with strong follow-through: their edge is the measured move", "Rejected means a reversal bar or a long tail there, not just touching it"],
