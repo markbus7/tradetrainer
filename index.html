@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.66.0 (build 2026-09-29) — Al Brooks price action -->
+<!-- Trade Trainer v3.67.0 (build 2026-09-29) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.66.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.67.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -439,6 +439,20 @@
     .lvctl{gap:5px;padding:7px 8px}
     .lvb{padding:6px 8px}
   }
+
+  /* full screen */
+  .lfsbtn{position:absolute;bottom:3px;right:4px;z-index:2;width:30px;height:28px;border:1px solid rgba(255,255,255,.22);border-radius:7px;background:rgba(11,14,19,.85);color:#e6e9ef;font-size:16px;line-height:1;cursor:pointer}
+  .lfsbtn:hover{border-color:var(--amber,#e8a33d)}
+  .lfsov{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;padding:10px}
+  .lfsov.on{display:flex}
+  body.lfsopen{overflow:hidden}
+  .lfsbox{width:min(1800px,100%);height:100%;display:flex;flex-direction:column;background:var(--bg2,#12161d);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .lfshead{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .lfshead b{font-size:15px}.lfsgap{flex:1}
+  .lfshead .lvb:disabled{opacity:.35}
+  .lfsfig{flex:1;min-height:0;display:flex}
+  .lfsfig .lfscr{flex:1;height:auto;min-height:200px}
+  .lfscap{padding:10px 14px;font-size:15px;line-height:1.55;color:#d6dae2;border-top:1px solid var(--line);max-height:26vh;overflow-y:auto}
 </style>
 </head>
 <body>
@@ -540,7 +554,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.66.0", build: "2026-09-29", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.67.0", build: "2026-09-29", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -3444,7 +3458,7 @@ Chart.prototype._drawPos = function (c, b, d) {
     /* in a lesson the labels sit at the right end, clear of the signal bar's own label */
     /* a finished example (ra) keeps them inside the box's right end, clear of the price scale */
     var tw = c.measureText(txt).width;
-    if (d.ra && d.tl && tw > xe - x0 + 60 && txt.indexOf("TARGET · ") === 0) { txt = "TARGET" + txt.slice(9 + d.tl.length); tw = c.measureText(txt).width; }
+    /* the target's basis stays in the label even when the box is narrow: it reads leftward on its plate */
     var lx = d.lesson ? Math.max(d.ra ? 4 : x0 + 2, xe - tw - 10) : x0 + 2;
     c.fillStyle = "rgba(11,14,19,.8)"; c.fillRect(lx, y - 15, tw + 6, 13);
     c.fillStyle = col; c.fillText(txt, lx + 3, y - 3);
@@ -7860,6 +7874,7 @@ var PROG = (function () {
       '<button class="lvb" data-a="rate" title="Voice speed"></button>' +
       '<button class="lvb" data-a="mute" title="Voice on / off"></button>' +
       '<button class="lvb" data-a="script" title="Show every word of this lesson">Script</button>' +
+      '<button class="lvb" data-a="full" title="Full screen" aria-label="Full screen">&#x26F6;</button>' +
       '<button class="lvb" data-a="copy" title="Copy this step as text: the bars, every line and label on the chart, and what the step says. Paste it into a chat to show exactly what you see.">Copy</button>' +
       '</div><div class="lvscript" style="display:none"></div>';
     this.cv = root.querySelector("canvas");
@@ -7931,15 +7946,15 @@ var PROG = (function () {
   LessonPlayer.prototype.apply = function (k, instant) {
     var st = this.stateAt(k), ch = this.ch, n = this.ex.bars.length;
     this.notes = st.notes;
-    var view = st.view || this.def.view || [0, n - 1];
+    var view = this.fview || st.view || this.def.view || [0, n - 1];
     var a = Math.max(0, view[0]), z = Math.min(n - 1, view[1]);
     /* a cropped still (the decision tree's small charts) ends at the last bar shown */
     if (this.crop) { z = Math.min(z, Math.max(st.vis, a + 20)); a = Math.max(a, z - 70); }
-    ch.i0 = a - 1; ch.i1 = z + Math.max(4, Math.round((z - a) * 0.12));
+    ch.i0 = a - 1; ch.i1 = z + Math.max(4, Math.round((z - a) * (this.fpad || 0.12)));
     /* lock the price scale to the whole lesson window, so nothing jumps while bars appear */
     var L = Infinity, H = -Infinity;
     for (var i = a; i <= z; i++) { L = Math.min(L, this.ex.bars[i].l); H = Math.max(H, this.ex.bars[i].h); }
-    (this.def.extraPrices ? this.def.extraPrices(this.ex) : []).forEach(function (p) { if (isFinite(p)) { L = Math.min(L, p); H = Math.max(H, p); } });
+    (this.def.extraPrices && !this.noExtra ? this.def.extraPrices(this.ex) : []).forEach(function (p) { if (isFinite(p)) { L = Math.min(L, p); H = Math.max(H, p); } });
     ch.lockP = { lo: L, hi: H };
     ch.drawings = st.pos ? [{ type: "pos", lesson: true, tl: st.pos.tl, ra: st.pos.ra, norr: st.pos.norr, i: st.pos.i, i2: st.pos.i2, dir: st.pos.dir, entry: st.pos.entry, stop: st.pos.stop, target: st.pos.target }] : [];
     if (instant) { ch.vis = Math.min(st.vis, n - 1); ch.render(); }
@@ -7947,6 +7962,7 @@ var PROG = (function () {
   };
   LessonPlayer.prototype.act = function (a) {
     if (a === "copy") { lcopy(lessonText(this.vid, this.def, this.ex, this.scenes, this.k)); return; }
+    if (a === "full") { this.pause(); lfull(this.vid, this.k, null); return; }
     if (a === "play") { if (this.playing) this.pause(); else this.play(); }
     if (a === "next") this.go(Math.min(this.scenes.length - 1, this.k + (this._started ? 1 : 0)), this.playing);
     if (a === "prev") this.go(Math.max(0, this.k - 1), this.playing);
@@ -8049,7 +8065,23 @@ var PROG = (function () {
     });
   };
   LessonPlayer.prototype._drawNotes = function (c, b, ch) {
+    var self0 = this;
     var notes = this.notes || [], vis = ch.vis;
+    /* A level that explains the target ("target = the prior high") and the
+       target order at the same price are one thing: one label, "target 7750.95
+       = the prior high", and the explaining line stops where the order starts,
+       so it never runs through the order's label. */
+    var ordAt = {};
+    notes.forEach(function (n) { if (n.t === "order" && (n.i == null || n.i <= vis) && /^target\b/i.test(n.text || "")) ordAt[(+n.p).toPrecision(10)] = n; });
+    notes = notes.map(function (n) {
+      var o = n.t === "hl" ? ordAt[(+n.p).toPrecision(10)] : null;
+      if (o && o.i > (n.from != null ? n.from : -1)) return Object.assign({}, n, { text: n.text && /^target\s*[=:]/i.test(n.text) ? "" : n.text, endAt: o.i });
+      if (n.t === "order" && ordAt[(+n.p).toPrecision(10)] === n) {
+        var h = null; (self0.notes || []).forEach(function (m) { if (m.t === "hl" && m.text && /^target\s*[=:]/i.test(m.text) && Math.abs(m.p - n.p) < 1e-12) h = m; });
+        if (h) return Object.assign({}, n, { text: n.text + " = " + h.text.replace(/^target\s*[=:]\s*/i, "") });
+      }
+      return n;
+    });
     c.save();
     notes.forEach(function (n) {
       if (n.i != null && n.i > vis) return;          /* nothing before its bar prints */
@@ -8070,8 +8102,8 @@ var PROG = (function () {
         if (n.text) lTag(c, n.text, (x1 + x2) / 2, (y1 + y2) / 2 - 11, col, "center");
       } else if (n.t === "hl") {
         y = ch.y(n.p); x = n.from != null ? ch.x(n.from) : 0;
-        c.beginPath(); c.moveTo(x, y); c.lineTo(b.r, y); c.stroke();
-        if (n.text) lTag(c, n.text, n.lx != null ? ch.x(n.lx) : n.from != null ? x + 4 : 6, y - 10, col, "left");
+        c.beginPath(); c.moveTo(x, y); c.lineTo(n.endAt != null ? ch.x(n.endAt) - ch.bw / 2 : b.r, y); c.stroke();
+        if (n.text) lTag(c, n.text, Math.max(6, n.lx != null ? ch.x(n.lx) : n.from != null ? x + 4 : 6), y - 10, col, "left");
       } else if (n.t === "box") {
         var bx = ch.x(n.i0) - ch.bw / 2, bx2 = n.i1 != null ? ch.x(Math.min(n.i1, vis)) + ch.bw / 2 : b.r, by = ch.y(n.p1), by2 = ch.y(n.p0);
         c.globalAlpha = 0.1; c.fillRect(bx, by, bx2 - bx, by2 - by); c.globalAlpha = 1;
@@ -8094,14 +8126,16 @@ var PROG = (function () {
       } else if (n.t === "order") {
         y = ch.y(n.p); x = ch.x(n.i) - ch.bw / 2; var x3 = ch.x(n.i + (n.len || 4));
         c.setLineDash([6, 3]); c.lineWidth = 2; c.beginPath(); c.moveTo(x, y); c.lineTo(x3, y); c.stroke(); c.setLineDash([]);
-        lTag(c, n.text, x3 + 4, y, col, "left");
+        /* a label that would run off the chart goes to the left of the line */
+        c.font = lFont(c) + " Archivo,sans-serif";
+        lTag(c, n.text, Math.min(x3 + 4, b.r - 10 - c.measureText(n.text || "").width), y, col, "left");
       } else if (n.t === "lvl") {
         y = ch.y(n.p); x = ch.x(n.from) - ch.bw / 2;
         var xe = n.to != null ? ch.x(Math.min(n.to, vis)) + ch.bw / 2 : b.r;
         c.beginPath(); c.moveTo(x, y); c.lineTo(xe, y); c.stroke();
-        if (n.text) lTag(c, n.text, n.lx != null ? ch.x(n.lx) : xe + 6, y, col, "left");
+        if (n.text) lTag(c, n.text, Math.max(6, n.lx != null ? ch.x(n.lx) : xe + 6), y, col, "left");
       } else if (n.t === "card") {
-        var small = c.canvas.clientWidth < 500, fs = small ? 10 : 11.5, lh = fs + 6, w0 = 0;
+        var small = c.canvas.clientWidth < 500, fs = small ? 10 : c.canvas.clientWidth > 1100 ? 13.5 : 11.5, lh = fs + 6, w0 = 0;
         c.setLineDash([]); c.textBaseline = "middle"; c.textAlign = "left";
         n.rows.forEach(function (r, k) { c.font = (k === 0 ? "800 " : "600 ") + fs + "px Archivo,sans-serif"; w0 = Math.max(w0, c.measureText(r[0]).width); });
         var cx = n.at ? ch.x(n.at.i) : 10, cy = n.at ? ch.y(n.at.p) : b.t + 8, hh = n.rows.length * lh + 10;
@@ -8147,6 +8181,61 @@ var PROG = (function () {
     });
     c.restore();
   };
+  /* ---------- full screen: one step of a lesson, as big as the screen ----------
+     Opens the same step in an overlay, drawn at full size, with the step's
+     words or the figure's caption below it; the arrows walk through the
+     lesson's other steps. Esc, the close button or a tap outside closes it. */
+  var lfsFig = null;
+  function lfull(vid, k, caption) {
+    var ov = document.getElementById("lfsOv");
+    if (!ov) {
+      ov = document.createElement("div"); ov.id = "lfsOv"; ov.className = "lfsov";
+      ov.innerHTML = '<div class="lfsbox" role="dialog" aria-modal="true"><div class="lfshead"><b class="lfst"></b><span class="mu lfsk"></span><span class="lfsgap"></span>' +
+        '<button class="lvb" data-f="prev" title="Previous step">&#9664;</button><button class="lvb" data-f="next" title="Next step">&#9654;</button>' +
+        '<button class="lvb" data-f="copy">Copy</button><button class="lvb" data-f="close">&#10005; Close</button></div>' +
+        '<div class="lfsfig"><div class="lfscr"></div></div><div class="lfscap"></div></div>';
+      document.body.appendChild(ov);
+      ov.addEventListener("click", function (e) { if (e.target === ov) lfsClose(); });
+      [].forEach.call(ov.querySelectorAll("[data-f]"), function (b) {
+        b.onclick = function () {
+          var f = b.dataset.f;
+          if (f === "close") return lfsClose();
+          if (!lfsFig) return;
+          if (f === "copy") return lcopy(lessonText(lfsFig.vid, lfsFig.def, lfsFig.ex, lfsFig.scenes, lfsFig.k));
+          var nk = lfsFig.k + (f === "next" ? 1 : -1);
+          if (nk < 0 || nk >= lfsFig.scenes.length) return;
+          lfsShow(lfsFig.vid, nk, null);
+        };
+      });
+      document.addEventListener("keydown", function (e) {
+        if (!ov.classList.contains("on")) return;
+        if (e.key === "Escape") lfsClose();
+        if (e.key === "ArrowRight" && lfsFig && lfsFig.k < lfsFig.scenes.length - 1) lfsShow(lfsFig.vid, lfsFig.k + 1, null);
+        if (e.key === "ArrowLeft" && lfsFig && lfsFig.k > 0) lfsShow(lfsFig.vid, lfsFig.k - 1, null);
+      });
+    }
+    ov.classList.add("on"); document.body.classList.add("lfsopen");
+    lfsShow(vid, k, caption);
+  }
+  function lfsShow(vid, k, caption) {
+    var ov = document.getElementById("lfsOv"), holder = ov.querySelector(".lfsfig");
+    if (lfsFig) lfsFig.dispose();
+    holder.innerHTML = '<div class="lfscr"></div>';
+    lfsFig = new LessonFigure(holder, vid, null, false, { k: k, full: true });
+    var sc = lfsFig.scenes[lfsFig.k] || {}, n = lfsFig.scenes.length;
+    ov.querySelector(".lfst").textContent = Speech.strip(lfsFig.def.title);
+    ov.querySelector(".lfsk").textContent = n > 1 ? "step " + (lfsFig.k + 1) + " of " + n + (sc.title ? " · " + Speech.strip(sc.title) : "") : "";
+    ov.querySelector('[data-f="prev"]').disabled = lfsFig.k <= 0;
+    ov.querySelector('[data-f="next"]').disabled = lfsFig.k >= n - 1;
+    ov.querySelector(".lfscap").innerHTML = caption || (sc.say ? lsceneCap(sc) : "");
+  }
+  function lfsClose() {
+    var ov = document.getElementById("lfsOv"); if (!ov) return;
+    ov.classList.remove("on"); document.body.classList.remove("lfsopen");
+    if (lfsFig) { lfsFig.dispose(); lfsFig = null; }
+    ov.querySelector(".lfsfig").innerHTML = "";
+  }
+
   /* ---------- Copy: one step of a lesson as plain text ----------
      Everything on the chart in words and numbers — the bars with their index,
      time and prices, every line and label with its bar and price, the
@@ -8202,12 +8291,14 @@ var PROG = (function () {
   }
 
   /* ---------- a figure: one step of a lesson as a still picture ---------- */
-  function LessonFigure(root, vid, title, crop) {
-    this.root = root; this.vid = vid; this.def = LVID[vid]; this.playing = false; this.crop = !!crop;
+  function LessonFigure(root, vid, title, crop, opts) {
+    opts = opts || {};
+    this.root = root; this.vid = vid; this.def = LVID[vid]; this.playing = false; this.crop = !!crop; this.full = !!opts.full;
     this.ex = this.def.example(); this.scenes = this.def.scenes(this.ex);
     var k = this.scenes.length - 1;
     this.scenes.forEach(function (s, i) { if (title && s.title === title) k = i; });
     if (title && this.scenes[k].title !== title) throw new Error("no step \"" + title + "\" in " + vid);
+    if (opts.k != null) k = Math.max(0, Math.min(this.scenes.length - 1, opts.k));
     this.k = k;
     var scr = root.querySelector(".lfscr");
     scr.innerHTML = '<canvas></canvas>';
@@ -8218,7 +8309,38 @@ var PROG = (function () {
     this.ch.locked = true; this.ch.opts.vol = false;
     var self = this;
     this.ch.overlayFn = function (c, b, ch) { self._drawNotes(c, b, ch); };
+    /* A still on the page shows its own step: the marks that step adds and the
+       position, zoomed to the bars they cover. The lesson's earlier labels are
+       what crowd a small picture; the full-screen view keeps them all. */
+    var sc = this.scenes[k], own = (sc && sc.add) || [];
+    if (!this.full && !this.crop && this.scenes.length > 1 && own.length) {
+      var st0 = this.stateAt(k), idx = [], vis0 = Math.min(st0.vis, this.ex.bars.length - 1);
+      own.forEach(function (m) { [m.i, m.i0, m.from, m.a && m.a.i, m.b && m.b.i, m.anc && m.anc.i].forEach(function (x) { if (x != null && isFinite(x) && x <= vis0) idx.push(x); }); });
+      if (st0.pos) idx.push(st0.pos.i);
+      var v0 = (st0.view || this.def.view || [0, this.ex.bars.length - 1])[0];
+      var lo0 = idx.length ? Math.min.apply(null, idx) : v0;
+      var a0 = Math.max(v0, Math.min(lo0 - 12, vis0 - 45));
+      var z1 = (st0.view || this.def.view || [0, this.ex.bars.length - 1])[1];
+      if (!this.crop) {
+        this.fview = [a0, Math.min(z1, vis0 + Math.max(10, Math.round((vis0 - a0) * 0.3)))];
+        this.fpad = 0.5;   /* room on the right for the order and target labels */
+      }
+      /* the signal bar the orders hang from, boxed in an earlier step, stays */
+      var ordI = own.filter(function (m) { return m.t === "order"; }).map(function (m) { return m.i; });
+      /* and the levels drawn earlier (a range edge, a magnet) stay too: they are
+         what the caption talks about; earlier point labels, boxes and bands go */
+      var keep = st0.notes.filter(function (m) { return own.indexOf(m) < 0 && ((m.t === "bar" && ordI.indexOf(m.i) >= 0) || m.t === "hl"); });
+      this.focusNotes = keep.concat(own);
+      var trade = !!st0.pos || own.some(function (m) { return m.t === "order" || m.t === "lvl" || m.t === "mm" || m.t === "hl"; });
+      if (!trade) { this.fpad = 0.12; this.noExtra = true; }
+    }
     this.apply(k, true);
+    if (this.focusNotes) { this.notes = this.focusNotes; this.ch.render(); }
+    if (this.full) return;
+    var fsb = document.createElement("button");
+    fsb.className = "lfsbtn"; fsb.innerHTML = "&#x26F6;"; fsb.title = "Full screen"; fsb.setAttribute("aria-label", "Full screen");
+    fsb.onclick = function (e) { e.stopPropagation(); var fc0 = root.querySelector("figcaption"); lfull(self.vid, self.k, fc0 ? fc0.innerHTML.replace(/<button[\s\S]*$/, "") : ""); };
+    scr.appendChild(fsb);
     var fc = root.querySelector("figcaption");
     if (fc && !fc.querySelector(".lfcopy")) {
       var cb = document.createElement("button");
@@ -8233,12 +8355,15 @@ var PROG = (function () {
   LessonFigure.prototype.pause = function () { };
   LessonFigure.prototype.dispose = function () { this.ch.dead = true; if (this.ch._ro) { try { this.ch._ro.disconnect(); } catch (e) { } } };
 
+  /* label size follows the chart: small on a phone, bigger full screen */
+  function lFont(c) { var w = c.canvas.clientWidth; return (w < 500 ? "700 10px" : w > 1100 ? "700 13px" : "700 11px"); }
   /* a label with a dark plate behind it, readable over candles */
   function lTag(c, txt, x, y, col, align) {
     if (!txt) return;
-    c.font = (c.canvas.clientWidth < 500 ? "700 10px" : "700 11px") + " Archivo,sans-serif"; c.textBaseline = "middle"; c.setLineDash([]);
+    c.font = lFont(c) + " Archivo,sans-serif"; c.textBaseline = "middle"; c.setLineDash([]);
     var w = c.measureText(txt).width, x0 = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
-    c.fillStyle = "rgba(11,14,19,.88)"; c.fillRect(x0 - 4, y - 8, w + 8, 16);
+    var hh = c.canvas.clientWidth > 1100 ? 19 : 16;
+    c.fillStyle = "rgba(11,14,19,.88)"; c.fillRect(x0 - 4, y - hh / 2, w + 8, hh);
     c.fillStyle = col; c.textAlign = "left"; c.fillText(txt, x0, y + 0.5);
   }
 
@@ -8625,7 +8750,7 @@ var PROG = (function () {
           say: "Now the target.",
           ask: { q: "Where is the first place to take profit on a range buy?", o: ["The middle of the range", "A measured move above the range", "Nowhere: trail it"], a: 0,
             why: "Ranges are scalps. The middle is the first magnet: if the market is rejected there, take half off and move the stop on the rest to breakeven. The top of the range is the full target. Holding for a breakout above the range means betting on the one-in-five case." } },
-        { title: "Filled", vis: 171, add: [N.hl((H + L) / 2, 170, "first target: the middle", COL.txt, true), N.hl(H, 52, "full target: the top of the range", COL.up, true, 120)], pos: lpos(g, 171, 175),
+        { title: "Filled", vis: 171, add: [N.hl((H + L) / 2, 170, "first target: the middle", COL.txt, true), N.hl(H, 52, "full target: the top of the range", COL.up, true, 60)], pos: lpos(g, 171, 175),
           say: "The next bar is a huge bull bar that fills both kinds of order and runs to the middle of the range. Watch the middle: take half off only if the market is rejected there." },
         { title: "Target", vis: 186, fast: true, pos: lpos(g, 171, 186),
           say: "The rest goes to the top of the range. In a range: know where you are, do nothing in the middle, buy the bottom and sell the top on signal bars, and take profits at the middle and the other side." }
@@ -9756,7 +9881,11 @@ var PROG = (function () {
     var g = ex.gt, b = ex.bars, r = lr(g), end = win ? g.hitTargetAt : g.hitInvalidAt, mfe = 0, mfeI = g.fillAt;
     for (var i = g.fillAt; i < end; i++) { var f = r(g.dir > 0 ? b[i].h : b[i].l); if (f > mfe) { mfe = f; mfeI = i; } }
     /* a range setup needs the range in view: back to its first edge, within reason */
-    var v0 = g.sigIdx - 50;
+    /* start just before the structure that is marked (at least 25 bars of
+       context), so the bars are wide enough to read in a small picture */
+    var li = (g.labels || []).map(function (L) { return L[0].i; }).filter(function (x) { return x >= g.sigIdx - 110; });
+    var v0 = Math.max(g.sigIdx - 50, Math.min(g.sigIdx - 25, (li.length ? Math.min.apply(null, li) : g.sigIdx - 50) - 6));
+    if (g.trendline && g.trendline.a) v0 = Math.min(v0, g.trendline.a.i - 3);
     if (g.rangeTop != null) (g.labels || []).forEach(function (L) { if (/^range/.test(L[1])) v0 = Math.min(v0, L[0].i - 4); });
     v0 = Math.max(0, g.sigIdx - 110, v0);
     var v1 = Math.min(b.length - 1, end + (win ? 8 : 10));
@@ -9797,6 +9926,14 @@ var PROG = (function () {
             var al = q.i - I.v0 < 8 ? "right" : g.dir < 0 && top && Math.abs(q.i - g.sigIdx) <= 3 ? "left" : null;
             add.push(N.pt(q.i, q.p, L[1].replace(/\s*=\s*target$/, ""), COL.violet, top, al));
           });
+          /* what the target is based on, drawn: a measured move gets its two rulers,
+             a level gets a line from the structure point to the trade */
+          var atEdge = hasR && (Math.abs(g.target - g.rangeTop) < 1e-9 || Math.abs(g.target - g.rangeBot) < 1e-9);
+          var src = (g.labels || []).filter(function (L) { return Math.abs(L[0].p - g.target) < 1e-9 && L[0].i >= I.v0; })[0];
+          if (atEdge) { /* the range's own edge: already drawn */ }
+          else if (src) add.push(N.hl(g.target, src[0].i, "", COL.up, true));     /* a level: the structure point itself */
+          else if (g.measure && g.measure.a && g.measure.b && g.anchor && isFinite(g.mmTarget) && Math.abs(g.target - g.mmTarget) < 1e-6 && g.anchor.i >= I.v0)
+            add.push(N.mm(g.measure.a, g.measure.b, g.anchor, g.target, "", ""));  /* a measured move: its two rulers */
           add.push(N.bar(g.sigIdx, "", COL.amber));
           add.push(N.note(win ? "Target hit: " + lfx(I.T) : "Stopped: −1R" + (I.mfe >= 0.9 ? " (after " + lfx(I.mfe) + ")" : ""), 0, win ? COL.up : COL.dn));
           var pos = lpos(g, g.fillAt, I.end); pos.ra = true;
