@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.64.2 (build 2026-09-29) — Al Brooks price action -->
+<!-- Trade Trainer v3.64.3 (build 2026-09-29) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.64.2 — Cadet to Master</title>
+<title>TRADE TRAINER v3.64.3 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -538,7 +538,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.64.2", build: "2026-09-29", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.64.3", build: "2026-09-29", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -4836,7 +4836,7 @@ KIND.manage = {
       ui: {
         mode: "mcq", options: [
           { k: "all", t: "Take the whole position off" },
-          { k: "partial", t: "Take partial profit, move the stop to breakeven, hold the rest for the measured move" },
+          { k: "partial", t: "Take most of it off; keep a small runner with its stop at breakeven" },
           { k: "hold", t: "Take nothing, hold it all for the measured move" },
           { k: "add", t: "Add to the position" }
         ]
@@ -4856,9 +4856,9 @@ KIND.manage = {
       why = "This is a <b>scalp</b> context — " + g.name.toLowerCase() + ". You are being paid for being quick, not for being right for a long time. " +
             "Take the target. In a trading range the move beyond the first target usually does not come, and holding for it hands back the edge you just earned.";
     } else {
-      why = "This is a <b>swing</b> context — " + g.name.toLowerCase() + ". Take partial profit so the trade cannot hurt you, move the stop to breakeven, and let the rest run to the measured move at " +
-            fmtN(g.mmTarget, ch.dec) + ". " +
-            "Brooks scalps part and swings part precisely because he cannot know in advance which trades become the big ones — this is how you stay in the few that do.";
+      why = "This is a <b>swing</b> context — " + g.name.toLowerCase() + ". The target is where the plan pays: take most of it off here. " +
+            "Brooks often keeps a small part as a runner, with its stop at breakeven and then under each pullback that is over, because he cannot know in advance which trend keeps going. " +
+            "Holding everything for more turns a finished plan into a guess.";
     }
     var lines = [why];
     if (ans === "add") {
@@ -5018,15 +5018,16 @@ KIND.secondEntry = {
 
 /* --- 22. managing a live trade -------------------------------------
    The first drill that grades what you PRESSED rather than what you named.
-   Three Brooks rules decide it:
+   The rules are the ones the Learn tab teaches, measured on this app's own
+   charts:
 
-     · breakeven only after the trade has proven itself — about 1R, structure
-       intact. "A good trade should never reverse the entry bar", but moving the
-       stop up on bar one in chop just donates the trade back.
-     · trail in a TREND, behind the most recent higher low, and you may hold a
-       runner with no target at all.
-     · in a RANGE take the fixed target. Trailing inside two-sided trading gets
-       you shaken out of a trade that was going to reach its objective.
+     · the stop stays where the setup is wrong. Holding the original plan to
+       its target was the best plan on average, trend or range.
+     · breakeven at about 1R only in REVERSALS; in with-trend and range trades
+       it cost almost half the result.
+     · trail only in a TREND, and only once the trade is most of the way to its
+       target (about 75%); earlier trailing gave away more than it saved.
+     · a range is never trailed; it has a fixed target.
 
    Scaling in is graded on planned size, not on whether you did it: pushing the
    open risk past the 1R you planned is the error, adding itself is not. */
@@ -5039,7 +5040,7 @@ KIND.manageLive = {
       q: "Take the trade and then <b>manage it</b>. The controls appear once you are filled — half off, stop to the average, trail, scale in, drop the target, or close.",
       ui: {
         mode: "replay", manage: true,
-        hint: "Breakeven is worth having, but only once the trade has proven itself. Trend or range decides whether you trail or take a fixed target."
+        hint: "The stop stays where the setup is wrong. Breakeven at 1R only in a reversal; trailing only in a trend, once it is most of the way to the target."
       },
       meta: { minRR: sp.minRR || 1.5 }
     };
@@ -5050,31 +5051,43 @@ KIND.manageLive = {
     var g = p.ch.gt, res = ans.result, acts = res.actions || [];
     /* declared by the context, not inferred: a broad channel is family "trend"
        but its own text says take profit at the top rather than hold. */
-    var isTrend = g.exit === "trail";
+    var isTrend = g.exit === "trail", isRev = g.family === "reversal";
+    var tR = Math.abs(g.target - g.entry) / Math.max(1e-9, Math.abs(g.entry - g.invalid));
     var find = function (w) { var o = null; acts.forEach(function (a) { if (a.what === w && !o) o = a; }); return o; };
     var be = find("breakeven"), tr = find("trail"), dt = find("dropTarget"), si = find("scaleIn"), ca = find("closeAll");
     var m = 0.7, notes = [];
 
     if (!acts.length) {
-      m = isTrend ? 0.55 : 1;
-      notes.push(isTrend
-        ? "You held it to the target untouched. Nothing wrong with the trade — but this was a <b>trend</b>, and a trend is where the runner lives. Trailing behind the higher lows, or dropping the target altogether, is what turns the occasional big one into the trade that pays for the month."
-        : "Held to the fixed target and left it alone. In a <b>range</b> that is exactly right — the market was heading for its objective and trailing would only have shaken you out early.");
+      m = 1;
+      notes.push("Held the original plan untouched: the stop where the setup is wrong, the target at the structural objective. On this app's charts that is the best plan on average, in trends and in ranges alike.");
     } else {
       if (be) {
-        if (be.unrealR < 0.9) {
+        if (isRev && be.unrealR >= 0.9) {
+          m = Math.max(m, 0.95);
+          notes.push("Breakeven at <b>" + be.unrealR.toFixed(2) + "R</b> in a <b>reversal</b>: right. A real reversal should not come back to its entry, and if it does the old trend is still in control.");
+        } else if (isRev) {
           m = Math.min(m, 0.35);
-          notes.push("You moved the stop to the average with only <b>" + be.unrealR.toFixed(2) +
-            "R</b> of open profit, on bar " + be.bar + ". Brooks moves to breakeven once the trade has moved about <b>1R</b> and the structure is intact — and not at all early in choppy tape. Before that the trade has proven nothing, and a breakeven stop within reach of an ordinary pullback just hands it back.");
+          notes.push("Breakeven with only <b>" + be.unrealR.toFixed(2) + "R</b> of open profit. In a reversal the stop goes to breakeven once the trade has gone about <b>1R</b>, not before: until then it has proven nothing.");
         } else {
-          m = Math.max(m, 0.9);
-          notes.push("Breakeven at <b>" + be.unrealR.toFixed(2) + "R</b> of open profit — after the trade proved itself, which is the condition. A good trade should not come back through your entry.");
+          m = Math.min(m, 0.5);
+          notes.push("You moved the stop to breakeven in a " + (isTrend ? "with-trend" : "range") + " trade. Here the stop stays where the setup is wrong: most winners come back toward the entry before they reach the target, and on this app's trend trades breakeven at 1R cut the average from about 1.3R to 0.75R. (The one exception: half off and breakeven after a rejection at a magnet on the way.)");
         }
       }
-      if (isTrend && (tr || dt)) { m = Math.max(m, 1); notes.push("Trailing or running it in a trend is the right instinct: this is the context that pays for being held."); }
-      if (!isTrend && tr) {
+      if (tr && !isTrend) {
         m = Math.min(m, 0.45);
-        notes.push("You trailed inside <b>two-sided</b> trading. Brooks uses a fixed target in a range and lets the market reach its objective — a trailing stop in two-sided trading gets hit by the ordinary back-and-forth on the way there.");
+        notes.push("You trailed inside <b>two-sided</b> trading. A range has a fixed target, and a trailing stop there gets hit by the ordinary back-and-forth on the way to it.");
+      } else if (tr) {
+        if (tr.unrealR >= 0.75 * tR) {
+          m = Math.max(m, 0.95);
+          notes.push("You started trailing at <b>" + tr.unrealR.toFixed(2) + "R</b>, in the last quarter of the way to the target (" + tR.toFixed(2) + "R): the right time. From there a deep pullback would cost a trade that is almost done.");
+        } else {
+          m = Math.min(m, 0.5);
+          notes.push("You started trailing at <b>" + tr.unrealR.toFixed(2) + "R</b>, before the trade was three quarters of the way to its target (about " + (0.75 * tR).toFixed(2) + "R). On this app's trend trades, trailing from 1R averaged 0.93R against 1.47R for holding the original stop: early trailing gives away more than it saves.");
+        }
+      }
+      if (dt) {
+        m = Math.min(m, 0.6);
+        notes.push("Dropping the target turns the whole position into a runner. Keep the target: a runner is a <b>small</b> part you keep after the target, with its stop at breakeven.");
       }
       if (!isTrend && !tr && (find("partial") || ca)) { m = Math.max(m, 0.85); notes.push("Taking it off inside the range rather than trailing is the right shape for two-sided trading."); }
       if (si) {
@@ -5104,36 +5117,45 @@ KIND.manageLive = {
   }
 };
 
-/* --- 23. trail it or take the target? ------------------------------ */
+/* --- 23. trail it or take the target? ------------------------------
+   Asked at a moment in the trade, because the answer depends on where the trade
+   is: before it is most of the way to its target the stop stays where the setup
+   is wrong (trend or range); in the last quarter, after a pullback is over, a
+   trend trade moves the stop under that pullback while a range keeps its fixed
+   target. */
 KIND.trailOrTarget = {
   skill: "execution", skill2: "range",
-  right: function (p) { return p.ch.gt.exit; },
+  right: function (p) { return p.meta.right; },
   prepare: function (sp, seed) {
+    var R = Mkt.mkR((seed ^ 0x7a11) >>> 0);
     var ch = Mkt.gen({ seed: seed, ctx: pickPool(sp.pool || POOL.tradeable, seed) });
+    var g = ch.gt, late = R.chance(0.5), isTrend = g.exit === "trail";
+    var tR = Math.abs(g.target - g.entry) / Math.max(1e-9, Math.abs(g.entry - g.invalid));
+    var where = late
+      ? "about " + (0.8 * tR).toFixed(1) + "R in profit, more than three quarters of the way to its " + tR.toFixed(1) + "R target, and a pullback has just ended with a new " + (g.dir > 0 ? "high" : "low")
+      : "about 1R in profit, well short of its " + tR.toFixed(1) + "R target, and a pullback has just ended with a new " + (g.dir > 0 ? "high" : "low");
     return {
-      ch: ch,
-      q: "You are in the trade and it is working. Do you <b>trail</b> the stop behind the move, or hold the <b>fixed target</b> and let it get there?",
+      ch: ch, meta: { late: late, right: late && isTrend ? "trail" : "hold" },
+      q: "You are " + (g.dir > 0 ? "long" : "short") + " this <b>" + g.name + "</b>. The trade is " + where + ". What do you do with the stop?",
       ui: {
         mode: "mcq", options: [
-          { k: "trail", t: "Trail it — follow the higher lows, and consider dropping the target entirely" },
-          { k: "target", t: "Hold the fixed target — let the market reach its objective" }
+          { k: "trail", t: "Move it one tick beyond that pullback's " + (g.dir > 0 ? "low" : "high") },
+          { k: "hold", t: "Leave it where the setup is wrong; the target decides the exit" }
         ]
       }
     };
   },
   grade: function (p, ans) {
-    var g = p.ch.gt, isTrend = g.exit === "trail";
-    var right = g.exit, ok = ans === right;
+    var g = p.ch.gt, isTrend = g.exit === "trail", late = p.meta.late, right = p.meta.right, ok = ans === right;
+    var why;
+    if (!late) why = "Well short of the target the stop stays where the setup is wrong, " + (isTrend ? "even in a trend" : "and in two-sided trading always") +
+      ". Most winning trades pull back hard before they reach their target; on this app's trend trades, trailing from 1R averaged 0.93R against 1.47R for holding the original stop.";
+    else if (isTrend) why = "This one is <b>one-sided</b> and almost done. In the last quarter of the way to the target a deep pullback would cost a trade that has nearly paid, so when a pullback is over (a new extreme beyond where it started), the stop goes one tick beyond it.";
+    else why = "This one is <b>two-sided</b> — a range, or a broad channel, which is a range on a tilt. It has a fixed target and is never trailed: a trailing stop there gets hit by the ordinary back-and-forth on the way to the other side.";
     return {
       score: ok ? 1 : 0, reveal: true,
-      verdict: ok ? "Correct" : (isTrend ? "Trail this one" : "Take the fixed target"),
-      lines: [
-        "<b>" + g.name + "</b>. " + g.brooks,
-        isTrend
-          ? "This one is <b>one-sided</b>. Brooks trails the protective stop behind the most recent higher low as the move extends, and a trend is the one place where holding a runner with no target at all makes sense — you cannot know in advance which move keeps going, so you stop guessing and let the trail decide."
-          : "This one is <b>two-sided</b> — which a channel can be as much as a range is; a broad channel is a trading range on a tilt. Brooks uses a <b>fixed target</b> here and lets the market reach its objective rather than trailing. A trailing stop inside two-sided trading gets hit by the ordinary back-and-forth long before price gets to the other side, so you take the loss of a trade that was going to work.",
-        "The stop, as always, started in the same place either way. What changes with context is where you get out, never where you were wrong."
-      ]
+      verdict: ok ? "Correct" : (right === "trail" ? "Trail this one" : "Leave the stop"),
+      lines: ["<b>" + g.name + "</b>. " + g.brooks, why, "The stop always started in the same place, where the setup is wrong. What changes is only when it may follow the market."]
     };
   }
 };
@@ -6775,11 +6797,23 @@ var PROG = (function () {
         }
         /* trail before testing the stop, so it can only ever help, never
            reach back and stop you on a bar it was not on */
-        if (pos.trail > 0 && posOpen(pos) > 0) {
-          var lo = Infinity, hi = -Infinity;
-          for (var q = Math.max(0, i - pos.trail); q <= i - 1; q++) { lo = Math.min(lo, bars[q].l); hi = Math.max(hi, bars[q].h); }
-          if (d > 0 && isFinite(lo)) pos.stop = Math.max(pos.stop, lo - ch.atr * 0.05);
-          else if (d < 0 && isFinite(hi)) pos.stop = Math.min(pos.stop, hi + ch.atr * 0.05);
+        /* the trail follows Brooks' rule: when a pullback is over (a bar goes
+           beyond the extreme it started from), the stop goes just beyond that
+           pullback's extreme. Read off the bar that just closed. */
+        if (pos.trail > 0 && posOpen(pos) > 0 && i >= 1) {
+          var tb = bars[i - 1], tx = d > 0 ? tb.h : tb.l, tl = d > 0 ? tb.l : tb.h, tp = i >= 2 ? bars[i - 2] : null;
+          if (pos.tH == null) { pos.tH = tx; pos.tPb = false; pos.tPl = null; }
+          else {
+            if ((tx - pos.tH) * d <= 0 || (tp && (tl - (d > 0 ? tp.l : tp.h)) * d < 0)) pos.tPb = true;
+            if (pos.tPl == null || (tl - pos.tPl) * d < 0) pos.tPl = tl;
+            if ((tx - pos.tH) * d > 0) {
+              if (pos.tPb && pos.tPl != null) {
+                var ns = pos.tPl - d * ch.atr * 0.05;
+                pos.stop = d > 0 ? Math.max(pos.stop, ns) : Math.min(pos.stop, ns);
+              }
+              pos.tH = tx; pos.tPb = false; pos.tPl = null;
+            }
+          }
         }
         var openR = openRiskR(); if (openR > maxOpenR) maxOpenR = openR;
         var hitS = d > 0 ? b.l <= pos.stop : b.h >= pos.stop;
@@ -7323,13 +7357,13 @@ var PROG = (function () {
       'down with the reason; press it at 1R and you will not.</p>' +
 
       '<h3>Trail, or hold a target?</h3>' +
-      '<p>Context decides, and the two answers are opposite.</p>' +
-      '<li><b>Trend</b> — trail the stop behind the most recent higher low as the move extends. A trend is the one ' +
-      'place where holding a <b>runner with no target at all</b> makes sense: you cannot know in advance which move ' +
-      'keeps going, so you stop guessing and let the trail decide.</li>' +
+      '<p>Hold the target, and let the stop start to follow the market only late, and only in a trend.</p>' +
+      '<li><b>Trend</b> — the stop stays where the setup is wrong until the trade is most of the way to its target ' +
+      '(about 75%). From there, each time a pullback is over, it moves just beyond that pullback. Measured on this ' +
+      'app\'s trend trades: holding the original stop averaged 1.47R, trailing from 1R 0.93R. A small <b>runner</b> ' +
+      'kept after the target, with its stop at breakeven, is where trailing belongs.</li>' +
       '<li><b>Range</b> — hold the <b>fixed target</b> and let the market reach its objective. A trailing stop inside ' +
-      'two-sided trading gets hit by the ordinary back-and-forth long before price gets to the other side, so you take a loss ' +
-      'on a trade that was going to work.</li>' +
+      'two-sided trading gets hit by the ordinary back-and-forth long before price gets to the other side.</li>' +
       '<p>The stop still starts in the same place either way. What context changes is where you get out — never ' +
       'where you were wrong.</p>' +
 
@@ -7355,7 +7389,7 @@ var PROG = (function () {
       '<li><b>Stop to average</b> — move the stop to your <b>average</b> entry. On a single-leg trade that is ' +
       'breakeven; on a scaled position it is the average, which is the only price that means breakeven once you have ' +
       'more than one fill.</li>' +
-      '<li><b>Trail</b> — the stop follows behind the recent bars and never moves backwards.</li>' +
+      '<li><b>Trail</b> — from now on, each time a pullback is over (the market goes beyond the extreme it started from), the stop moves just beyond that pullback. It never moves backwards. Use it in a trend, once the trade is most of the way to its target.</li>' +
       '<li><b>Scale in</b> — arm a second leg a little beyond price. Watch the <b>at risk now</b> figure when it ' +
       'fills: at the same stop, a second leg puts more than 1R at stake. That is why the total has to be planned ' +
       'before the first entry.</li>' +
