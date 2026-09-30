@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.70.0 (build 2026-09-30) — Al Brooks price action -->
+<!-- Trade Trainer v3.71.0 (build 2026-09-30) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.70.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.71.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -504,6 +504,8 @@
   .bdpb .btn{padding:4px 7px;font-size:12px}
   .bdpb .bdpdel{margin-left:auto}
   .bdnone{font-size:13px;margin:0}
+  .bdchk{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer}
+  .bdchk input{accent-color:var(--amber)}
 </style>
 </head>
 <body>
@@ -605,7 +607,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.70.0", build: "2026-09-30", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.71.0", build: "2026-09-30", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -9279,6 +9281,71 @@ var PROG = (function () {
     }
   };
 
+  /* ---------- trend lines and channel lines ----------
+     On the market-cycle chart (US500 5m): a first trend line the trend
+     outruns, the steeper line from the next higher low, the channel line
+     parallel through the high between, the break, the range, and the test of
+     the high that gives the major trend reversal sell. lchan() finds every
+     bar the story names; the check pins them. */
+  function lchan(ex) {
+    var b = ex.bars, t = Math.pow(10, -ex.dec);
+    var L1 = { i: 41, p: b[41].l }, L2 = { i: 57, p: b[57].l }, L3 = { i: 85, p: b[85].l }, top = hi(ex, 57, 85);
+    var s = (L3.p - L2.p) / (L3.i - L2.i), at = function (i) { return L2.p + s * (i - L2.i); }, off = top.p - at(top.i);
+    var brk = -1; for (var i = L3.i + 1; i < b.length && brk < 0; i++) if (b[i].c < at(i)) brk = i;
+    var rd = function (x) { return Math.round(x / t) * t; };
+    var test = hi(ex, 125, 145), sig = test.i + 1, entry = rd(b[sig].l - t), stop = rd(test.p + t), R = stop - entry, target = rd(entry - 2 * R);
+    var fill = -1, hitT = -1, hitS = -1;
+    for (var j = sig + 1; j < b.length && hitT < 0 && hitS < 0; j++) {
+      if (fill < 0) { if (j <= sig + 3 && b[j].l <= entry) fill = j; else if (j > sig + 3) break; }
+      if (fill >= 0) { if (b[j].h >= stop) hitS = j; else if (b[j].l <= target) hitT = j; }
+    }
+    return { L1: L1, L2: L2, L3: L3, top: top, s: s, at: at, off: off, brk: brk, test: test, sig: sig, entry: entry, stop: stop, R: R, target: target, fill: fill, hitT: hitT, hitS: hitS,
+      par: function (i) { return { i: i, p: at(i) + off }; }, line: function (i) { return { i: i, p: at(i) }; } };
+  }
+  function lswingLow(b, i) { for (var j = i - 3; j <= i + 3; j++) if (j !== i && b[j].l <= b[i].l) return false; return true; }
+  function lswingHigh(b, i) { for (var j = i - 3; j <= i + 3; j++) if (j !== i && b[j].h >= b[i].h) return false; return true; }
+  LVID.lines = {
+    title: "Trend lines and channel lines",
+    example: function () { return LVID.cycle.example(); },
+    check: function (ex) {
+      var b = ex.bars, C = lchan(ex), s1 = (C.L2.p - C.L1.p) / (C.L2.i - C.L1.i), away = 0;
+      for (var i = 66; i <= 79; i++) if (b[i].l > C.L1.p + s1 * (i - C.L1.i) + 10) away++;
+      var inside = true; for (var k = C.L2.i; k <= C.L3.i; k++) if (b[k].l < C.at(k) - 1e-9 || b[k].h > C.at(k) + C.off + 1e-9) inside = false;
+      var sb = b[C.sig];
+      return lswingLow(b, 41) && lswingLow(b, 57) && lswingLow(b, 85) && lswingHigh(b, C.top.i) && C.top.i === 79 && C.L1.p < C.L2.p && C.L2.p < C.L3.p && s1 < C.s && away >= 10 && inside &&
+        C.brk === 93 && C.test.i === 141 && C.test.p > C.top.p && C.test.p - C.top.p < 0.25 * C.R && sb.c < sb.o && (sb.c - sb.l) < 0.2 * (sb.h - sb.l) &&
+        C.fill === C.sig + 1 && C.hitT > 0 && C.hitS < 0 && lo(ex, 92, 123).p > lo(ex, 30, 60).p;
+    },
+    extraPrices: function (ex) { var C = lchan(ex); return [C.target, C.stop]; },
+    scenes: function (ex) {
+      var b = ex.bars, C = lchan(ex), fp = lfp(ex), r0 = lo(ex, 92, 123), r1 = hi(ex, 92, 123);
+      /* each line ends at a bar already on screen and is extended from there */
+      var tl = N.seg(C.L2, C.L3, "bull trend line", COL.blue, false, 100), cl = N.seg(C.par(C.L2.i), C.par(C.L3.i), "channel line", COL.blue, true, 100);
+      var P = function (i2) { return { i: C.fill, i2: i2, dir: -1, entry: C.entry, stop: C.stop, target: C.target, tl: "2R" }; };
+      return [
+        { title: "Higher lows", vis: 60, view: [20, 170], add: [N.pt(C.L1.i, C.L1.p, "higher low", COL.violet), N.pt(C.L2.i, C.L2.p, "higher low", COL.violet)],
+          say: "US500 on the 5 minute chart, the same chart as the market cycle. After the spike up, the bull trend pulls back twice, and each pullback ends at a higher low. Two swing lows are all you need to draw a trend line." },
+        { title: "The first trend line", vis: 76, add: [N.seg(C.L1, C.L2, "trend line", COL.blue, false, 76)],
+          say: "Connect the two lows and extend the line to the right: that is a bull trend line. In a bull trend it is support: a pullback that comes back to it, usually near the EMA too, is where the bulls buy. But look what happens here. The trend speeds up and leaves its line far behind: the bulls do not even wait for a pullback. When a trend outruns its line, traders draw a new, steeper one from the next higher low." },
+        { title: "A steeper line", vis: 88, clear: true, add: [N.pt(C.L2.i, C.L2.p, "higher low", COL.violet), N.pt(C.L3.i, C.L3.p, "higher low", COL.violet), tl],
+          say: "The pullback after the high gives that next higher low. The line through it and the low before fits the recent bars: this is the trend line that matters now. Trend lines are not fixed; you redraw them as the trend makes new swings, and the most recent, steepest one is the one that breaks first." },
+        { title: "The channel line", vis: 88, add: [N.pt(C.top.i, C.top.p, "trend high", COL.violet, true), cl],
+          say: "Now draw a line parallel to the trend line through the high between the two lows: the trend channel line. The two lines make the channel. In a bull channel traders buy near the trend line and take profits near the channel line. In a strong trend the market can run past the channel line, an overshoot; when it overshoots and quickly reverses back into the channel, that is often a climax that ends the leg. A wedge is a channel whose lines come together, and its third push usually overshoots." },
+        { title: "The break", vis: C.brk, add: [N.bar(C.brk, "closes below the trend line", COL.dn, true)],
+          say: "Here a bar closes below the bull trend line, the first close below it since the line was drawn. The bulls are no longer strong enough to hold their line.",
+          ask: { q: "The bull trend line is broken. Do you sell now?", o: ["Yes: the trend is over", "No: a break is only the first step; wait for the test of the high"], a: 1,
+            why: "A trend line break is the first sign a trend may be ending, not a sell. Most breaks lead to a pullback or a trading range, and then the market tests the high. The sell comes at a test that fails, not at the break." } },
+        { title: "Sideways", vis: 123, add: [N.box(92, 123, r0.p, r1.p, "trading range", COL.txt, "below")],
+          say: "And that is what happens: the market goes sideways and the EMA flattens. The channel has become a trading range, and its lines are now horizontal: the range's high and low. Buy low, sell high, and wait." },
+        { title: "The test of the high", vis: C.sig, clear: true, add: [tl, N.hl(C.top.p, C.top.i, "trend high", COL.txt, true, C.top.i + 3), N.pt(C.test.i, C.test.p, "test: a higher high", COL.dn, true, "left"), N.bar(C.sig, "bear signal bar", COL.amber, true)].concat([
+            N.order(C.sig, C.entry, "sell stop " + fp(C.entry), COL.dn, 5, C.sig + 1), N.order(C.sig, C.stop, "stop " + fp(C.stop), COL.dn, 5, C.sig + 1), N.order(C.sig, C.target, "target " + fp(C.target) + " (2R)", COL.up, 5, C.sig + 1)]),
+          say: "Then the bulls rally back to the old trend high and go just above it, by " + fp(C.test.p - C.top.p) + " points, and the next bar is a bear bar closing on its low. A trend line break, then a test of the high that fails: that is the major trend reversal, here the higher high version. Sell stop one tick below the signal bar, the stop one tick above the new high, and a target of at least twice the risk, the minimum for a reversal." },
+        { title: "The result", vis: C.hitT, fast: true, pos: P(C.hitT),
+          say: "Filled on the next bar, and " + (C.hitT - C.fill) + " bars later the target fills: plus 2 R. The market kept falling to the bottom of the trading range. In a bear trend everything is the same upside down: the trend line runs along the lower highs, the channel line along the lows, and the buy comes after the break of the bear trend line, at a test of the low." }
+      ];
+    }
+  };
+
   LVID.where = {
     title: "Where are we? The same bar in different places",
     example: LVID.fbo.example,
@@ -10297,6 +10364,7 @@ var PROG = (function () {
           ["what to trade first, and the whole plan", lgo("starter", "What to start with")],
           ["what to do on the bar that just closed", lgo("routine", "The every-bar routine") + ", " + lgo("tree", "The decision tree")],
           ["which phase the market is in", lgo("cycle", "The market cycle") + ", " + lgo("alwaysin", "Always-in")],
+          ["how to draw trend lines and channels, and what they tell you", lgo("lines", "Trend lines and channels")],
           ["how to trade a pullback in a trend", lgo("count", "Pullbacks: H1, H2, L1, L2")],
           ["how to trade a range", lgo("range", "Trading ranges") + ", " + lgo("fbo", "Failed breakouts")],
           ["when not to trade", lgo("nothing", "When to do nothing")],
@@ -10483,7 +10551,7 @@ var PROG = (function () {
           "<b>The top, middle and bottom of a trading range.</b>",
           "<b>Measured-move targets:</b> leg 1 = leg 2, the spike's height, the range's height.",
           "<b>Today's open, yesterday's high and low</b>, especially on the indices.",
-          "<b>Trend lines and channel lines.</b>"]) +
+          "<b>Trend lines and channel lines:</b> see " + lgo("lines", "Trend lines and channels") + "."]) +
         lh("Thirds") +
         lp("Split any trading range into thirds. Buy only in the <b>bottom third</b>, sell only in the <b>top third</b>, and do nothing in the <b>middle</b>. In a trend, buy pullbacks to the EMA or to a prior breakout point — don't buy after five or ten bars up, far from the EMA.") +
         ltable(["The same strong bull signal bar…", "Most likely", "Decision"], [
@@ -10500,6 +10568,39 @@ var PROG = (function () {
       { q: "Price is in the middle third of a range. What do you do?", o: ["Wait", "Buy", "Sell"], a: 0, why: "The middle has no edge: the reward is small either way and the stop is wide." }
     ],
     practise: [{ label: "Drill: where are we in the range?", go: "node", node: "t4a" }, { label: "Drill: trade it or leave it", go: "node", node: "t4b" }]
+  });
+
+  lch({ id: "lines", part: "Foundations", title: "Trend lines and channels", video: "lines",
+    sub: "Two lines tell you where the trend is, where it is stretched, and when it may be ending.",
+    body: function () {
+      return lp("Besides the EMA, Brooks draws only lines on his charts: trend lines and channel lines. They show where a trend's pullbacks should hold, where its moves tend to stop, and the first sign that it is ending.") +
+        lvideo("lines") +
+        lh("How to draw them") +
+        lul(["<b>Trend line:</b> in a bull trend, a line through two swing lows, the second higher than the first, extended to the right. In a bear trend, through two swing highs, the second lower.",
+          "<b>Channel line</b> (trend channel line): a line parallel to the trend line through the swing high between those two lows (in a bear trend, the swing low between the two highs). The two lines are the channel.",
+          "In cTrader: the <i>Trend line</i> tool, click the first swing, then the second. The <i>Equidistant channel</i> tool draws both lines at once: click the two swings, then the high (or low) between them.",
+          "<b>Redraw</b> as the trend makes new swings. When the trend runs away from its line, draw a steeper one from the latest higher low; the most recent line is the one that matters, and the steepest breaks first."]) +
+        lh("What they tell you") +
+        ltable(["What you see", "What it means", "What you do"], [
+          ["A pullback to the trend line, near the EMA", "The trend is intact: this is where the with-trend traders buy", "Look for a with-trend signal bar: the " + lgo("count", "High 1 or High 2") + " (Low 1 or Low 2 in a bear trend)"],
+          ["The market reaches the channel line", "The far side of the channel", "Take profits there; don't buy up there"],
+          ["It runs past the channel line and reverses back in", "An overshoot: often a " + lgo("climax", "climax") + " that ends the leg", "No new with-trend entries; expect a pullback, often in two legs"],
+          ["The lines come together over three pushes", "A " + lgo("wedge", "wedge"), "A reversal setup at the third push"],
+          ["A bar closes beyond the trend line", "The first sign the trend may be ending", "Not a trade: wait for the test of the extreme"],
+          ["The test of the extreme fails (a lower high, or a higher high that reverses)", "A " + lgo("mtr", "major trend reversal"), "Enter on the signal bar at the test, target at least 2R"],
+          ["The lines are flat", "A " + lgo("range", "trading range"), "Buy low, sell high, and do nothing in the middle"]
+        ]) +
+        lwarn("A trend line break is not a reversal. Most breaks turn into a pullback or a trading range, and the trend is tested before anything reverses. Selling the break itself, in a bull trend, is selling into the with-trend traders' buy zone.") +
+        lh("In this app") +
+        lul(["The reversal setups draw their lines: the " + lgo("mtr", "major trend reversal") + " its broken trend line, the " + lgo("wedge", "wedge") + " the line along its pushes.",
+          "The " + lgo("board", "Drawing board") + " draws the trend line and the channel line of the bars you draw, and says when a bar breaks the trend line or overshoots the channel line."]);
+    },
+    quiz: [
+      { q: "How do you draw a bull trend line?", o: ["Through two swing highs", "Through two swing lows, the second higher", "Along the EMA"], a: 1, why: "A bull trend line runs along the higher lows. The channel line runs parallel to it through the high between them." },
+      { q: "A bar closes below the bull trend line. What now?", o: ["Sell: the trend is over", "Wait for the test of the high; the sell comes if the test fails", "Buy more"], a: 1, why: "A break is the first step of a reversal, not the reversal. Most breaks lead to a pullback or a range, then a test of the high." },
+      { q: "The market runs far past the channel line, then a strong bar closes back inside. What is it most likely?", o: ["The start of a stronger trend", "An overshoot and a climax: take profits, no new buys", "Nothing"], a: 1, why: "An overshoot of the channel line that reverses back in often ends the leg. The next move is usually a pullback, often in two legs." }
+    ],
+    practise: [{ label: "Drawing board: draw a channel", go: "learn-board" }, { label: "Desk with the Coach", go: "desk-coach" }]
   });
 
   /* ================= PART 2: THE ROUTINE ================= */
@@ -11493,7 +11594,8 @@ var PROG = (function () {
         ["Trading range", "A sideways market with no always-in direction; buy low, sell high, scalp."],
         ["Trapped traders", "Traders caught on the wrong side, whose exits push price further."],
         ["Trend bar", "A bar whose body is most of its range, closing near its extreme."],
-        ["Trend line", "A line along the lows of a bull trend (the highs of a bear trend). Its break is step one of a reversal."],
+        ["Trend channel line", "A line parallel to the trend line through the swing between its two points: the far side of the channel. Profits are taken there; an overshoot of it that reverses is often a climax."],
+        ["Trend line", "A line along the lows of a bull trend (the highs of a bear trend). Pullbacks to it are with-trend buys; its break is step one of a reversal, not a reversal."],
         ["Wedge", "Three pushes in one direction, each barely further than the last: exhaustion."]
       ];
       return '<dl class="lgloss">' + G.map(function (g) { return '<dt>' + g[0] + '</dt><dd>' + g[1] + '</dd>'; }).join("") + '</dl>';
@@ -11937,9 +12039,48 @@ var PROG = (function () {
     });
   }
 
+  /** Brooks' lines on the drawn bars. The trend is the last big move in the
+      last 80 bars: up from the lowest low to the highest high after it (a bull
+      trend), or down from the highest high to the lowest low after it (a bear
+      trend), whichever came last. The trend line starts at that low (high)
+      and runs through the swing low (high) before the trend's extreme that
+      keeps every other swing on its right side: the major trend line. The
+      channel line is parallel to it through the bar between its two points
+      furthest from it. brk: the first close beyond the trend line after its
+      second point; over: the first bar beyond the channel line; back: the
+      first close back inside after that. Swings are bars with 3 lower lows
+      (higher highs) on each side. */
+  function bdChannel(bars) {
+    var n = bars.length; if (n < 20) return null;
+    var w0 = Math.max(0, n - 80), lo = w0, hi = w0, i, j;
+    for (i = w0; i < n; i++) { if (bars[i].l < bars[lo].l) lo = i; if (bars[i].h > bars[hi].h) hi = i; }
+    var dir = hi > lo ? 1 : -1, s0 = dir > 0 ? lo : hi, top = dir > 0 ? hi : lo;
+    var A = bdAvgRange(bars, w0, n - 1), px = function (k) { return dir > 0 ? bars[k].l : bars[k].h; }, far = function (k) { return dir > 0 ? bars[k].h : bars[k].l; };
+    var move = (far(top) - px(s0)) * dir;
+    if (top - s0 < 10 || move < 5 * A) return { dir: 0 };
+    var a = { i: s0, p: px(s0) }, b = null, bs = 0;
+    for (i = s0 + 4; i < top; i++) {
+      if (i < 3 || i > n - 4) continue;
+      var sw = true;
+      for (j = i - 3; j <= i + 3; j++) if (j !== i && (px(j) - px(i)) * dir <= 0) sw = false;
+      if (!sw) continue;
+      var sl = (px(i) - a.p) / (i - a.i);
+      if (!b || sl * dir < bs * dir) { b = { i: i, p: px(i) }; bs = sl; }
+    }
+    if (!b || (b.p - a.p) * dir < 1.5 * A) return { dir: 0 };
+    var at = function (k) { return a.p + bs * (k - a.i); }, c = null;
+    for (i = a.i + 1; i < b.i; i++) if (!c || (far(i) - at(i)) * dir > (c.p - at(c.i)) * dir) c = { i: i, p: far(i) };
+    if (!c) return { dir: 0 };
+    var off = c.p - at(c.i), brk = -1, over = -1, back = -1;
+    for (i = b.i + 1; i < n && brk < 0; i++) if ((bars[i].c - at(i)) * dir < 0) brk = i;
+    for (i = c.i + 1; i < n && over < 0; i++) if ((far(i) - at(i) - off) * dir > 0) over = i;
+    if (over >= 0) for (i = over + 1; i < n && back < 0; i++) if ((bars[i].c - at(i) - off) * dir < 0) back = i;
+    return { dir: dir, a: a, b: b, c: c, s: bs, off: off, at: at, brk: brk, over: over, back: back, top: top };
+  }
+
   function mountBoard(el) {
     var S = { whyAll: false, sym: "EURUSD", tf: 15, bars: [], undo: [], mode: "leg", style: "normal", ctype: "trend", sel: -1, pick: -1, range: null,
-      show: -1, found: [], hover: null, p0: null, pieces: [] };
+      show: -1, found: [], hover: null, p0: null, pieces: [], lines: true, chan: null };
     var LS = function (k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(k) || "null"); localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return v === undefined ? null : false; } };
     var sv = LS("tt_board2");
     if (sv && sv.bars) { S.sym = sv.sym || S.sym; S.tf = sv.tf || S.tf; S.bars = sv.bars; S.p0 = sv.p0 != null ? sv.p0 : null; }
@@ -11968,6 +12109,7 @@ var PROG = (function () {
         '<span class="bdopt" data-for="leg">Style <select data-b="style"><option value="strong">Strong</option><option value="normal" selected>Normal</option><option value="two">Two-sided</option></select></span>' +
         '<span class="bdopt" data-for="candle" style="display:none">Candle <select data-b="ctype"><option value="trend">Trend bar</option><option value="reversal">Reversal bar (tail)</option><option value="small">Small bar</option><option value="doji">Doji</option></select></span>' +
         '<button class="btn sm" data-b="undo">&#8630; Undo</button>' +
+        '<label class="bdchk"><input type="checkbox" data-b="lines" checked> Trend lines</label>' +
       '</div>' +
       '<div class="bdhint mu"></div>' +
       '<div class="bdchart"><canvas></canvas><button class="lfsbtn" data-b="fs" title="Full screen" aria-label="Full screen">&#x26F6;</button></div>' +
@@ -12021,6 +12163,7 @@ var PROG = (function () {
     var noop = function () { };
     function redraw(keepView) {
       stamp();
+      S.chan = bdChannel(S.bars);
       var empty = !S.bars.length, p = S.p0 != null ? S.p0 : mk().p;
       ch.bars = empty ? [{ o: p, h: p, l: p, c: p, t: Date.UTC(2026, 0, 5, 7, 0) }] : S.bars;
       ch._candles = empty ? noop : Chart.prototype._candles; ch._emas = empty ? noop : Chart.prototype._emas;
@@ -12208,14 +12351,27 @@ var PROG = (function () {
         }).join("") + '</div>' +
         '<button class="btn sm" data-b="whyall">' + (S.whyAll ? "Show the closest four" : "Show all 22") + '</button>';
     }
+    /** the lines, in words */
+    function linesHtml() {
+      var C = S.chan, fp = function (p) { return (+p).toFixed(mk().dec); };
+      if (!S.lines || !C) return "";
+      if (!C.dir) return '<h3>Trend lines</h3><p class="mu">None drawn: the last swings are not higher lows with higher highs (a bull trend) or lower highs with lower lows (a bear trend). Sideways, or turning: the lines that matter are the highs and lows of the range.</p>';
+      var bull = C.dir > 0, L = [];
+      L.push((bull ? "The bull trend line runs from the low at bar " : "The bear trend line runs from the high at bar ") + C.a.i + ", where the trend started, through the swing " + (bull ? "low" : "high") + " at bar " + C.b.i +
+        ", and the channel line parallel to it through the " + (bull ? "high" : "low") + " at bar " + C.c.i + ".");
+      if (C.brk >= 0) L.push("Bar " + C.brk + " closed " + (bull ? "below" : "above") + " the trend line: the first sign the " + (bull ? "bull" : "bear") + " trend may be ending. Not a " + (bull ? "sell" : "buy") + " by itself: most breaks turn into a deeper pullback or a range. If the market then " + (bull ? "holds a higher low and makes a new high" : "holds a lower high and makes a new low") + ", the trend goes on; if it tests the " + (bull ? "high" : "low") + " and fails, that is the " + (bull ? "sell" : "buy") + " of a major trend reversal.");
+      else L.push("No close beyond the trend line yet: the trend is intact. " + (bull ? "Pullbacks to the trend line, near the EMA, are where the bulls buy; the channel line is where they take profits." : "Rallies to the trend line, near the EMA, are where the bears sell; the channel line is where they take profits."));
+      if (C.over >= 0) L.push("Bar " + C.over + " went " + (bull ? "above" : "below") + " the channel line: an overshoot" + (C.back >= 0 ? ", and bar " + C.back + " closed back inside the channel. An overshoot that reverses often ends the leg (a climax): no new " + (bull ? "buys" : "sells") + " up there; expect a pullback, often in two legs." : ". Strong, but stretched: take profits out there rather than add."));
+      return '<h3>Trend lines</h3><p>' + L.join(" ") + ' <span class="mu">Lines are redrawn from the latest swings as you draw.</span></p>';
+    }
     function paintRes() {
       var box = q(".bdres"), d = mk().dec, fp = function (p) { return (+p).toFixed(d); };
-      if (S.bars.length <= 60) { box.innerHTML = '<h3>What the app sees</h3><p class="mu">Nothing yet: the reader needs 60 bars before it can see a setup (the EMA and the structure need them), the way the Desk Coach does. Draw the lead-up first, or add a starter piece.</p>'; return; }
+      if (S.bars.length <= 60) { box.innerHTML = linesHtml() + '<h3>What the app sees</h3><p class="mu">Nothing yet: the reader needs 60 bars before it can see a setup (the EMA and the structure need them), the way the Desk Coach does. Draw the lead-up first, or add a starter piece.</p>'; return; }
       if (!S.found.length) {
-        box.innerHTML = whyHtml() + '<h3>What the app sees</h3><p>No setup on these bars. The reader looks for the eleven setups of this tab, each with its own structure: two legs back to the EMA in a trend, a clear range with a second attempt at its edge, a wedge of three pushes, a trend line break and a test, and so on. If you drew one, the list above says which rule it missed.</p>';
+        box.innerHTML = linesHtml() + whyHtml() + '<h3>What the app sees</h3><p>No setup on these bars. The reader looks for the eleven setups of this tab, each with its own structure: two legs back to the EMA in a trend, a clear range with a second attempt at its edge, a wedge of three pushes, a trend line break and a test, and so on. If you drew one, the list above says which rule it missed.</p>';
         wireWhy(box); return;
       }
-      box.innerHTML = '<h3>What the app sees: ' + S.found.length + ' setup' + (S.found.length > 1 ? "s" : "") + '</h3>' +
+      box.innerHTML = linesHtml() + '<h3>What the app sees: ' + S.found.length + ' setup' + (S.found.length > 1 ? "s" : "") + '</h3>' +
         '<p class="mu">Read bar by bar, each from the bars up to it, like the Desk Coach. Tap a row to draw it on the chart.</p>' +
         '<div class="ltw"><table class="ltable bdtab"><tr><th>#</th><th>Bar</th><th>Setup</th><th>Entry</th><th>Stop</th><th>Target</th><th>Reward</th><th>Odds</th><th>On your bars</th></tr>' +
         S.found.map(function (f, k) {
@@ -12259,6 +12415,27 @@ var PROG = (function () {
         c.strokeStyle = COL.amber; c.lineWidth = 1.2; c.setLineDash([4, 3]);
         c.beginPath(); c.moveTo(xa, b.t); c.lineTo(xa, b.t + b.h); c.moveTo(xz, b.t); c.lineTo(xz, b.t + b.h); c.stroke(); c.setLineDash([]);
         if (S.range) lTag(c, "piece: " + (R.z - R.a + 1) + " bars", (xa + xz) / 2, b.t + 14, COL.amber, "center");
+      }
+      /* the trend line and the channel line of the drawn bars (not while a
+         found trade shows its own structure) */
+      var C = S.chan;
+      if (S.lines && C && C.dir && !S.found[S.show]) {
+        var xEnd = Math.min(chart.i1, S.bars.length + 3), ln = function (off, dash, txt) {
+          c.strokeStyle = COL.blue; c.lineWidth = 1.5; c.setLineDash(dash ? [6, 4] : []);
+          c.beginPath(); c.moveTo(chart.x(C.a.i), chart.y(C.at(C.a.i) + off)); c.lineTo(chart.x(xEnd), chart.y(C.at(xEnd) + off)); c.stroke(); c.setLineDash([]);
+          var li = Math.round((C.a.i + C.b.i) / 2);
+          lTag(c, txt, chart.x(li), chart.y(C.at(li) + off) + (((off === 0) === (C.dir > 0)) ? 14 : -12), COL.blue, "center");
+        };
+        ln(0, false, C.dir > 0 ? "bull trend line" : "bear trend line"); ln(C.off, true, "channel line");
+        /* a ring on the bar: below it (low) or above it (high) */
+        var mark = function (k, txt, col, low) {
+          var bk = S.bars[k]; if (k < 0 || !bk) return;
+          var x = chart.x(k), y = chart.y(low ? bk.l : bk.h);
+          c.strokeStyle = col; c.lineWidth = 1.6; c.beginPath(); c.arc(x, y, 7, 0, 6.284); c.stroke();
+          lTag(c, txt, x, y + (low ? 18 : -14), col, "center");
+        };
+        mark(C.brk, "break", COL.dn, C.dir > 0);
+        mark(C.over, "overshoot", COL.amber, C.dir < 0);
       }
       /* the numbered setups the reader found */
       S.found.forEach(function (f, k) {
@@ -12336,6 +12513,7 @@ var PROG = (function () {
       };
     });
     q('[data-b="style"]').onchange = function () { S.style = this.value; hint(); };
+    q('[data-b="lines"]').onchange = function () { S.lines = this.checked; paintRes(); ch.render(); };
     q('[data-b="ctype"]').onchange = function () { S.ctype = this.value; };
     q('[data-b="sym"]').onchange = function () {
       S.sym = this.value;
@@ -12392,7 +12570,7 @@ var PROG = (function () {
       whyNot: function (v) { return bdWhyNot(S.bars, mk().dec, v == null ? S.bars.length - 1 : v); },
       importText: function (t) { var b = bdParse(t); if (b.length) { S.bars = b; changed(); } return b.length; },
       savePiece: savePiece, addPiece: function (id, mirror) { addPiece(pieceById(id), mirror); }, openPiece: openPiece,
-      deleteRange: delRange, importPieces: importPieces
+      deleteRange: delRange, importPieces: importPieces, channel: function () { return S.chan; }
     };
     redraw(); analyse(); hint(); paintLib();
     new ResizeObserver(function () { ch._fitCanvas(); ch.render(); }).observe(q(".bdchart"));
@@ -12432,7 +12610,7 @@ var PROG = (function () {
   (function () {
     var ORDER = [
       ["Getting started", ["start", "starter"]],
-      ["Reading the chart", ["bars", "ema", "cycle", "alwaysin", "where"]],
+      ["Reading the chart", ["bars", "ema", "cycle", "alwaysin", "where", "lines"]],
       ["The routine", ["routine", "tree"]],
       ["Setups: with the trend", ["count", "spike", "tight", "broad", "breakout"]],
       ["Setups: trading ranges", ["range", "fbo", "nothing"]],
@@ -12513,7 +12691,7 @@ var PROG = (function () {
     var out = [page.querySelector("h2").textContent];
     var sub = page.querySelector(".lsub"); if (sub) out.push(sub.textContent);
     [].forEach.call(page.querySelectorAll(".lbody p, .lbody li, .lbody h3, .lbody figcaption, .lbody .lshead b, .lbody tr, .lbody dt, .lbody dd, .lbody .lkey, .lbody .lwarn, .lbody .lcard > div"), function (el) {
-      if (el.closest(".lvid, .ltree, .lcalc")) return;
+      if (el.closest(".lvid, .ltree, .lcalc, .lboard")) return;
       if (el.tagName === "TR") { out.push([].map.call(el.children, function (c) { return c.textContent.trim(); }).filter(Boolean).join(", ")); return; }
       if (el.parentNode && el.parentNode.classList && el.parentNode.classList.contains("lcard")) { out.push(el.children[0].textContent + ": " + el.children[1].textContent); return; }
       if ((el.tagName === "P" || el.tagName === "LI") && el.closest(".lkey, .lwarn")) return;
@@ -12523,6 +12701,7 @@ var PROG = (function () {
   }
   function learnPractise(b) {
     var go = b.dataset.lpr, ctx = b.dataset.ctx;
+    if (go.indexOf("learn-") === 0) { paintLearn(go.slice(6)); var lb = $("learnBody"); if (lb) lb.scrollTop = 0; return; }
     if (go === "node") {
       var nd = nodeById(b.dataset.node);
       if (nd && PROG.tierOpen(nd.ti)) { startNode(nd.node); return; }
