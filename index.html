@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.68.0 (build 2026-09-29) — Al Brooks price action -->
+<!-- Trade Trainer v3.69.0 (build 2026-09-30) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.68.0 — Cadet to Master</title>
+<title>TRADE TRAINER v3.69.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -453,6 +453,35 @@
   .lfsfig{flex:1;min-height:0;display:flex}
   .lfsfig .lfscr{flex:1;height:auto;min-height:200px}
   .lfscap{padding:10px 14px;font-size:15px;line-height:1.55;color:#d6dae2;border-top:1px solid var(--line);max-height:26vh;overflow-y:auto}
+  /* the drawing board */
+  .lboard{margin:16px 0 20px;border:1px solid var(--line);border-radius:10px;background:var(--bg2);padding:10px}
+  .bdbar{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-bottom:8px;font-size:13px;color:var(--muted)}
+  .bdbar label,.bdopt{display:flex;gap:6px;align-items:center}
+  .bdbar select,.bdedit input{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:5px 7px;font-size:13px;color:var(--paper)}
+  .bdseg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .bdseg button{padding:6px 12px;font-size:13px;font-weight:600;color:var(--muted);background:var(--bg3)}
+  .bdseg button+button{border-left:1px solid var(--line)}
+  .bdseg button.on{background:#241a08;color:var(--amber)}
+  .bdhint{font-size:12.5px;line-height:1.45;margin:0 0 8px}
+  .bdchart{height:clamp(300px,52vh,520px);background:#0B0E13;border-radius:6px;overflow:hidden;touch-action:none}
+  .bdchart canvas{width:100%;height:100%;display:block;cursor:crosshair}
+  .bdedit{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;font-size:13px}
+  .bdedit label{display:flex;gap:5px;align-items:center;color:var(--muted)}
+  .bdedit input{width:110px}
+  .bdpaste{margin-top:8px}
+  .bdpaste textarea{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:6px;color:var(--paper);font:12px 'IBM Plex Mono',monospace;padding:8px;margin-bottom:6px}
+  .bdres h3{margin-top:14px}
+  .bdtab tr[data-row]{cursor:pointer}
+  .bdtab tr[data-row]:hover td{background:#1a1f28}
+  .bdtab tr.on td{background:#241a08}
+  .bdtab .up{color:var(--up)}.bdtab .dn{color:var(--dn)}
+  .bdwhy{margin-top:10px;font-size:13.5px;line-height:1.55;color:#d6dae2;background:var(--bg3);border-radius:8px;padding:10px 12px}
+  @media (max-width:640px){.bdchart{height:340px}.bdedit input{width:90px}}
+  .bdwn{display:grid;gap:6px;margin:8px 0 8px}
+  .bdwr{background:var(--bg3);border-radius:8px;padding:8px 11px;font-size:13.5px;line-height:1.45}
+  .bdwr .mu{margin-top:2px;font-size:13px}
+  .bdprog{display:inline-block;width:52px;height:6px;border-radius:3px;background:#2A303C;margin-right:9px;vertical-align:middle;overflow:hidden}
+  .bdprog i{display:block;height:100%;background:var(--amber)}
 </style>
 </head>
 <body>
@@ -554,7 +583,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.68.0", build: "2026-09-29", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.69.0", build: "2026-09-30", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -10259,6 +10288,7 @@ var PROG = (function () {
           ["how big a position to take", lgo("sizing", "Position size")],
           ["whether a losing streak is normal", lgo("expect", "What to expect")],
           ["when your markets move, in Amsterdam time", lgo("markets", "Your markets and their hours")],
+          ["what the method makes of a chart you saw", lgo("board", "Drawing board")],
           ["a word you don't know", lgo("glossary", "Glossary")],
           ["everything on one page, to print", lgo("sheets", "Cheat sheets")]
         ]) +
@@ -11361,6 +11391,27 @@ var PROG = (function () {
     practise: [{ label: "Drill: size from the stop", go: "node", node: "t8b" }, { label: "Drill: size from the stop, again", go: "node", node: "t11a" }]
   });
 
+  /* ================= TOOLS ================= */
+  lch({ id: "board", part: "Tools", title: "Drawing board",
+    sub: "Rebuild a chart you saw, leg by leg or candle by candle, and see every trade the app finds on it.",
+    body: function () {
+      return lp("Saw a chart on cTrader and want to know what this method makes of it? Rebuild it here. You do not draw by hand: you place <b>legs</b> (a swing to a price, over a number of bars) and <b>candles</b>, then the app reads the chart the way the Desk Coach does, bar by bar, and lists every setup it finds: the entry, the stop and what it is based on, the target and what it is based on, the reward in R, the odds, and what your bars did with it.") +
+        lh("How to rebuild a chart") +
+        lol(["Pick the <b>market</b> and the <b>chart</b> (5 or 15 min), and a start: a quiet range, a bull trend, a bear trend, or empty. The start gives the 60 bars of history the reader needs before its first setup (the EMA and the structure need them). Then press <b>New chart</b>.",
+          "On your chart, find the swing highs and lows after that, in order. For each one, in <b>Leg</b> mode, tap where it ends: how far to the right is how many bars the leg takes, the height is the price it reaches (its high, or its low). Choose the style: <i>strong</i> for a spike, <i>normal</i> for a trend leg, <i>two-sided</i> for a range or a pullback with overlap.",
+          "Get the signal bar right, because the reader looks at it closely: switch to <b>Candle</b> and add it by its close. A <i>reversal bar</i> closes near its extreme with a long tail the other way; a <i>trend bar</i> has a big body; a <i>doji</i> closes where it opened.",
+          "A bar not quite right? <b>Select</b>, tap it, and type its open, high, low and close. <b>Undo</b> takes back the last step.",
+          "Have the real bars? cTrader, TradingView and most platforms export bars as CSV. <b>Paste bars</b> takes one bar per line: open, high, low, close (and volume). It also takes this app's own <b>Copy</b> text."]) +
+        '<div class="lboard" data-board="1"></div>' +
+        lh("What it can and cannot tell you") +
+        lul(["It finds the eleven setups this tab teaches, with the <b>same rules</b> as the Desk Coach: a clear structure (two legs to the EMA, a range with a failed breakout, three pushes, a trendline break and a test, and so on), a signal bar that closes the right way, and a positive trader's equation.",
+          "The <b>odds</b> are the ones each setup is taught with, calibrated on this app's generated charts. On a real chart they are a guide, not a promise: a trade the app finds is one the method would take, not one that is sure to work.",
+          "A setup it does <b>not</b> list is either not there by these rules, or drawn a little differently than the reader expects: a signal bar that closes in the middle, a pullback that never reached the EMA, a target too close to pay for the risk. Change one bar and read it again; that is how you learn which detail makes the trade.",
+          "Your chart is kept on this device, so you can come back to it. <b>Copy</b> puts the bars and the trades as text on your clipboard, to paste to someone or to keep."]);
+    },
+    practise: [{ label: "Desk with the Coach", go: "desk-coach" }]
+  });
+
   /* ================= PART 6: SHEETS AND REFERENCE ================= */
   lch({ id: "sheets", part: "Sheets & reference", title: "Cheat sheets",
     sub: "Print them, or save them as PDF, and keep them next to your screen.",
@@ -11670,6 +11721,409 @@ var PROG = (function () {
     };
   }
 
+  /* ---------- the drawing board ----------
+     Recreate a chart you saw: place legs (a swing to a price, in N bars) or
+     single candles, or paste bars. Then the same reader the Desk Coach uses
+     runs over it, bar by bar, from the bars up to each one, and lists every
+     setup it sees, with entry, stop, target, the odds it is taught with, and
+     what the bars you drew did with it. */
+  var BD_MK = [
+    { sym: "XAUUSD", n: "Gold", dec: 2, p: 4000, a: 3.2 },
+    { sym: "NQ", n: "US100", dec: 2, p: 25000, a: 26 },
+    { sym: "ES", n: "US500", dec: 2, p: 6900, a: 6 },
+    { sym: "GER40", n: "GER40", dec: 2, p: 24000, a: 24 },
+    { sym: "EURUSD", n: "EURUSD", dec: 5, p: 1.17, a: 0.0005 },
+    { sym: "USDJPY", n: "USDJPY", dec: 3, p: 150, a: 0.07 },
+    { sym: "CL", n: "UKOIL", dec: 2, p: 80, a: 0.13 },
+    { sym: "BTCUSD", n: "BTCUSD", dec: 1, p: 65000, a: 130 }
+  ];
+  var BD_START = [
+    ["range", "A quiet range (60 bars)"], ["bull", "A bull trend (60 bars)"], ["bear", "A bear trend (60 bars)"], ["empty", "Empty: draw everything"]
+  ];
+  function bdRng(seed) { var s = (seed >>> 0) || 1; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+  function bdMk(sym) { return BD_MK.filter(function (m) { return m.sym === sym; })[0] || BD_MK[0]; }
+
+  /** A leg of n bars from the last close to price P, which becomes the leg's
+      extreme (the high of an up leg, the low of a down leg): the swing point
+      you placed. Strong: big bodies, small tails. Normal: mostly with the leg,
+      a small bar against it now and then. Two-sided: overlap, tails, bars
+      both ways. */
+  function bdLeg(bars, n, P, style, atr, seed) {
+    var R = bdRng(seed), c0 = bars.length ? bars[bars.length - 1].c : P, d = P >= c0 ? 1 : -1, out = [];
+    var amp = { strong: 0.12, normal: 0.45, two: 1.0 }[style] * atr, tf = { strong: 0.12, normal: 0.28, two: 0.5 }[style] * atr;
+    var prev = c0;
+    for (var k = 1; k <= n; k++) {
+      var base = c0 + (P - c0) * k / n, w = k === n ? 0 : amp * Math.sin(Math.PI * k / n) * (R() * 2 - 1);
+      if (style === "two" && k < n) w += (k % 2 ? 1 : -1) * 0.35 * atr;
+      var c = base + w, o = prev;
+      if (k === n) c = P - d * Math.max(0.05 * atr, R() * 0.2 * atr);   /* the last bar reaches P and closes just inside it */
+      var hi = Math.max(o, c) + R() * tf, lo = Math.min(o, c) - R() * tf;
+      if (k === n) { if (d > 0) hi = Math.max(P, Math.max(o, c)); else lo = Math.min(P, Math.min(o, c)); }
+      /* the leg's extreme stays the extreme: no bar before the last pokes past P */
+      if (k < n) { if (d > 0) hi = Math.min(hi, P - 0.02 * atr); else lo = Math.max(lo, P + 0.02 * atr); }
+      hi = Math.max(hi, o, c); lo = Math.min(lo, o, c);
+      out.push({ o: o, h: hi, l: lo, c: c });
+      prev = c;
+    }
+    return out;
+  }
+  /** one candle: it opens at the last close and closes at price C */
+  function bdCandle(bars, C, type, atr) {
+    var o = bars.length ? bars[bars.length - 1].c : C, body = Math.abs(C - o), d = C >= o ? 1 : -1, sz = Math.max(body, 0.25 * atr);
+    if (type === "doji") {
+      var ext = Math.max(Math.abs(C - o), 0.3 * atr), c = o + d * 0.06 * atr;
+      return { o: o, h: Math.max(o, c) + ext, l: Math.min(o, c) - ext, c: c };
+    }
+    if (type === "reversal") {
+      /* closes on its extreme, a long tail the other way -- a tail that stops
+         short of the last bars' low (high), so the swing it reverses stays the
+         swing: a bar that makes the new low is the low, not the turn off it */
+      var rec = bars.slice(-3), ext = d > 0 ? Math.min.apply(null, rec.map(function (x) { return x.l; })) : Math.max.apply(null, rec.map(function (x) { return x.h; }));
+      var tl = d > 0 ? Math.min(Math.min(o, C), Math.max(o - 0.6 * sz, ext + 0.05 * atr)) : Math.max(Math.max(o, C), Math.min(o + 0.6 * sz, ext - 0.05 * atr));
+      if (!rec.length) tl = d > 0 ? o - 0.6 * sz : o + 0.6 * sz;
+      return { o: o, c: C, h: d > 0 ? C + 0.04 * sz : tl, l: d > 0 ? tl : C - 0.04 * sz };
+    }
+    if (type === "small") return { o: o, c: C, h: Math.max(o, C) + 0.35 * sz, l: Math.min(o, C) - 0.35 * sz };
+    return { o: o, c: C, h: Math.max(o, C) + 0.1 * sz, l: Math.min(o, C) - 0.1 * sz };   /* a trend bar */
+  }
+  function bdTemplate(kind, mk) {
+    var bars = [], a = mk.a, p = mk.p, seed = 7;
+    if (kind === "empty") return bars;
+    bars.push({ o: p, h: p + 0.3 * a, l: p - 0.3 * a, c: p });
+    var plan = kind === "bull" ? [[10, p + 5 * a, "normal"], [6, p + 2.5 * a, "normal"], [12, p + 9 * a, "normal"], [7, p + 6 * a, "normal"], [12, p + 13 * a, "normal"], [13, p + 10.5 * a, "two"]]
+      : kind === "bear" ? [[10, p - 5 * a, "normal"], [6, p - 2.5 * a, "normal"], [12, p - 9 * a, "normal"], [7, p - 6 * a, "normal"], [12, p - 13 * a, "normal"], [13, p - 10.5 * a, "two"]]
+        : [[8, p + 3 * a, "two"], [9, p - 2.5 * a, "two"], [10, p + 3.2 * a, "two"], [10, p - 2.8 * a, "two"], [11, p + 2.6 * a, "two"], [12, p, "two"]];
+    plan.forEach(function (q) { bars = bars.concat(bdLeg(bars, q[0], q[1], q[2], a, seed++)); });
+    return bars;
+  }
+  /** bars from pasted text: "O 1.1 H 1.2 L 1.0 C 1.15" lines (this app's Copy),
+      or rows of numbers (a CSV export: open, high, low, close, then volume) */
+  function bdParse(txt) {
+    var out = [];
+    String(txt || "").split(/\r?\n/).forEach(function (line) {
+      var m = /O\s*([-\d.]+)\s+H\s*([-\d.]+)\s+L\s*([-\d.]+)\s+C\s*([-\d.]+)/i.exec(line), v;
+      if (m) v = [+m[1], +m[2], +m[3], +m[4]];
+      else {
+        var nums = line.split(/[\s,;\t]+/).filter(function (t) { return /^-?\d+(\.\d+)?$/.test(t); }).map(Number);
+        if (nums.length === 4 || nums.length === 5) v = nums.slice(0, 4);
+      }
+      if (v && v.every(isFinite) && v[1] >= Math.max(v[0], v[3]) && v[2] <= Math.min(v[0], v[3])) out.push({ o: v[0], h: v[1], l: v[2], c: v[3] });
+    });
+    return out;
+  }
+  /** what the reader sees on the drawn bars, and what the bars did after */
+  function bdRead(bars, dec) {
+    var ch = { bars: bars, dec: dec }, rs = (typeof readSigs === "function" ? readSigs : TT.readSigs)(ch, bars.length - 1);
+    return rs.map(function (g) {
+      var d = g.dir, fill = -1, res = null, at = -1;
+      var lim = g.entryType === "limit";
+      for (var j = g.i + 1; j <= Math.min(bars.length - 1, g.i + 3) && fill < 0; j++) {
+        var up = bars[j].h >= g.entry, dn = bars[j].l <= g.entry;
+        if (lim ? (d > 0 ? dn : up) : (d > 0 ? up : dn)) fill = j;
+      }
+      if (fill >= 0) for (var k = fill; k < bars.length; k++) {
+        var b = bars[k], hs = d > 0 ? b.l <= g.stop : b.h >= g.stop, ht = d > 0 ? b.h >= g.target : b.l <= g.target;
+        if (hs) { res = "stop"; at = k; break; }
+        if (ht) { res = "target"; at = k; break; }
+      }
+      return { g: g, fill: fill, res: res, at: at, wait: fill < 0 && g.i + 3 > bars.length - 1, order: (d > 0 ? "buy " : "sell ") + (lim ? "limit" : "stop"), rr: Math.abs(g.target - g.entry) / Math.max(1e-12, Math.abs(g.entry - g.stop)) };
+    });
+  }
+
+  /* Why the reader turned a bar down, one line per rule (RD._why codes), in
+     the bull frame; bdFlip mirrors the words for a sell. Each setup's codes
+     run in the order its rules are checked, so a higher code got further. */
+  var BD_SIG = "it is not a signal bar for a buy: that needs a bull bar closing in its top quarter, with a body of at least a third of the bar and a normal size, not a small one";
+  var BD_TURN = "it has not turned yet: the signal bar must close above the high of the lowest bar, at least two bars after that low";
+  var BD_EARLY = "an earlier bar already gave this signal, and the reader takes the first one";
+  var BD_RANGE = "there is no trading range before it: 40+ bars going sideways, 3 to 10 average bars tall, a flat EMA that price crosses 6+ times, each edge tested twice";
+  var BD_WHY = {
+    failedBo: [1, 5, { 1: BD_SIG, 2: BD_RANGE, 3: "the last few bars did not poke below the range low, or went too far below it (more than a third of the range)", 4: "it has not turned: the signal bar must close back inside the range, above the high of the low bar, at least two bars after that low", 5: BD_EARLY }],
+    successBo: [6, 10, { 6: BD_SIG, 7: "there is no breakout: no bar in the last 3 to 14 closed above the high of a trading range", 8: "the breakout did not get far enough (15% of the range height) or has not paused yet", 9: "the pullback went back into the range", 10: BD_EARLY }],
+    mtr: [11, 20, { 11: BD_SIG, 12: "there is no bear trend low with a rally after it", 13: "the move before it is not a bear trend (5+ average bars down), or the rally is too small (2 bars) or too big (more than 80% of the trend)", 14: "the bear trend has no clear lower highs to draw its trendline", 15: "the bear trend has no clear lower highs to draw its trendline", 16: "the rally did not break the bear trendline", 17: "the pullback after the rally is too small: at least 40% of the rally", 18: "the test is not near the low: it must come back to within 60% of the rally, and not more than about one bar below the low", 19: "it has not turned, or price went above the rally high", 20: BD_EARLY }],
+    finalFlag: [21, 27, { 21: BD_SIG, 22: "there is no flag: the pause before the last low is too small", 23: "there is no breakout below the flag, or it fell too far (more than two average bars)", 24: "it has not turned back above the flag's low", 25: "there is no real bear trend into the flag", 26: "the flag is too big or too early, the trend has no lower highs, or the flag took under 4 or over 16 bars", 27: BD_EARLY }],
+    wedgeBottom: [28, 35, { 28: BD_SIG, 29: "there are not two swing lows before the last push", 30: "not three lower lows: each push must go clearly below the one before", 31: "the pushes are too close together: at least 5 bars apart", 32: "the bounces between the pushes are not lower highs, or they are too small", 33: "there is no real decline into the wedge (4+ average bars from where it started)", 34: "it is not a wedge's shape (each push reaching less far, the lines converging), or it has not turned yet", 35: BD_EARLY }],
+    climax: [36, 39, { 36: BD_SIG, 37: "the leg down is too short: at least 4 average bars", 38: "it is not accelerating (the second half must fall faster, with bigger bars, than the first), or it has not turned yet", 39: BD_EARLY }],
+    spikeChannel: [40, 45, { 40: BD_SIG, 41: "there is no spike: 3 to 6 bars in a row, nearly all bull, each closing higher, covering 2.5+ average bars, out of a quiet base", 42: "there is no higher high after the spike (the channel)", 43: "the pullback is too deep (below the spike's start) or not 2 to 10 bars after the channel high", 44: "the pullback low is below the one before it, or it has not turned yet", 45: BD_EARLY }],
+    twoLegPullback: [46, 53, { 46: BD_SIG, 47: "there are not enough swing lows before the trend high", 48: "there is no bull trend into the high: higher lows, and a last leg of 2+ average bars", 49: "there is no first leg down yet, or it is too recent", 50: "there is no real bounce between the two legs, or the bounce went above the high", 51: "leg two does not come back near leg one's low, or it fell below the last higher low (then it is no longer a pullback)", 52: "the pullback is too deep (more than 95% of the last leg up), or " + BD_TURN, 53: BD_EARLY }],
+    tightChannel: [54, 57, { 54: BD_SIG, 55: "there is no strong up-move (5+ average bars in 20 to 45 bars) with its high in the last 8 bars", 56: "it is not tight: fewer than 85% of the closes above the EMA, or a pullback bigger than a third of the move", 57: BD_TURN + " (or an earlier bar already gave the signal)" }],
+    broadChannel: [58, 65, { 58: BD_SIG, 59: "there are not two swing highs to make a channel", 60: "the two swing highs are too close: at least 8 bars apart", 61: "the highs and lows are not rising", 62: "the last leg up is too small (2.5 average bars) or too recent", 63: "the pullback is too shallow (40% of the leg), below the prior leg low, or went above the channel high", 64: "there was no earlier attempt up in the pullback, or " + BD_TURN, 65: BD_EARLY }],
+    rangeLow: [66, 70, { 66: "it is not a signal bar for a buy at a range low: that needs a bar closing in its upper half", 67: BD_RANGE, 68: "the bar is not at the range low: it must reach the bottom fifth of the range and close back inside it", 69: "it is not a second attempt: no earlier bar tried up from the low", 70: BD_TURN + " (or an earlier bar already gave the signal)" }]
+  };
+  function bdFlip(t) {
+    var M = { high: "low", low: "high", highs: "lows", lows: "highs", higher: "lower", lower: "higher", top: "bottom", bottom: "top", bull: "bear", bear: "bull",
+      up: "down", down: "up", above: "below", below: "above", rising: "falling", falling: "rising", rally: "sell-off", "sell-off": "rally", decline: "rally", buy: "sell", sell: "buy", fall: "rise", rise: "fall", falls: "rises", rises: "falls" };
+    return t.replace(/\b(sell-off|highs|lows|high|low|higher|lower|top|bottom|bull|bear|up|down|above|below|rising|falling|rally|decline|buy|sell|fall|rise|falls|rises)\b/g, function (w) { return M[w] || w; });
+  }
+  /** every setup at bar v, both ways: how far its rules got, and the first one it failed */
+  function bdWhyNot(bars, dec, v) {
+    var ch = { bars: bars, dec: dec }, out = [];
+    READ_KEYS.forEach(function (key) {
+      [1, -1].forEach(function (m) {
+        var W = BD_WHY[key], f = rdFrame(ch, m); RD._why = 0;
+        var r = RD[key](f, v), def = Mkt.CTX[m > 0 ? key : key + "_D"] || Mkt.CTX[key], text, prog;
+        if (r) {
+          var g = detectAt({ bars: bars.slice(0, v + 1), dec: dec }, v);
+          prog = 1;
+          if (g && g.key === (m > 0 ? key : key + "_D")) text = "found: this is a setup";
+          else if (g) text = "its rules pass, but " + g.name + " is read first on this bar";
+          else text = "the structure is there, but the target is too close: at " + Math.round(def.pWin * 100) + "% the reward does not pay for the risk";
+        } else {
+          var c = RD._why; text = W[2][c] || "rule " + c; if (m < 0) text = bdFlip(text);
+          prog = (c - W[0]) / (W[1] - W[0] + 1);
+        }
+        out.push({ key: key, dir: m, name: def.name, prog: prog, text: text });
+      });
+    });
+    return out.sort(function (a, b) { return b.prog - a.prog; });
+  }
+
+  function mountBoard(el) {
+    var S = { whyAll: false, sym: "EURUSD", tf: 15, start: "range", bars: [], undo: [], mode: "leg", style: "normal", ctype: "trend", legN: 8, sel: -1, show: -1, found: [], hover: null };
+    try { var sv = JSON.parse(localStorage.getItem("tt_board") || "null"); if (sv && sv.bars && sv.bars.length) { S.sym = sv.sym; S.tf = sv.tf; S.bars = sv.bars; } } catch (e) { }
+    el.innerHTML =
+      '<div class="bdbar">' +
+        '<label>Market <select data-b="sym">' + BD_MK.map(function (m) { return '<option value="' + m.sym + '">' + m.n + '</option>'; }).join("") + '</select></label>' +
+        '<label>Chart <select data-b="tf"><option value="5">5 min</option><option value="15">15 min</option></select></label>' +
+        '<label>Start from <select data-b="start">' + BD_START.map(function (s) { return '<option value="' + s[0] + '">' + s[1] + '</option>'; }).join("") + '</select></label>' +
+        '<button class="btn sm" data-b="new">New chart</button>' +
+      '</div>' +
+      '<div class="bdbar">' +
+        '<span class="bdseg"><button data-m="leg" class="on">Leg</button><button data-m="candle">Candle</button><button data-m="select">Select</button></span>' +
+        '<span class="bdopt" data-for="leg">Style <select data-b="style"><option value="strong">Strong</option><option value="normal" selected>Normal</option><option value="two">Two-sided</option></select></span>' +
+        '<span class="bdopt" data-for="candle" style="display:none">Candle <select data-b="ctype"><option value="trend">Trend bar</option><option value="reversal">Reversal bar (tail)</option><option value="small">Small bar</option><option value="doji">Doji</option></select></span>' +
+        '<button class="btn sm" data-b="undo">&#8630; Undo</button><button class="btn sm" data-b="paste">Paste bars</button><button class="btn sm" data-b="copy">Copy</button>' +
+      '</div>' +
+      '<div class="bdhint mu"></div>' +
+      '<div class="bdchart"><canvas></canvas></div>' +
+      '<div class="bdedit" style="display:none"></div>' +
+      '<div class="bdpaste" style="display:none"><textarea rows="6" placeholder="Paste bars here: one per line. Either this app\'s Copy text (O … H … L … C …) or a CSV export with open, high, low, close (and volume)."></textarea><div><button class="btn sm primary" data-b="doimport">Use these bars</button> <button class="btn sm" data-b="cancelimport">Cancel</button></div></div>' +
+      '<div class="bdres"></div>';
+    var q = function (s) { return el.querySelector(s); };
+    var cv = q("canvas"), ch = new Chart(cv);
+    ch.passive = true; ch.opts.vol = false;
+    q('[data-b="sym"]').value = S.sym; q('[data-b="tf"]').value = String(S.tf);
+    var mk = function () { return bdMk(S.sym); };
+    var atr = function () {
+      var B = S.bars, n = Math.min(14, B.length); if (!n) return mk().a * (S.tf === 15 ? 1.7 : 1);
+      var s = 0; for (var i = B.length - n; i < B.length; i++) s += B[i].h - B[i].l; return s / n;
+    };
+    function stamp() {
+      var t0 = Date.UTC(2026, 0, 5, 7, 0), st = S.tf * 60000;
+      S.bars.forEach(function (b, i) { b.t = t0 + i * st; });
+    }
+    function save() { try { localStorage.setItem("tt_board", JSON.stringify({ sym: S.sym, tf: S.tf, bars: S.bars.map(function (b) { return { o: b.o, h: b.h, l: b.l, c: b.c }; }) })); } catch (e) { } }
+    function push() { S.undo.push(JSON.stringify(S.bars)); if (S.undo.length > 60) S.undo.shift(); }
+    /** the price scale for bars [a, z], plus any levels that must show,
+        with room above and below to tap the next leg -- but not so much room
+        that the bars shrink */
+    function fitP(a, z, extra) {
+      var lo = Infinity, hi = -Infinity;
+      for (var i = Math.max(0, Math.floor(a)); i <= Math.min(S.bars.length - 1, Math.ceil(z)); i++) { lo = Math.min(lo, S.bars[i].l); hi = Math.max(hi, S.bars[i].h); }
+      (extra || []).forEach(function (p) { if (p != null) { lo = Math.min(lo, p); hi = Math.max(hi, p); } });
+      if (!isFinite(lo)) { lo = mk().p - 10 * mk().a; hi = mk().p + 10 * mk().a; }
+      var pad = Math.max((hi - lo) * 0.18, 2.5 * atr());
+      ch.lockP = { lo: lo - pad, hi: hi + pad };
+    }
+    function view() {
+      var n = S.bars.length;
+      /* no thinner than about 6 px a bar: on a phone that is the last 50 or so */
+      var fitN = Math.max(30, Math.floor((cv.clientWidth || 600) / 6.5));
+      var span = Math.max(30, Math.min(n + 30, 160, fitN));
+      ch.i1 = Math.max(n + Math.round(span * 0.3), 40); ch.i0 = Math.max(-2, ch.i1 - span);
+      fitP(ch.i0, n - 1);
+    }
+    function redraw(keepView) {
+      stamp();
+      ch.bars = S.bars.length ? S.bars : [{ o: mk().p, h: mk().p, l: mk().p, c: mk().p, t: Date.UTC(2026, 0, 5, 7, 0) }];
+      ch.dec = mk().dec; ch.sym = mk().n; ch.tf = S.tf + "m"; ch.vis = ch.bars.length - 1; ch.chart = { bars: ch.bars };
+      if (!keepView) view();
+      ch.render();
+    }
+    function analyse() {
+      S.found = S.bars.length > 60 ? bdRead(S.bars, mk().dec) : [];
+      if (S.show >= S.found.length) S.show = -1;
+      paintRes(); showTrade(S.show);
+    }
+    function changed() { save(); S.sel = -1; paintEdit(); redraw(); analyse(); hint(); }
+    function hint() {
+      var h = { leg: "Tap where the leg ends: how far right is how many bars, the height is the price it reaches (its high or low). " + ("Style: " + { strong: "strong, big bodies", normal: "normal, a small bar against it now and then", two: "two-sided, overlapping bars" }[S.style]) + ".",
+        candle: "Tap to add the next candle: it opens at the last close and closes where you tap. The type sets the tails.",
+        select: "Tap a candle to change its open, high, low and close." }[S.mode];
+      q(".bdhint").textContent = h + " " + S.bars.length + " bars" + (S.bars.length <= 60 ? " — the reader needs 60 bars of history before it can see a setup, so draw on past bar 60." : ".");
+    }
+    function paintEdit() {
+      var box = q(".bdedit");
+      if (S.mode !== "select" || S.sel < 0 || !S.bars[S.sel]) { box.style.display = "none"; return; }
+      var b = S.bars[S.sel], d = mk().dec;
+      box.style.display = "";
+      box.innerHTML = '<b>Bar ' + S.sel + '</b> ' + ["o", "h", "l", "c"].map(function (k) { return '<label>' + { o: "Open", h: "High", l: "Low", c: "Close" }[k] + ' <input data-k="' + k + '" type="number" step="any" value="' + b[k].toFixed(d) + '"></label>'; }).join("") +
+        '<button class="btn sm primary" data-b="apply">Apply</button><button class="btn sm" data-b="delbar">Delete bar</button>';
+      box.querySelector('[data-b="apply"]').onclick = function () {
+        var v = {}; box.querySelectorAll("input").forEach(function (i) { v[i.dataset.k] = +i.value; });
+        if (![v.o, v.h, v.l, v.c].every(isFinite)) return;
+        push(); S.bars[S.sel] = { o: v.o, h: Math.max(v.h, v.o, v.c), l: Math.min(v.l, v.o, v.c), c: v.c };
+        var keep = S.sel; save(); redraw(true); analyse(); S.sel = keep; paintEdit();
+      };
+      box.querySelector('[data-b="delbar"]').onclick = function () { push(); S.bars.splice(S.sel, 1); changed(); };
+    }
+    function whyHtml() {
+      var n = S.bars.length; if (n <= 60) return "";
+      var v = S.mode === "select" && S.sel >= 60 ? S.sel : n - 1, list = bdWhyNot(S.bars, mk().dec, v);
+      var show = S.whyAll ? list : list.slice(0, 4);
+      return '<h3>Why not here? Bar ' + v + '</h3><p class="mu">' + (v === n - 1 ? "The last bar, checked against every setup, both ways. To check another bar, choose Select and tap it." : "The bar you selected, checked against every setup, both ways.") +
+        ' The closest ones first: the bar shows how many of the setup\'s rules it passed.</p><div class="bdwn">' +
+        show.map(function (w) {
+          return '<div class="bdwr"><span class="bdprog"><i style="width:' + Math.round(w.prog * 100) + '%"></i></span><b>' + esc(w.name) + '</b> · ' + (w.dir > 0 ? "buy" : "sell") + '<div class="mu">' + esc(w.text) + '</div></div>';
+        }).join("") + '</div>' +
+        '<button class="btn sm" data-b="whyall">' + (S.whyAll ? "Show the closest four" : "Show all 22") + '</button>';
+    }
+    function paintRes() {
+      var box = q(".bdres"), d = mk().dec, fp = function (p) { return (+p).toFixed(d); }, ex = { sym: S.sym, dec: d };
+      if (S.bars.length <= 60) { box.innerHTML = '<h3>What the app sees</h3><p class="mu">Draw more than 60 bars: every setup reads the structure before it, the way the Desk Coach does.</p>'; return; }
+      if (!S.found.length) {
+        box.innerHTML = whyHtml() + '<h3>What the app sees</h3><p>No setup on these bars. The reader looks for the eleven setups of this tab, each with its own structure: two legs back to the EMA in a trend, a clear range with a second attempt at its edge, a wedge of three pushes, a trend line break and a test, and so on. If you drew one, the list above says which rule it missed.</p>';
+        wireWhy(box); return;
+      }
+      box.innerHTML = '<h3>What the app sees: ' + S.found.length + ' setup' + (S.found.length > 1 ? "s" : "") + '</h3>' +
+        '<p class="mu">Read bar by bar, each from the bars up to it, like the Desk Coach. Tap a row to draw it on the chart.</p>' +
+        '<div class="ltw"><table class="ltable bdtab"><tr><th>#</th><th>Bar</th><th>Setup</th><th>Entry</th><th>Stop</th><th>Target</th><th>Reward</th><th>Odds</th><th>On your bars</th></tr>' +
+        S.found.map(function (f, k) {
+          var g = f.g, buy = g.dir > 0, out = f.wait ? '<span class="mu">waiting: draw the next bars</span>' : f.fill < 0 ? '<span class="mu">never triggered</span>' : f.res === "target" ? '<b class="up">target, ' + lfx(f.rr) + '</b>' : f.res === "stop" ? '<b class="dn">stop, −1R</b>' : '<span class="mu">still open</span>';
+          return '<tr data-row="' + k + '" class="' + (k === S.show ? "on" : "") + '"><td>' + (k + 1) + '</td><td>' + g.i + '</td><td><b>' + esc(g.name) + '</b> · ' + (buy ? "buy" : "sell") + '</td>' +
+            '<td>' + f.order + ' ' + fp(g.entry) + '</td><td>' + fp(g.stop) + ' <span class="mu">(' + esc(g.stopDesc) + ')</span></td>' +
+            '<td>' + fp(g.target) + ' <span class="mu">(' + esc(ltgt(g)) + ')</span></td><td>' + f.rr.toFixed(1) + 'R</td><td>' + Math.round(g.prob * 100) + '%</td><td>' + out + '</td></tr>';
+        }).join("") + '</table></div>' + (S.show >= 0 ? bdWhy(S.found[S.show]) : "") + whyHtml();
+      wireWhy(box);
+      [].forEach.call(box.querySelectorAll("[data-row]"), function (r) {
+        r.onclick = function () { S.show = +r.dataset.row === S.show ? -1 : +r.dataset.row; paintRes(); showTrade(S.show); };
+      });
+    }
+    function wireWhy(box) {
+      var b = box.querySelector('[data-b="whyall"]'); if (b) b.onclick = function () { S.whyAll = !S.whyAll; paintRes(); };
+    }
+    function bdWhy(f) {
+      var g = f.g;
+      return '<div class="bdwhy"><b>' + esc(g.name) + '</b>, ' + (g.dir > 0 ? "a buy" : "a sell") + ' at bar ' + g.i + '. ' + g.brooks +
+        ' <span class="mu">Its structure is drawn on the chart: ' + g.st.labels.map(function (L) { return esc(L[1]) + " (bar " + L[0].i + ")"; }).join(", ") + '.</span></div>';
+    }
+    function showTrade(k) {
+      var f = S.found[k];
+      ch.drawings = [];
+      if (f) {
+        var g = f.g, i2 = f.at >= 0 ? f.at : Math.min(S.bars.length - 1, g.i + 12);
+        ch.drawings = [{ type: "pos", lesson: true, tl: ltgt(g), i: g.i + 1, i2: i2, dir: g.dir, entry: g.entry, stop: g.stop, target: g.target }];
+        var a = Math.max(-2, Math.min(g.st.from, g.i - 30) - 4), z = Math.max(g.i + 20, i2 + 8);
+        ch.i0 = a; ch.i1 = Math.max(z, a + 40);
+        fitP(a, z, [g.entry, g.stop, g.target]);
+      } else view();
+      ch.render();
+    }
+    ch.overlayFn = function (c, b, chart) {
+      c.save();
+      /* the numbered setups the reader found */
+      S.found.forEach(function (f, k) {
+        var g = f.g, bb = S.bars[g.i]; if (!bb) return;
+        var x = chart.x(g.i), y = g.dir > 0 ? chart.y(bb.l) + 14 : chart.y(bb.h) - 14;
+        c.fillStyle = k === S.show ? COL.amber : "rgba(232,163,61,.55)"; c.beginPath(); c.arc(x, y, 8, 0, 6.284); c.fill();
+        c.fillStyle = "#0B0E13"; c.font = "800 10px Archivo,sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(String(k + 1), x, y + 0.5);
+      });
+      /* the chosen setup's structure */
+      var sh = S.found[S.show];
+      if (sh) {
+        var st = sh.g.st;
+        if (st.rangeTop != null) [st.rangeTop, st.rangeBot].forEach(function (p) { c.strokeStyle = COL.blue; c.setLineDash([5, 4]); c.beginPath(); c.moveTo(chart.x(st.from), chart.y(p)); c.lineTo(chart.x(sh.g.i), chart.y(p)); c.stroke(); c.setLineDash([]); });
+        if (st.trendline) { c.strokeStyle = COL.blue; c.setLineDash([5, 4]); c.beginPath(); c.moveTo(chart.x(st.trendline.a.i), chart.y(st.trendline.a.p)); c.lineTo(chart.x(st.trendline.b.i), chart.y(st.trendline.b.p)); c.stroke(); c.setLineDash([]); }
+        st.labels.forEach(function (L) {
+          var x = chart.x(L[0].i), y = chart.y(L[0].p), bb = S.bars[L[0].i], top = bb && Math.abs(L[0].p - bb.h) <= Math.abs(L[0].p - bb.l);
+          c.fillStyle = COL.violet; c.beginPath(); c.arc(x, y, 4, 0, 6.284); c.fill();
+          lTag(c, L[1], x, y + (top ? -12 : 13), COL.violet, "center");
+        });
+        var sb = S.bars[sh.g.i]; if (sb) { c.strokeStyle = COL.amber; c.lineWidth = 1.8; c.strokeRect(chart.x(sh.g.i) - Math.max(7, chart.bw * 0.95) / 2, chart.y(sb.h) - 4, Math.max(7, chart.bw * 0.95), chart.y(sb.l) - chart.y(sb.h) + 8); }
+      }
+      /* the selected candle */
+      if (S.mode === "select" && S.bars[S.sel]) { var s = S.bars[S.sel]; c.strokeStyle = "#fff"; c.lineWidth = 1.5; c.setLineDash([3, 3]); c.strokeRect(chart.x(S.sel) - chart.bw / 2 - 2, chart.y(s.h) - 4, chart.bw + 4, chart.y(s.l) - chart.y(s.h) + 8); c.setLineDash([]); }
+      /* what a tap would place */
+      var hv = S.hover;
+      if (hv && S.mode !== "select") {
+        var n = S.bars.length, last = S.bars[n - 1], x0 = chart.x(n - 1), y0 = last ? chart.y(last.c) : chart.y(hv.p);
+        c.strokeStyle = "rgba(255,255,255,.55)"; c.setLineDash([4, 4]); c.lineWidth = 1.2;
+        c.beginPath(); c.moveTo(x0, y0); c.lineTo(chart.x(hv.i), chart.y(hv.p)); c.stroke(); c.setLineDash([]);
+        var dp = last ? hv.p - last.c : 0, fmtP = (+hv.p).toFixed(mk().dec);
+        lTag(c, S.mode === "leg" ? (hv.i - (n - 1)) + " bars to " + fmtP : "close " + fmtP, chart.x(hv.i) + 8, chart.y(hv.p) - (dp >= 0 ? 12 : -12), "#e6e9ef", "left");
+      }
+      c.restore();
+    };
+    function ptr(e) {
+      var r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, n = S.bars.length;
+      var i = Math.round(ch.iAt(x)), p = ch.pAt(y);
+      if (S.mode === "leg") i = Math.max(n, i); else if (S.mode === "candle") i = n;
+      return { i: i, p: p, x: x, y: y };
+    }
+    var down = null;
+    cv.addEventListener("pointermove", function (e) { S.hover = ptr(e); ch.render(); });
+    cv.addEventListener("pointerleave", function () { S.hover = null; ch.render(); });
+    cv.addEventListener("pointerdown", function (e) { down = { x: e.clientX, y: e.clientY }; });
+    cv.addEventListener("pointerup", function (e) {
+      if (!down || Math.abs(e.clientX - down.x) + Math.abs(e.clientY - down.y) > 8) { down = null; return; }
+      down = null;
+      var h = ptr(e), n = S.bars.length;
+      if (S.mode === "select") {
+        var j = Math.round(ch.iAt(h.x)); S.sel = j >= 0 && j < n ? j : -1; paintEdit(); paintRes(); ch.render(); return;
+      }
+      push();
+      if (S.mode === "leg") S.bars = S.bars.concat(bdLeg(S.bars, Math.max(1, h.i - (n - 1)), h.p, S.style, atr(), 1000 + n * 7));
+      else S.bars.push(bdCandle(S.bars, h.p, S.ctype, atr()));
+      changed(); hint();
+    });
+    el.querySelectorAll("[data-m]").forEach(function (b) {
+      b.onclick = function () {
+        S.mode = b.dataset.m; el.querySelectorAll("[data-m]").forEach(function (x) { x.classList.toggle("on", x === b); });
+        el.querySelectorAll(".bdopt").forEach(function (o) { o.style.display = o.dataset.for === S.mode ? "" : "none"; });
+        S.sel = -1; paintEdit(); hint(); paintRes(); ch.render();
+      };
+    });
+    q('[data-b="style"]').onchange = function () { S.style = this.value; hint(); };
+    q('[data-b="ctype"]').onchange = function () { S.ctype = this.value; };
+    q('[data-b="sym"]').onchange = function () { S.sym = this.value; };
+    q('[data-b="tf"]').onchange = function () { S.tf = +this.value; redraw(true); save(); };
+    q('[data-b="start"]').onchange = function () { S.start = this.value; };
+    q('[data-b="new"]').onclick = function () { push(); S.bars = bdTemplate(S.start, mk()); S.show = -1; changed(); hint(); };
+    q('[data-b="undo"]').onclick = function () { if (!S.undo.length) return; S.bars = JSON.parse(S.undo.pop()); S.show = -1; changed(); hint(); };
+    q('[data-b="paste"]').onclick = function () { var p = q(".bdpaste"); p.style.display = p.style.display === "none" ? "" : "none"; };
+    q('[data-b="cancelimport"]').onclick = function () { q(".bdpaste").style.display = "none"; };
+    q('[data-b="doimport"]').onclick = function () {
+      var bars = bdParse(q(".bdpaste textarea").value);
+      if (!bars.length) { if (typeof toast === "function") toast("No bars found in that text"); return; }
+      push(); S.bars = bars; S.show = -1; q(".bdpaste").style.display = "none"; changed(); hint();
+      if (typeof toast === "function") toast(bars.length + " bars loaded");
+    };
+    q('[data-b="copy"]').onclick = function () {
+      var d = mk().dec, f = function (p) { return (+p).toFixed(d); }, L = ["TRADE TRAINER v" + (typeof APP !== "undefined" ? APP.version : "") + " · Drawing board · " + mk().n + " " + S.tf + " min · " + S.bars.length + " bars", ""];
+      L.push("WHAT THE APP SEES");
+      if (!S.found.length) L.push("  nothing" + (S.bars.length <= 60 ? " (fewer than 61 bars)" : ""));
+      S.found.forEach(function (x, k) {
+        var g = x.g; L.push("  " + (k + 1) + ". bar " + g.i + " · " + g.name + " · " + x.order + " " + f(g.entry) + " · stop " + f(g.stop) + " (" + g.stopDesc + ") · target " + f(g.target) + " (" + ltgt(g) + ") · " + x.rr.toFixed(2) + "R · " + Math.round(g.prob * 100) + "% · " +
+          (x.wait ? "waiting for the next bars" : x.fill < 0 ? "never triggered" : x.res ? x.res + " at bar " + x.at : "still open") + " · structure: " + g.st.labels.map(function (L2) { return L2[1] + " bar " + L2[0].i + " " + f(L2[0].p); }).join(", "));
+      });
+      L.push("", "BARS (bar, open, high, low, close)");
+      S.bars.forEach(function (b, i) { L.push(i + "  O " + f(b.o) + "  H " + f(b.h) + "  L " + f(b.l) + "  C " + f(b.c)); });
+      lcopy(L.join("\n"));
+    };
+    if (!S.bars.length) S.bars = bdTemplate("range", mk());
+    el._board = {
+      get state() { return S; }, chart: ch,
+      newFrom: function (kind) { S.start = kind; q('[data-b="start"]').value = kind; S.bars = bdTemplate(kind, mk()); changed(); },
+      leg: function (n, p, style) { S.bars = S.bars.concat(bdLeg(S.bars, n, p, style || "normal", atr(), 1000 + S.bars.length * 7)); changed(); },
+      candle: function (p, type) { S.bars.push(bdCandle(S.bars, p, type || "trend", atr())); changed(); },
+      load: function (bars) { S.bars = bars.map(function (b) { return { o: b.o, h: b.h, l: b.l, c: b.c }; }); changed(); },
+      whyNot: function (v) { return bdWhyNot(S.bars, mk().dec, v == null ? S.bars.length - 1 : v); },
+      importText: function (t) { var b = bdParse(t); if (b.length) { S.bars = b; changed(); } return b.length; }
+    };
+    redraw(); analyse(); hint();
+    new ResizeObserver(function () { ch._fitCanvas(); ch.render(); }).observe(q(".bdchart"));
+  }
+
   /* ---------- the order of the chapters ----------
      One place decides it: beginner first, then what you need on every bar,
      the setups in three groups, the trade from order to exit, risk, your
@@ -11688,6 +12142,7 @@ var PROG = (function () {
       ["Risk and what to expect", ["sizing", "expect"]],
       ["Your markets", ["markets", "open", "timeframes"]],
       ["Advanced: after your first 100 trades", ["counter", "limits"]],
+      ["Tools", ["board"]],
       ["Sheets & reference", ["sheets", "glossary"]]
     ];
     var out = [];
@@ -11824,6 +12279,9 @@ var PROG = (function () {
     [].forEach.call(root.querySelectorAll("[data-now]"), function (el) { learnPlayers.push(mountNow(el)); });
     [].forEach.call(root.querySelectorAll("[data-equity]"), function (el) { mountEquity(el); });
     [].forEach.call(root.querySelectorAll("[data-calc]"), function (el) { mountCalc(el); });
+    [].forEach.call(root.querySelectorAll("[data-board]"), function (el) {
+      try { mountBoard(el); } catch (e) { el.innerHTML = '<div class="hint">The drawing board could not start (' + esc(e.message) + ').</div>'; }
+    });
     [].forEach.call(root.querySelectorAll("[data-print]"), function (b) {
       b.onclick = function () { printSheet(b.dataset.print); };
     });
