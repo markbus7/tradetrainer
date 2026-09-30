@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Trade Trainer v3.69.1 (build 2026-09-30) — Al Brooks price action -->
+<!-- Trade Trainer v3.70.0 (build 2026-09-30) — Al Brooks price action -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TRADE TRAINER v3.69.1 — Cadet to Master</title>
+<title>TRADE TRAINER v3.70.0 — Cadet to Master</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -483,6 +483,27 @@
   .bdwr .mu{margin-top:2px;font-size:13px}
   .bdprog{display:inline-block;width:52px;height:6px;border-radius:3px;background:#2A303C;margin-right:9px;vertical-align:middle;overflow:hidden}
   .bdprog i{display:block;height:100%;background:var(--amber)}
+  /* drawing board: the start price, the picked piece, the pieces shelf */
+  .bdp0{display:inline-flex;gap:6px;align-items:center;margin-left:4px;color:var(--muted)}
+  .bdp0 input{width:120px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:4px 7px;font-size:13px;color:var(--paper)}
+  .bdsel{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;font-size:13px;background:#241a08;border:1px solid var(--amber-dim);border-radius:8px;padding:8px 10px}
+  .bdsel input{flex:1 1 180px;min-width:140px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:13px;color:var(--paper)}
+  .bdlib{margin-top:14px}
+  .bdlibh{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline}
+  .bdlibh h3{margin:0}
+  .bdlibh .mu{font-size:12.5px;flex:1 1 220px}
+  .bdgrp{font:700 9.5px Archivo,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
+  .bdpcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:8px}
+  @media (max-width:640px){.bdpcs{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.bdpb .btn{padding:4px 6px;font-size:11.5px}.bdpm{font-size:11px}}
+  .bdpc{background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:0}
+  .bdpc canvas{width:100%;height:54px;display:block;border-radius:5px}
+  .bdpn{font-size:13px;font-weight:700;color:var(--paper);background:transparent;border:1px solid transparent;border-radius:5px;padding:2px 4px;width:100%;min-width:0;font-family:inherit}
+  input.bdpn:hover,input.bdpn:focus{border-color:var(--line);background:var(--bg2);outline:none}
+  .bdpm{font-size:11.5px;padding:0 4px;line-height:1.35}
+  .bdpb{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+  .bdpb .btn{padding:4px 7px;font-size:12px}
+  .bdpb .bdpdel{margin-left:auto}
+  .bdnone{font-size:13px;margin:0}
 </style>
 </head>
 <body>
@@ -584,7 +605,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.69.1", build: "2026-09-30", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.70.0", build: "2026-09-30", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11394,21 +11415,27 @@ var PROG = (function () {
 
   /* ================= TOOLS ================= */
   lch({ id: "board", part: "Tools", title: "Drawing board",
-    sub: "Rebuild a chart you saw, leg by leg or candle by candle, and see every trade the app finds on it.",
+    sub: "A blank board: rebuild a chart you saw from legs, candles and saved pieces, and see every trade the app finds on it.",
     body: function () {
-      return lp("Saw a chart on cTrader and want to know what this method makes of it? Rebuild it here. You do not draw by hand: you place <b>legs</b> (a swing to a price, over a number of bars) and <b>candles</b>, then the app reads the chart the way the Desk Coach does, bar by bar, and lists every setup it finds: the entry, the stop and what it is based on, the target and what it is based on, the reward in R, the odds, and what your bars did with it.") +
+      return lp("Saw a chart on cTrader and want to know what this method makes of it? Rebuild it here. You do not draw by hand: you place <b>legs</b> (a swing to a price, over a number of bars) and <b>candles</b>, and you keep the parts you make as <b>pieces</b> to use again. The app reads the chart the way the Desk Coach does, bar by bar, and lists every setup it finds: the entry, the stop and what it is based on, the target and what it is based on, the reward in R, the odds, and what your bars did with it.") +
         lh("How to rebuild a chart") +
-        lol(["Pick the <b>market</b> and the <b>chart</b> (5 or 15 min), and a start: a quiet range, a bull trend, a bear trend, or empty. The start gives the 60 bars of history the reader needs before its first setup (the EMA and the structure need them). Then press <b>New chart</b>.",
-          "On your chart, find the swing highs and lows after that, in order. For each one, in <b>Leg</b> mode, tap where it ends: how far to the right is how many bars the leg takes, the height is the price it reaches (its high, or its low). Choose the style: <i>strong</i> for a spike, <i>normal</i> for a trend leg, <i>two-sided</i> for a range or a pullback with overlap.",
+        lol(["Pick the <b>market</b> and the <b>chart</b> (5 or 15 min). The board starts blank: tap where the chart starts (or type the start price), and that is the first bar.",
+          "Find the swing highs and lows on your chart, in order. For each one, in <b>Leg</b> mode, tap where it ends: how far to the right is how many bars the leg takes, the height is the price it reaches (its high, or its low). Choose the style: <i>strong</i> for a spike, <i>normal</i> for a trend leg, <i>two-sided</i> for a range or a pullback with overlap.",
           "Get the signal bar right, because the reader looks at it closely: switch to <b>Candle</b> and add it by its close. A <i>reversal bar</i> closes near its extreme with a long tail the other way; a <i>trend bar</i> has a big body; a <i>doji</i> closes where it opened.",
-          "A bar not quite right? <b>Select</b>, tap it, and type its open, high, low and close. <b>Undo</b> takes back the last step. The <b>&#x26F6;</b> button at the bottom right of the chart opens the board full screen, tools and all; <b>&#x2715;</b> or Esc closes it.",
-          "Have the real bars? cTrader, TradingView and most platforms export bars as CSV. <b>Paste bars</b> takes one bar per line: open, high, low, close (and volume). It also takes this app's own <b>Copy</b> text."]) +
+          "A bar not quite right? <b>Edit</b>, tap it, and type its open, high, low and close, or delete it. <b>Undo</b> takes back the last step. The <b>&#x26F6;</b> button at the bottom right of the chart opens the board full screen, tools and all; <b>&#x2715;</b> or Esc closes it.",
+          "The reader needs <b>60 bars</b> of lead-up before it can see a setup (the EMA and the structure need them). Draw them, or start with a <b>starter piece</b>: 60 bars of a quiet range, a bull trend or a bear trend.",
+          "Have the real bars? cTrader, TradingView and most platforms export bars as CSV. <b>Paste</b> takes one bar per line: open, high, low, close (and volume). It also takes this app's own <b>Copy</b> text."]) +
+        lh("Pieces: save what you draw, use it again") +
+        lul(["<b>Piece</b> mode: tap the first bar and the last bar of a stretch, say the two legs of a pullback or a whole wedge. Name it and <b>Save as piece</b>. <b>Save chart</b> keeps the whole chart as one piece.",
+          "Your pieces are on the shelf under the chart, each with a small picture. <b>+ Add</b> puts one at the end of your chart, starting from the last close and sized to your chart's bars, so a piece from Gold fits a EURUSD chart. <b>&#8645; Mirrored</b> adds it upside down: a bull pullback becomes a bear one. <b>Open</b> makes it the chart again, at its own prices.",
+          "In Piece mode you can also <b>add a stretch again</b> straight away (the same legs once more) or <b>delete</b> it; the bars after it move up to join.",
+          "Pieces stay on this device. <b>Copy my pieces</b> puts them on the clipboard; paste that text into <b>Paste</b> on your other device to bring them over."]) +
         '<div class="lboard" data-board="1"></div>' +
         lh("What it can and cannot tell you") +
         lul(["It finds the eleven setups this tab teaches, with the <b>same rules</b> as the Desk Coach: a clear structure (two legs to the EMA, a range with a failed breakout, three pushes, a trendline break and a test, and so on), a signal bar that closes the right way, and a positive trader's equation.",
           "The <b>odds</b> are the ones each setup is taught with, calibrated on this app's generated charts. On a real chart they are a guide, not a promise: a trade the app finds is one the method would take, not one that is sure to work.",
           "A setup it does <b>not</b> list is either not there by these rules, or drawn a little differently than the reader expects: a signal bar that closes in the middle, a pullback that never reached the EMA, a target too close to pay for the risk. Change one bar and read it again; that is how you learn which detail makes the trade.",
-          "Your chart is kept on this device, so you can come back to it. <b>Copy</b> puts the bars and the trades as text on your clipboard, to paste to someone or to keep."]);
+          "The chart you are drawing is kept on this device as you go, so you can come back to it. <b>Copy</b> puts the bars and the trades as text on your clipboard, to paste to someone or to keep."]);
     },
     practise: [{ label: "Desk with the Coach", go: "desk-coach" }]
   });
@@ -11723,8 +11750,10 @@ var PROG = (function () {
   }
 
   /* ---------- the drawing board ----------
-     Recreate a chart you saw: place legs (a swing to a price, in N bars) or
-     single candles, or paste bars. Then the same reader the Desk Coach uses
+     Recreate a chart you saw on a blank board: place legs (a swing to a price,
+     in N bars) or single candles, paste bars, or put together pieces you saved
+     before (a stretch of bars, kept on the device, added again anywhere,
+     mirrored or not, scaled to the chart). Then the same reader the Desk Coach uses
      runs over it, bar by bar, from the bars up to each one, and lists every
      setup it sees, with entry, stop, target, the odds it is taught with, and
      what the bars you drew did with it. */
@@ -11738,8 +11767,12 @@ var PROG = (function () {
     { sym: "CL", n: "UKOIL", dec: 2, p: 80, a: 0.13 },
     { sym: "BTCUSD", n: "BTCUSD", dec: 1, p: 65000, a: 130 }
   ];
-  var BD_START = [
-    ["range", "A quiet range (60 bars)"], ["bull", "A bull trend (60 bars)"], ["bear", "A bear trend (60 bars)"], ["empty", "Empty: draw everything"]
+  /* the three starter pieces: the 60 bars of lead-up the reader needs before
+     it can see a setup, made for whatever market the board is on */
+  var BD_STARTERS = [
+    { id: "s_range", kind: "range", name: "Quiet range", note: "60 bars sideways" },
+    { id: "s_bull", kind: "bull", name: "Bull trend", note: "60 bars up" },
+    { id: "s_bear", kind: "bear", name: "Bear trend", note: "60 bars down" }
   ];
   function bdRng(seed) { var s = (seed >>> 0) || 1; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
   function bdMk(sym) { return BD_MK.filter(function (m) { return m.sym === sym; })[0] || BD_MK[0]; }
@@ -11879,64 +11912,118 @@ var PROG = (function () {
     return out.sort(function (a, b) { return b.prog - a.prog; });
   }
 
+  /** the average bar range over [a, z] */
+  function bdAvgRange(bars, a, z) {
+    var s = 0, n = 0;
+    for (var i = Math.max(0, a); i <= Math.min(bars.length - 1, z); i++) { s += bars[i].h - bars[i].l; n++; }
+    return n ? s / n : 0;
+  }
+  /** a small picture of a piece: its candles, fitted to the canvas */
+  function bdThumb(cv, bars) {
+    var d = window.devicePixelRatio || 1, w = cv.clientWidth || 150, h = cv.clientHeight || 54;
+    cv.width = Math.round(w * d); cv.height = Math.round(h * d);
+    var c = cv.getContext("2d"); c.setTransform(d, 0, 0, d, 0, 0);
+    c.fillStyle = "#0B0E13"; c.fillRect(0, 0, w, h);
+    if (!bars.length) return;
+    var lo = Infinity, hi = -Infinity;
+    bars.forEach(function (b) { lo = Math.min(lo, b.l); hi = Math.max(hi, b.h); });
+    var pad = 4, bw = (w - 2 * pad) / bars.length, Y = function (p) { return pad + (hi - p) / Math.max(1e-12, hi - lo) * (h - 2 * pad); };
+    bars.forEach(function (b, i) {
+      var x = pad + (i + 0.5) * bw, up = b.c >= b.o;
+      c.strokeStyle = c.fillStyle = up ? "#3FBF7F" : "#E5634D"; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(x, Y(b.h)); c.lineTo(x, Y(b.l)); c.stroke();
+      var bwid = Math.max(1, bw * 0.62), t = Y(Math.max(b.o, b.c)), bt = Y(Math.min(b.o, b.c));
+      c.fillRect(x - bwid / 2, t, bwid, Math.max(1, bt - t));
+    });
+  }
+
   function mountBoard(el) {
-    var S = { whyAll: false, sym: "EURUSD", tf: 15, start: "range", bars: [], undo: [], mode: "leg", style: "normal", ctype: "trend", legN: 8, sel: -1, show: -1, found: [], hover: null };
-    try { var sv = JSON.parse(localStorage.getItem("tt_board") || "null"); if (sv && sv.bars && sv.bars.length) { S.sym = sv.sym; S.tf = sv.tf; S.bars = sv.bars; } } catch (e) { }
+    var S = { whyAll: false, sym: "EURUSD", tf: 15, bars: [], undo: [], mode: "leg", style: "normal", ctype: "trend", sel: -1, pick: -1, range: null,
+      show: -1, found: [], hover: null, p0: null, pieces: [] };
+    var LS = function (k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(k) || "null"); localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return v === undefined ? null : false; } };
+    var sv = LS("tt_board2");
+    if (sv && sv.bars) { S.sym = sv.sym || S.sym; S.tf = sv.tf || S.tf; S.bars = sv.bars; S.p0 = sv.p0 != null ? sv.p0 : null; }
+    S.pieces = LS("tt_pieces") || [];
+    /* the board used to start from a 60-bar template; a chart drawn on it then
+       is kept as a piece, and the board opens blank */
+    var old = LS("tt_board");
+    if (old && old.bars && old.bars.length) {
+      var om = bdMk(old.sym), same = ["range", "bull", "bear"].some(function (k) {
+        var t = bdTemplate(k, om); return t.length === old.bars.length && t.every(function (b, i) { return Math.abs(b.c - old.bars[i].c) < 1e-9; });
+      });
+      if (!same) S.pieces.unshift({ id: "p" + Date.now().toString(36), name: "My earlier chart", sym: old.sym, tf: old.tf, unit: bdAvgRange(old.bars, 0, 13) || om.a, bars: old.bars, t: Date.now() });
+      LS("tt_pieces", S.pieces);
+      try { localStorage.removeItem("tt_board"); } catch (e) { }
+    }
     el.innerHTML =
       '<div class="bdbar">' +
         '<label>Market <select data-b="sym">' + BD_MK.map(function (m) { return '<option value="' + m.sym + '">' + m.n + '</option>'; }).join("") + '</select></label>' +
         '<label>Chart <select data-b="tf"><option value="5">5 min</option><option value="15">15 min</option></select></label>' +
-        '<label>Start from <select data-b="start">' + BD_START.map(function (s) { return '<option value="' + s[0] + '">' + s[1] + '</option>'; }).join("") + '</select></label>' +
-        '<button class="btn sm" data-b="new">New chart</button>' +
+        '<button class="btn sm" data-b="new">New (blank)</button>' +
+        '<button class="btn sm" data-b="savechart">Save chart</button>' +
+        '<button class="btn sm" data-b="paste">Paste</button><button class="btn sm" data-b="copy">Copy</button>' +
       '</div>' +
       '<div class="bdbar">' +
-        '<span class="bdseg"><button data-m="leg" class="on">Leg</button><button data-m="candle">Candle</button><button data-m="select">Select</button></span>' +
+        '<span class="bdseg"><button data-m="leg" class="on">Leg</button><button data-m="candle">Candle</button><button data-m="edit">Edit</button><button data-m="piece">Piece</button></span>' +
         '<span class="bdopt" data-for="leg">Style <select data-b="style"><option value="strong">Strong</option><option value="normal" selected>Normal</option><option value="two">Two-sided</option></select></span>' +
         '<span class="bdopt" data-for="candle" style="display:none">Candle <select data-b="ctype"><option value="trend">Trend bar</option><option value="reversal">Reversal bar (tail)</option><option value="small">Small bar</option><option value="doji">Doji</option></select></span>' +
-        '<button class="btn sm" data-b="undo">&#8630; Undo</button><button class="btn sm" data-b="paste">Paste bars</button><button class="btn sm" data-b="copy">Copy</button>' +
+        '<button class="btn sm" data-b="undo">&#8630; Undo</button>' +
       '</div>' +
       '<div class="bdhint mu"></div>' +
       '<div class="bdchart"><canvas></canvas><button class="lfsbtn" data-b="fs" title="Full screen" aria-label="Full screen">&#x26F6;</button></div>' +
       '<div class="bdedit" style="display:none"></div>' +
-      '<div class="bdpaste" style="display:none"><textarea rows="6" placeholder="Paste bars here: one per line. Either this app\'s Copy text (O … H … L … C …) or a CSV export with open, high, low, close (and volume)."></textarea><div><button class="btn sm primary" data-b="doimport">Use these bars</button> <button class="btn sm" data-b="cancelimport">Cancel</button></div></div>' +
+      '<div class="bdsel" style="display:none"></div>' +
+      '<div class="bdpaste" style="display:none"><textarea rows="6" placeholder="Paste here, one bar per line: this app\'s Copy text (O … H … L … C …) or a CSV export with open, high, low, close (and volume). Or paste pieces copied from another device."></textarea><div><button class="btn sm primary" data-b="doimport">Use this</button> <button class="btn sm" data-b="cancelimport">Cancel</button></div></div>' +
+      '<div class="bdlib"></div>' +
       '<div class="bdres"></div>';
     var q = function (s) { return el.querySelector(s); };
     var cv = q("canvas"), ch = new Chart(cv);
     ch.passive = true; ch.opts.vol = false;
     q('[data-b="sym"]').value = S.sym; q('[data-b="tf"]').value = String(S.tf);
     var mk = function () { return bdMk(S.sym); };
+    /** a normal bar's size on this market and chart, before there are bars to measure */
+    var typAtr = function () { return mk().a * (S.tf === 15 ? 1.7 : 1); };
     var atr = function () {
-      var B = S.bars, n = Math.min(14, B.length); if (!n) return mk().a * (S.tf === 15 ? 1.7 : 1);
-      var s = 0; for (var i = B.length - n; i < B.length; i++) s += B[i].h - B[i].l; return s / n;
+      var B = S.bars, n = Math.min(14, B.length); if (n < 5) return typAtr();
+      return bdAvgRange(B, B.length - n, B.length - 1) || typAtr();
     };
+    var r2 = function (p) { var k = Math.pow(10, mk().dec + 2); return Math.round(p * k) / k; };
+    var clean = function (b) { return { o: r2(b.o), h: r2(b.h), l: r2(b.l), c: r2(b.c) }; };
     function stamp() {
       var t0 = Date.UTC(2026, 0, 5, 7, 0), st = S.tf * 60000;
       S.bars.forEach(function (b, i) { b.t = t0 + i * st; });
     }
-    function save() { try { localStorage.setItem("tt_board", JSON.stringify({ sym: S.sym, tf: S.tf, bars: S.bars.map(function (b) { return { o: b.o, h: b.h, l: b.l, c: b.c }; }) })); } catch (e) { } }
-    function push() { S.undo.push(JSON.stringify(S.bars)); if (S.undo.length > 60) S.undo.shift(); }
+    function save() { LS("tt_board2", { sym: S.sym, tf: S.tf, p0: S.p0, bars: S.bars.map(clean) }); }
+    function push() { S.undo.push(JSON.stringify({ sym: S.sym, tf: S.tf, bars: S.bars.map(clean) })); if (S.undo.length > 60) S.undo.shift(); }
     /** the price scale for bars [a, z], plus any levels that must show,
         with room above and below to tap the next leg -- but not so much room
-        that the bars shrink */
+        that the bars shrink. A blank or nearly blank board shows about 16
+        normal bars of height around its start. */
     function fitP(a, z, extra) {
       var lo = Infinity, hi = -Infinity;
       for (var i = Math.max(0, Math.floor(a)); i <= Math.min(S.bars.length - 1, Math.ceil(z)); i++) { lo = Math.min(lo, S.bars[i].l); hi = Math.max(hi, S.bars[i].h); }
       (extra || []).forEach(function (p) { if (p != null) { lo = Math.min(lo, p); hi = Math.max(hi, p); } });
-      if (!isFinite(lo)) { lo = mk().p - 10 * mk().a; hi = mk().p + 10 * mk().a; }
-      var pad = Math.max((hi - lo) * 0.18, 2.5 * atr());
+      if (!isFinite(lo)) { lo = hi = S.p0 != null ? S.p0 : mk().p; }
+      var pad = Math.max((hi - lo) * 0.18, 2.5 * atr()), minSpan = S.bars.length < 20 ? 16 * typAtr() : 0, span = hi - lo + 2 * pad;
+      if (span < minSpan) pad += (minSpan - span) / 2;
       ch.lockP = { lo: lo - pad, hi: hi + pad };
     }
     function view() {
       var n = S.bars.length;
       /* no thinner than about 6 px a bar: on a phone that is the last 50 or so */
       var fitN = Math.max(30, Math.floor((cv.clientWidth || 600) / 6.5));
-      var span = Math.max(30, Math.min(n + 30, 160, fitN));
-      ch.i1 = Math.max(n + Math.round(span * 0.3), 40); ch.i0 = Math.max(-2, ch.i1 - span);
+      var span = Math.max(40, Math.min(n + 30, 160, fitN));
+      ch.i1 = Math.max(n + Math.round(span * 0.3), span - 2); ch.i0 = ch.i1 - span;
       fitP(ch.i0, n - 1);
     }
+    /* a blank board still needs a bar for the chart to draw its axes: an
+       invisible one at the start price */
+    var noop = function () { };
     function redraw(keepView) {
       stamp();
-      ch.bars = S.bars.length ? S.bars : [{ o: mk().p, h: mk().p, l: mk().p, c: mk().p, t: Date.UTC(2026, 0, 5, 7, 0) }];
+      var empty = !S.bars.length, p = S.p0 != null ? S.p0 : mk().p;
+      ch.bars = empty ? [{ o: p, h: p, l: p, c: p, t: Date.UTC(2026, 0, 5, 7, 0) }] : S.bars;
+      ch._candles = empty ? noop : Chart.prototype._candles; ch._emas = empty ? noop : Chart.prototype._emas;
       ch.dec = mk().dec; ch.sym = mk().n; ch.tf = S.tf + "m"; ch.vis = ch.bars.length - 1; ch.chart = { bars: ch.bars };
       if (!keepView) view();
       ch.render();
@@ -11946,16 +12033,24 @@ var PROG = (function () {
       if (S.show >= S.found.length) S.show = -1;
       paintRes(); showTrade(S.show);
     }
-    function changed() { save(); S.sel = -1; paintEdit(); redraw(); analyse(); hint(); }
+    function changed() { save(); S.sel = -1; S.pick = -1; S.range = null; paintEdit(); paintSel(); redraw(); analyse(); hint(); }
     function hint() {
+      var n = S.bars.length, box = q(".bdhint");
+      if (!n) {
+        box.innerHTML = 'The board is blank. Tap where the chart starts: that is its first price. Or add a piece from the shelf below. ' +
+          '<label class="bdp0">Start price <input type="number" step="any" data-b="p0" value="' + (S.p0 != null ? S.p0 : mk().p) + '"></label>';
+        box.querySelector('[data-b="p0"]').onchange = function () { var v = +this.value; if (isFinite(v) && v > 0) { S.p0 = v; save(); redraw(); } };
+        return;
+      }
       var h = { leg: "Tap where the leg ends: how far right is how many bars, the height is the price it reaches (its high or low). " + ("Style: " + { strong: "strong, big bodies", normal: "normal, a small bar against it now and then", two: "two-sided, overlapping bars" }[S.style]) + ".",
         candle: "Tap to add the next candle: it opens at the last close and closes where you tap. The type sets the tails.",
-        select: "Tap a candle to change its open, high, low and close." }[S.mode];
-      q(".bdhint").textContent = h + " " + S.bars.length + " bars" + (S.bars.length <= 60 ? " — the reader needs 60 bars of history before it can see a setup, so draw on past bar 60." : ".");
+        edit: "Tap a bar to change its open, high, low and close, or to delete it.",
+        piece: S.pick >= 0 && !S.range ? "Bar " + S.pick + " is the first bar. Now tap the last bar of the piece." : "Tap the first bar of a piece, then its last bar. Then save it to your pieces, add it again, or delete it." }[S.mode];
+      box.textContent = h + " " + n + (n <= 60 ? " of the 60 bars the reader needs before its first setup." : " bars.");
     }
     function paintEdit() {
       var box = q(".bdedit");
-      if (S.mode !== "select" || S.sel < 0 || !S.bars[S.sel]) { box.style.display = "none"; return; }
+      if (S.mode !== "edit" || S.sel < 0 || !S.bars[S.sel]) { box.style.display = "none"; return; }
       var b = S.bars[S.sel], d = mk().dec;
       box.style.display = "";
       box.innerHTML = '<b>Bar ' + S.sel + '</b> ' + ["o", "h", "l", "c"].map(function (k) { return '<label>' + { o: "Open", h: "High", l: "Low", c: "Close" }[k] + ' <input data-k="' + k + '" type="number" step="any" value="' + b[k].toFixed(d) + '"></label>'; }).join("") +
@@ -11966,13 +12061,147 @@ var PROG = (function () {
         push(); S.bars[S.sel] = { o: v.o, h: Math.max(v.h, v.o, v.c), l: Math.min(v.l, v.o, v.c), c: v.c };
         var keep = S.sel; save(); redraw(true); analyse(); S.sel = keep; paintEdit();
       };
-      box.querySelector('[data-b="delbar"]').onclick = function () { push(); S.bars.splice(S.sel, 1); changed(); };
+      box.querySelector('[data-b="delbar"]').onclick = function () { delRange(S.sel, S.sel); };
     }
+
+    /* ---- pieces ---- */
+    function starter(st) {
+      var bars = bdTemplate(st.kind, mk());
+      return { id: st.id, name: st.name, note: st.note, starter: true, sym: S.sym, tf: S.tf, bars: bars, unit: bdAvgRange(bars, 0, bars.length - 1) };
+    }
+    function pieceById(id) {
+      for (var k = 0; k < BD_STARTERS.length; k++) if (BD_STARTERS[k].id === id) return starter(BD_STARTERS[k]);
+      return S.pieces.filter(function (x) { return x.id === id; })[0] || null;
+    }
+    function savePieces() {
+      if (!LS("tt_pieces", S.pieces) && typeof toast === "function") toast("Could not save the pieces: this browser's storage is full or blocked");
+    }
+    /** a piece's bars placed on this chart: from the last close, its size
+        matched to this chart's bars (a piece keeps its size relative to the
+        bars around it when it was saved), mirrored if asked. On a blank board
+        a piece from the same market keeps its own prices. */
+    function placed(pc, mirror) {
+      var src = pc.bars; if (!src || !src.length) return [];
+      var base = src[0].o, n = S.bars.length, anchor, scale, m = mirror ? -1 : 1, unit = Math.max(1e-12, pc.unit || bdAvgRange(src, 0, src.length - 1));
+      if (!n) {
+        if (pc.sym === S.sym && S.p0 == null) { anchor = base; scale = 1; }
+        else { anchor = S.p0 != null ? S.p0 : mk().p; scale = (pc.sym === S.sym ? unit : typAtr()) / unit; }
+      } else { anchor = S.bars[n - 1].c; scale = (n >= 10 ? atr() : pc.sym === S.sym ? unit : typAtr()) / unit; }
+      var P = function (p) { return anchor + m * (p - base) * scale; };
+      return src.map(function (b) { return { o: P(b.o), c: P(b.c), h: P(m > 0 ? b.h : b.l), l: P(m > 0 ? b.l : b.h) }; });
+    }
+    function addPiece(pc, mirror) {
+      var add = placed(pc, mirror); if (!add.length) return;
+      push(); S.bars = S.bars.concat(add); S.show = -1; changed();
+    }
+    function savePiece(a, z, name) {
+      var bars = S.bars.slice(a, z + 1).map(clean);
+      if (!bars.length) return null;
+      /* the size of a normal bar where the piece was: the bars before it, or its own */
+      var unit = a >= 5 ? bdAvgRange(S.bars, Math.max(0, a - 14), a - 1) : bdAvgRange(bars, 0, bars.length - 1);
+      var pc = { id: "p" + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36), name: name || ("Piece " + (S.pieces.length + 1)),
+        sym: S.sym, tf: S.tf, unit: r2(unit) || typAtr(), bars: bars, t: Date.now() };
+      S.pieces.unshift(pc); savePieces(); paintLib();
+      return pc;
+    }
+    /** delete bars a..z; the bars after them move to join the bar before */
+    function delRange(a, z) {
+      if (a < 0 || z < a || a >= S.bars.length) return;
+      push();
+      var before = a > 0 ? S.bars[a - 1].c : null, after = S.bars[z + 1], dlt = before != null && after ? before - after.o : 0;
+      S.bars.splice(a, z - a + 1);
+      if (dlt) for (var i = a; i < S.bars.length; i++) { var b = S.bars[i]; b.o += dlt; b.h += dlt; b.l += dlt; b.c += dlt; }
+      S.show = -1; changed();
+    }
+    function paintSel() {
+      var box = q(".bdsel");
+      if (S.mode !== "piece" || (S.pick < 0 && !S.range)) { box.style.display = "none"; return; }
+      box.style.display = "";
+      if (!S.range) {
+        box.innerHTML = '<span>Bar <b>' + S.pick + '</b> is the first bar: tap the last bar of the piece.</span> <button class="btn sm" data-b="selall">The whole chart</button> <button class="btn sm" data-b="selx">Cancel</button>';
+      } else {
+        var a = S.range.a, z = S.range.z;
+        box.innerHTML = '<span><b>Bars ' + a + '–' + z + '</b> · ' + (z - a + 1) + ' bars</span>' +
+          '<input type="text" data-b="pname" maxlength="40" placeholder="Name it, e.g. two legs down">' +
+          '<button class="btn sm primary" data-b="psave">Save as piece</button>' +
+          '<button class="btn sm" data-b="pagain">Add again at the end</button><button class="btn sm" data-b="pmirror">Add mirrored</button>' +
+          '<button class="btn sm" data-b="pdel">Delete these bars</button><button class="btn sm" data-b="selx">Cancel</button>';
+        var tmp = function () { return { bars: S.bars.slice(a, z + 1), sym: S.sym, unit: a >= 5 ? bdAvgRange(S.bars, Math.max(0, a - 14), a - 1) : bdAvgRange(S.bars, a, z) }; };
+        box.querySelector('[data-b="psave"]').onclick = function () {
+          var pc = savePiece(a, z, box.querySelector('[data-b="pname"]').value.trim());
+          if (pc && typeof toast === "function") toast('Saved "' + pc.name + '" to your pieces');
+          S.range = null; S.pick = -1; paintSel(); hint(); ch.render();
+        };
+        box.querySelector('[data-b="pagain"]').onclick = function () { addPiece(tmp(), false); };
+        box.querySelector('[data-b="pmirror"]').onclick = function () { addPiece(tmp(), true); };
+        box.querySelector('[data-b="pdel"]').onclick = function () { delRange(a, z); };
+      }
+      var all = box.querySelector('[data-b="selall"]'); if (all) all.onclick = function () { S.range = { a: 0, z: S.bars.length - 1 }; paintSel(); hint(); ch.render(); };
+      box.querySelector('[data-b="selx"]').onclick = function () { S.range = null; S.pick = -1; paintSel(); hint(); ch.render(); };
+    }
+    var delArm = null;
+    function paintLib() {
+      var box = q(".bdlib"), mine = S.pieces;
+      var card = function (pc) {
+        var meta = pc.starter ? pc.note + " · the lead-up the reader needs" : pc.bars.length + " bars · " + bdMk(pc.sym).n + " " + pc.tf + " min";
+        return '<div class="bdpc" data-pc="' + pc.id + '"><canvas></canvas>' +
+          (pc.starter ? '<b class="bdpn">' + esc(pc.name) + '</b>' : '<input class="bdpn" data-b="rename" maxlength="40" value="' + esc(pc.name).replace(/"/g, "&quot;") + '" aria-label="Name of this piece">') +
+          '<div class="mu bdpm">' + esc(meta) + '</div>' +
+          '<div class="bdpb"><button class="btn sm primary" data-b="add" title="Add to the end of the chart">+ Add</button><button class="btn sm" data-b="addm" title="Add it upside down: up legs become down legs">&#8645; Mirrored</button>' +
+          (pc.starter ? '' : '<button class="btn sm" data-b="open" title="Open it as the chart, at its own prices">Open</button><button class="btn sm bdpdel" data-b="del" title="Delete this piece">' + (delArm === pc.id ? "Delete?" : "&#x2715;") + '</button>') +
+          '</div></div>';
+      };
+      var starters = BD_STARTERS.map(starter);
+      box.innerHTML = '<div class="bdlibh"><h3>Pieces</h3><span class="mu">Tap + Add to put a piece at the end of the chart, sized to its bars.</span>' +
+        (mine.length ? '<button class="btn sm" data-b="exportp">Copy my pieces</button>' : '') + '</div>' +
+        '<div class="bdgrp">Yours</div>' +
+        (mine.length ? '<div class="bdpcs">' + mine.map(card).join("") + '</div>'
+          : '<p class="mu bdnone">None yet. Choose <b>Piece</b>, tap the first and the last bar of a stretch you drew, and save it. <b>Save chart</b> keeps the whole chart.</p>') +
+        '<div class="bdgrp">Starters</div><div class="bdpcs">' + starters.map(card).join("") + '</div>';
+      [].forEach.call(box.querySelectorAll(".bdpc"), function (cd) {
+        var id = cd.dataset.pc, pc = pieceById(id); if (!pc) return;
+        bdThumb(cd.querySelector("canvas"), pc.bars);
+        cd.querySelector('[data-b="add"]').onclick = function () { addPiece(pieceById(id), false); };
+        cd.querySelector('[data-b="addm"]').onclick = function () { addPiece(pieceById(id), true); };
+        var op = cd.querySelector('[data-b="open"]');
+        if (op) op.onclick = function () { openPiece(id); };
+        var dl = cd.querySelector('[data-b="del"]');
+        if (dl) dl.onclick = function () {
+          if (delArm !== id) { delArm = id; paintLib(); setTimeout(function () { if (delArm === id) { delArm = null; paintLib(); } }, 3000); return; }
+          delArm = null; S.pieces = S.pieces.filter(function (x) { return x.id !== id; }); savePieces(); paintLib();
+        };
+        var rn = cd.querySelector('[data-b="rename"]');
+        if (rn) rn.onchange = function () { var x = S.pieces.filter(function (y) { return y.id === id; })[0]; if (x) { x.name = rn.value.trim() || x.name; savePieces(); } };
+      });
+      var ex = box.querySelector('[data-b="exportp"]');
+      if (ex) ex.onclick = function () { lcopy("TTPIECES1\n" + JSON.stringify(S.pieces)); if (typeof toast === "function") toast(S.pieces.length + " pieces copied: paste them on the board on another device"); };
+    }
+    function openPiece(id) {
+      var pc = pieceById(id); if (!pc) return;
+      push();
+      S.sym = pc.sym; S.tf = pc.tf; q('[data-b="sym"]').value = S.sym; q('[data-b="tf"]').value = String(S.tf);
+      S.bars = pc.bars.map(function (b) { return { o: b.o, h: b.h, l: b.l, c: b.c }; }); S.show = -1; changed();
+    }
+    function importPieces(txt) {
+      var i = txt.indexOf("TTPIECES1"), arr;
+      try { arr = JSON.parse(txt.slice(i + 9).trim()); } catch (e) { return 0; }
+      if (!Array.isArray(arr)) return 0;
+      var have = {}, added = 0;
+      S.pieces.forEach(function (x) { have[x.id] = true; });
+      arr.forEach(function (x) {
+        if (!x || have[x.id] || !Array.isArray(x.bars) || !x.bars.length || !x.bars.every(function (b) { return b && isFinite(b.o) && isFinite(b.h) && isFinite(b.l) && isFinite(b.c); })) return;
+        S.pieces.push({ id: String(x.id || ("p" + Date.now().toString(36) + added)), name: String(x.name || "Piece").slice(0, 40), sym: bdMk(x.sym).sym, tf: x.tf === 5 ? 5 : 15, unit: +x.unit || 0, bars: x.bars, t: x.t || Date.now() });
+        added++;
+      });
+      if (added) { savePieces(); paintLib(); }
+      return added;
+    }
+
     function whyHtml() {
       var n = S.bars.length; if (n <= 60) return "";
-      var v = S.mode === "select" && S.sel >= 60 ? S.sel : n - 1, list = bdWhyNot(S.bars, mk().dec, v);
+      var v = S.mode === "edit" && S.sel >= 60 ? S.sel : n - 1, list = bdWhyNot(S.bars, mk().dec, v);
       var show = S.whyAll ? list : list.slice(0, 4);
-      return '<h3>Why not here? Bar ' + v + '</h3><p class="mu">' + (v === n - 1 ? "The last bar, checked against every setup, both ways. To check another bar, choose Select and tap it." : "The bar you selected, checked against every setup, both ways.") +
+      return '<h3>Why not here? Bar ' + v + '</h3><p class="mu">' + (v === n - 1 ? "The last bar, checked against every setup, both ways. To check another bar, choose Edit and tap it." : "The bar you selected, checked against every setup, both ways.") +
         ' The closest ones first: the bar shows how many of the setup\'s rules it passed.</p><div class="bdwn">' +
         show.map(function (w) {
           return '<div class="bdwr"><span class="bdprog"><i style="width:' + Math.round(w.prog * 100) + '%"></i></span><b>' + esc(w.name) + '</b> · ' + (w.dir > 0 ? "buy" : "sell") + '<div class="mu">' + esc(w.text) + '</div></div>';
@@ -11980,8 +12209,8 @@ var PROG = (function () {
         '<button class="btn sm" data-b="whyall">' + (S.whyAll ? "Show the closest four" : "Show all 22") + '</button>';
     }
     function paintRes() {
-      var box = q(".bdres"), d = mk().dec, fp = function (p) { return (+p).toFixed(d); }, ex = { sym: S.sym, dec: d };
-      if (S.bars.length <= 60) { box.innerHTML = '<h3>What the app sees</h3><p class="mu">Draw more than 60 bars: every setup reads the structure before it, the way the Desk Coach does.</p>'; return; }
+      var box = q(".bdres"), d = mk().dec, fp = function (p) { return (+p).toFixed(d); };
+      if (S.bars.length <= 60) { box.innerHTML = '<h3>What the app sees</h3><p class="mu">Nothing yet: the reader needs 60 bars before it can see a setup (the EMA and the structure need them), the way the Desk Coach does. Draw the lead-up first, or add a starter piece.</p>'; return; }
       if (!S.found.length) {
         box.innerHTML = whyHtml() + '<h3>What the app sees</h3><p>No setup on these bars. The reader looks for the eleven setups of this tab, each with its own structure: two legs back to the EMA in a trend, a clear range with a second attempt at its edge, a wedge of three pushes, a trend line break and a test, and so on. If you drew one, the list above says which rule it missed.</p>';
         wireWhy(box); return;
@@ -12022,6 +12251,15 @@ var PROG = (function () {
     }
     ch.overlayFn = function (c, b, chart) {
       c.save();
+      /* the stretch picked as a piece */
+      var R = S.mode === "piece" ? (S.range || (S.pick >= 0 ? { a: S.pick, z: S.pick } : null)) : null;
+      if (R) {
+        var xa = chart.x(R.a) - chart.bw / 2, xz = chart.x(R.z) + chart.bw / 2;
+        c.fillStyle = "rgba(232,163,61,.13)"; c.fillRect(xa, b.t, xz - xa, b.h);
+        c.strokeStyle = COL.amber; c.lineWidth = 1.2; c.setLineDash([4, 3]);
+        c.beginPath(); c.moveTo(xa, b.t); c.lineTo(xa, b.t + b.h); c.moveTo(xz, b.t); c.lineTo(xz, b.t + b.h); c.stroke(); c.setLineDash([]);
+        if (S.range) lTag(c, "piece: " + (R.z - R.a + 1) + " bars", (xa + xz) / 2, b.t + 14, COL.amber, "center");
+      }
       /* the numbered setups the reader found */
       S.found.forEach(function (f, k) {
         var g = f.g, bb = S.bars[g.i]; if (!bb) return;
@@ -12043,15 +12281,20 @@ var PROG = (function () {
         var sb = S.bars[sh.g.i]; if (sb) { c.strokeStyle = COL.amber; c.lineWidth = 1.8; c.strokeRect(chart.x(sh.g.i) - Math.max(7, chart.bw * 0.95) / 2, chart.y(sb.h) - 4, Math.max(7, chart.bw * 0.95), chart.y(sb.l) - chart.y(sb.h) + 8); }
       }
       /* the selected candle */
-      if (S.mode === "select" && S.bars[S.sel]) { var s = S.bars[S.sel]; c.strokeStyle = "#fff"; c.lineWidth = 1.5; c.setLineDash([3, 3]); c.strokeRect(chart.x(S.sel) - chart.bw / 2 - 2, chart.y(s.h) - 4, chart.bw + 4, chart.y(s.l) - chart.y(s.h) + 8); c.setLineDash([]); }
+      if (S.mode === "edit" && S.bars[S.sel]) { var s = S.bars[S.sel]; c.strokeStyle = "#fff"; c.lineWidth = 1.5; c.setLineDash([3, 3]); c.strokeRect(chart.x(S.sel) - chart.bw / 2 - 2, chart.y(s.h) - 4, chart.bw + 4, chart.y(s.l) - chart.y(s.h) + 8); c.setLineDash([]); }
       /* what a tap would place */
-      var hv = S.hover;
-      if (hv && S.mode !== "select") {
-        var n = S.bars.length, last = S.bars[n - 1], x0 = chart.x(n - 1), y0 = last ? chart.y(last.c) : chart.y(hv.p);
+      var hv = S.hover, n = S.bars.length;
+      if (hv && !n) {
+        c.fillStyle = "#e6e9ef"; c.beginPath(); c.arc(chart.x(0), chart.y(hv.p), 4, 0, 6.284); c.fill();
+        lTag(c, "start at " + (+hv.p).toFixed(mk().dec), chart.x(0) + 8, chart.y(hv.p) - 12, "#e6e9ef", "left");
+      } else if (hv && (S.mode === "leg" || S.mode === "candle")) {
+        var last = S.bars[n - 1], x0 = chart.x(n - 1), y0 = chart.y(last.c);
         c.strokeStyle = "rgba(255,255,255,.55)"; c.setLineDash([4, 4]); c.lineWidth = 1.2;
         c.beginPath(); c.moveTo(x0, y0); c.lineTo(chart.x(hv.i), chart.y(hv.p)); c.stroke(); c.setLineDash([]);
-        var dp = last ? hv.p - last.c : 0, fmtP = (+hv.p).toFixed(mk().dec);
+        var dp = hv.p - last.c, fmtP = (+hv.p).toFixed(mk().dec);
         lTag(c, S.mode === "leg" ? (hv.i - (n - 1)) + " bars to " + fmtP : "close " + fmtP, chart.x(hv.i) + 8, chart.y(hv.p) - (dp >= 0 ? 12 : -12), "#e6e9ef", "left");
+      } else if (hv && S.mode === "piece" && hv.i >= 0 && hv.i < n) {
+        c.fillStyle = "rgba(255,255,255,.07)"; c.fillRect(chart.x(hv.i) - chart.bw / 2, b.t, chart.bw, b.h);
       }
       c.restore();
     };
@@ -12068,35 +12311,63 @@ var PROG = (function () {
     cv.addEventListener("pointerup", function (e) {
       if (!down || Math.abs(e.clientX - down.x) + Math.abs(e.clientY - down.y) > 8) { down = null; return; }
       down = null;
-      var h = ptr(e), n = S.bars.length;
-      if (S.mode === "select") {
-        var j = Math.round(ch.iAt(h.x)); S.sel = j >= 0 && j < n ? j : -1; paintEdit(); paintRes(); ch.render(); return;
+      var h = ptr(e), n = S.bars.length, j = Math.round(ch.iAt(h.x));
+      if (!n) {
+        /* the first tap on a blank board: where the chart starts */
+        var u = typAtr(); push(); S.bars = [{ o: h.p, h: h.p + 0.08 * u, l: h.p - 0.08 * u, c: h.p }]; changed(); return;
+      }
+      if (S.mode === "edit") { S.sel = j >= 0 && j < n ? j : -1; paintEdit(); paintRes(); ch.render(); return; }
+      if (S.mode === "piece") {
+        j = Math.max(0, Math.min(n - 1, j));
+        if (S.pick < 0 || S.range) { S.pick = j; S.range = null; }
+        else { S.range = { a: Math.min(S.pick, j), z: Math.max(S.pick, j) }; }
+        paintSel(); hint(); ch.render(); return;
       }
       push();
       if (S.mode === "leg") S.bars = S.bars.concat(bdLeg(S.bars, Math.max(1, h.i - (n - 1)), h.p, S.style, atr(), 1000 + n * 7));
       else S.bars.push(bdCandle(S.bars, h.p, S.ctype, atr()));
-      changed(); hint();
+      changed();
     });
     el.querySelectorAll("[data-m]").forEach(function (b) {
       b.onclick = function () {
         S.mode = b.dataset.m; el.querySelectorAll("[data-m]").forEach(function (x) { x.classList.toggle("on", x === b); });
         el.querySelectorAll(".bdopt").forEach(function (o) { o.style.display = o.dataset.for === S.mode ? "" : "none"; });
-        S.sel = -1; paintEdit(); hint(); paintRes(); ch.render();
+        S.sel = -1; S.pick = -1; S.range = null; paintEdit(); paintSel(); hint(); paintRes(); ch.render();
       };
     });
     q('[data-b="style"]').onchange = function () { S.style = this.value; hint(); };
     q('[data-b="ctype"]').onchange = function () { S.ctype = this.value; };
-    q('[data-b="sym"]').onchange = function () { S.sym = this.value; };
+    q('[data-b="sym"]').onchange = function () {
+      S.sym = this.value;
+      if (!S.bars.length) { S.p0 = null; hint(); }
+      save(); redraw(); paintLib(); analyse();
+    };
     q('[data-b="tf"]').onchange = function () { S.tf = +this.value; redraw(true); save(); };
-    q('[data-b="start"]').onchange = function () { S.start = this.value; };
-    q('[data-b="new"]').onclick = function () { push(); S.bars = bdTemplate(S.start, mk()); S.show = -1; changed(); hint(); };
-    q('[data-b="undo"]').onclick = function () { if (!S.undo.length) return; S.bars = JSON.parse(S.undo.pop()); S.show = -1; changed(); hint(); };
+    q('[data-b="new"]').onclick = function () { if (!S.bars.length) return; push(); S.bars = []; S.show = -1; changed(); };
+    q('[data-b="savechart"]').onclick = function () {
+      if (!S.bars.length) { if (typeof toast === "function") toast("Nothing to save yet: the board is blank"); return; }
+      var d = new Date(), M = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      var pc = savePiece(0, S.bars.length - 1, "Chart " + d.getDate() + " " + M[d.getMonth()] + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2));
+      if (pc && typeof toast === "function") toast('Saved as "' + pc.name + '" in your pieces: rename it there');
+    };
+    q('[data-b="undo"]').onclick = function () {
+      if (!S.undo.length) return;
+      var u = JSON.parse(S.undo.pop());
+      S.sym = u.sym; S.tf = u.tf; S.bars = u.bars; q('[data-b="sym"]').value = S.sym; q('[data-b="tf"]').value = String(S.tf);
+      S.show = -1; changed(); paintLib();
+    };
     q('[data-b="paste"]').onclick = function () { var p = q(".bdpaste"); p.style.display = p.style.display === "none" ? "" : "none"; };
     q('[data-b="cancelimport"]').onclick = function () { q(".bdpaste").style.display = "none"; };
     q('[data-b="doimport"]').onclick = function () {
-      var bars = bdParse(q(".bdpaste textarea").value);
+      var t = q(".bdpaste textarea").value;
+      if (/TTPIECES1/.test(t)) {
+        var k = importPieces(t); q(".bdpaste").style.display = "none";
+        if (typeof toast === "function") toast(k ? k + " piece" + (k > 1 ? "s" : "") + " added to your pieces" : "No new pieces in that text");
+        return;
+      }
+      var bars = bdParse(t);
       if (!bars.length) { if (typeof toast === "function") toast("No bars found in that text"); return; }
-      push(); S.bars = bars; S.show = -1; q(".bdpaste").style.display = "none"; changed(); hint();
+      push(); S.bars = bars; S.show = -1; q(".bdpaste").style.display = "none"; changed();
       if (typeof toast === "function") toast(bars.length + " bars loaded");
     };
     q('[data-b="copy"]').onclick = function () {
@@ -12111,20 +12382,23 @@ var PROG = (function () {
       S.bars.forEach(function (b, i) { L.push(i + "  O " + f(b.o) + "  H " + f(b.h) + "  L " + f(b.l) + "  C " + f(b.c)); });
       lcopy(L.join("\n"));
     };
-    if (!S.bars.length) S.bars = bdTemplate("range", mk());
     el._board = {
       get state() { return S; }, chart: ch,
-      newFrom: function (kind) { S.start = kind; q('[data-b="start"]').value = kind; S.bars = bdTemplate(kind, mk()); changed(); },
+      clear: function () { S.bars = []; S.p0 = null; changed(); },
+      newFrom: function (kind) { S.bars = []; S.p0 = null; addPiece(pieceById("s_" + kind), false); },
       leg: function (n, p, style) { S.bars = S.bars.concat(bdLeg(S.bars, n, p, style || "normal", atr(), 1000 + S.bars.length * 7)); changed(); },
       candle: function (p, type) { S.bars.push(bdCandle(S.bars, p, type || "trend", atr())); changed(); },
       load: function (bars) { S.bars = bars.map(function (b) { return { o: b.o, h: b.h, l: b.l, c: b.c }; }); changed(); },
       whyNot: function (v) { return bdWhyNot(S.bars, mk().dec, v == null ? S.bars.length - 1 : v); },
-      importText: function (t) { var b = bdParse(t); if (b.length) { S.bars = b; changed(); } return b.length; }
+      importText: function (t) { var b = bdParse(t); if (b.length) { S.bars = b; changed(); } return b.length; },
+      savePiece: savePiece, addPiece: function (id, mirror) { addPiece(pieceById(id), mirror); }, openPiece: openPiece,
+      deleteRange: delRange, importPieces: importPieces
     };
-    redraw(); analyse(); hint();
+    redraw(); analyse(); hint(); paintLib();
     new ResizeObserver(function () { ch._fitCanvas(); ch.render(); }).observe(q(".bdchart"));
     /* full screen: the whole board fills the window -- the tools stay on top,
-       the chart takes the rest of the height, and the results scroll below */
+       the chart takes the rest of the height, and the pieces and results
+       scroll below */
     var fsb = q('[data-b="fs"]');
     function sizeFs() {
       var c = q(".bdchart");
