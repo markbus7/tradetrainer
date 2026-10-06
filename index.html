@@ -117,6 +117,31 @@
   @media(max-width:860px){.stage{flex-direction:column}}
   .chartcol{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
   .chartwrap{flex:1;position:relative;min-height:0;background:#0B0E13;touch-action:none}
+  /* the indicators button on a chart, and its editor */
+  .indbtn{position:absolute;top:6px;right:68px;z-index:3;height:26px;padding:0 9px;border-radius:7px;border:1px solid rgba(255,255,255,.18);background:rgba(11,14,19,.82);color:#d6dae2;font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;cursor:pointer}
+  .indbtn i{font:italic 700 12px 'IBM Plex Mono',monospace;color:var(--amber)}
+  .indbtn:hover{border-color:var(--amber)}
+  @media(max-width:640px){.indbtn{right:62px}.indbtn span{display:none}}
+  .indov{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;padding:12px}
+  .indov.on{display:flex}
+  .indbox{background:var(--bg2);border:1px solid var(--line);border-radius:12px;width:min(580px,100%);max-height:100%;overflow-y:auto;padding:14px 16px 16px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+  .indhead{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:16px}
+  .indgap{flex:1}
+  .indx{width:30px;height:28px;border:1px solid var(--line);border-radius:7px;background:var(--bg3);font-size:14px}
+  .indnote{font-size:12.5px;line-height:1.5;color:var(--muted);margin:0 0 10px}
+  .indlist{display:grid;gap:6px;margin-bottom:10px}
+  .indrow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px}
+  .indrow label{display:flex;gap:6px;align-items:center;color:var(--muted)}
+  .indrow .indon{color:var(--paper);min-width:150px}
+  .indrow input[type=number]{width:70px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:13px;color:var(--paper)}
+  .indrow input[type=color]{width:34px;height:26px;padding:0;border:1px solid var(--line);border-radius:6px;background:var(--bg2);cursor:pointer}
+  .indrow input[type=checkbox]{accent-color:var(--amber)}
+  .indrm{margin-left:auto;width:28px;height:26px;border:1px solid var(--line);border-radius:6px;background:var(--bg2);font-size:12px;color:var(--muted)}
+  .indrm:hover{border-color:var(--dn);color:var(--dn)}
+  .indnone{font-size:13px;color:var(--muted);padding:6px 2px}
+  .indadd{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .indadd select{background:var(--bg3);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px;color:var(--paper)}
+  .indhelp{font-size:12.5px;line-height:1.5;color:var(--muted);margin:10px 0 0}
   canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
   /* A scrollable toolbar with no hint that it scrolls hides whatever sits past
      the fold on any screen narrower than its content -- which is exactly what
@@ -607,7 +632,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.71.0", build: "2026-09-30", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.72.0", build: "2026-10-06", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2991,7 +3016,210 @@ Chart.prototype._vol = function (c, b) {
   c.strokeStyle = COL.grid; c.beginPath();
   c.moveTo(0, b.volT + 0.5); c.lineTo(b.r, b.volT + 0.5); c.stroke();
 };
+/* ---------- indicators ----------
+   The working charts (Path, Practice, Desk, History, the Drawing board) draw a
+   list of overlays the person chooses: add, remove or edit them from the
+   button on any chart. One list, kept on this device. It starts as the one
+   line the method is taught with, the 20 EMA. The Learn lessons keep drawing
+   only that (opts.fixedEma), so their pictures keep matching their words.
+   The value at bar i uses only bars up to i, so nothing leaks the bars still
+   to come. */
+var IND = (function () {
+  var KEY = "tt_inds", MAX = 8, list = [], charts = [], seq = 0, version = 1, built = null, opener = null;
+  var TYPES = {
+    ema: { name: "EMA", p: 20, col: "#F2A93B", a: 0.6, help: "Exponential moving average of the closes: recent bars count more. The 20 EMA is the line this method is taught with." },
+    sma: { name: "SMA", p: 50, col: "#5B9BD5", a: 0.75, help: "Simple moving average of the closes: every bar of the period counts the same." },
+    dc: { name: "Donchian Channel", p: 20, col: "#4FC3F7", a: 0.85, help: "The highest high and the lowest low of the last N bars, including the bar itself, with the middle between them (dashed). Price at the top line is making a new N-bar high." },
+    bb: { name: "Bollinger Bands", p: 20, k: 2, col: "#B58CFF", a: 0.85, help: "A simple average of the closes, with bands that many standard deviations above and below it. They widen when the bars get bigger." }
+  };
+  var PALETTE = ["#F2A93B", "#4FC3F7", "#B58CFF", "#5B9BD5", "#3FBF7F", "#F06292", "#E5E7EB", "#FF8A65"];
+  function hex(c, al) { var n = parseInt(c.slice(1), 16); return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + al + ")"; }
+  function clampP(v, d) { v = Math.round(+v); return isFinite(v) ? Math.max(2, Math.min(300, v)) : d; }
+  function clampK(v, d) { v = Math.round(+v * 10) / 10; return isFinite(v) ? Math.max(0.5, Math.min(5, v)) : d; }
+  function clean(d) {
+    if (!d || !TYPES[d.type]) return null;
+    var T = TYPES[d.type], o = { id: "i" + (++seq), type: d.type, on: d.on !== false, p: clampP(d.p, T.p), col: typeof d.col === "string" && /^#[0-9a-f]{6}$/i.test(d.col) ? d.col : T.col };
+    if (d.type === "bb") o.k = clampK(d.k, 2);
+    if (d.type === "dc") o.mid = d.mid !== false;
+    return o;
+  }
+  function def() { return [clean({ type: "ema", p: 20, col: "#F2A93B" })]; }
+  function load() {
+    var raw = null;
+    try { raw = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { }
+    list = Array.isArray(raw) ? raw.slice(0, MAX).map(clean).filter(Boolean) : def();   /* [] is a choice: no indicators */
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(list.map(function (d) { var o = {}; for (var k in d) if (k !== "id") o[k] = d[k]; return o; }))); } catch (e) { } }
+  function isDefault() { return list.length === 1 && list[0].type === "ema" && list[0].on && list[0].p === 20 && list[0].col.toUpperCase() === "#F2A93B"; }
+  function label(d) { return d.type === "bb" ? "BB " + d.p + ", " + d.k : (d.type === "dc" ? "DC " : d.type.toUpperCase() + " ") + d.p; }
+
+  /** the values for bars a..z: md the middle line (the average, or the DC middle), up / lo the outer lines */
+  function series(bars, d, a, z) {
+    var p = d.p, up = [], lo = [], md = [], i, j, s, q, mx, mn;
+    a = Math.max(0, a); z = Math.min(z, bars.length - 1);
+    if (d.type === "ema") {
+      var e = Mkt.ema(bars, p, z); for (i = Math.max(p, a); i <= z; i++) md[i] = e[i];
+      return { up: null, lo: null, md: md };
+    }
+    for (i = Math.max(p - 1, a); i <= z; i++) {
+      if (d.type === "dc") {
+        mx = -Infinity; mn = Infinity;
+        for (j = i - p + 1; j <= i; j++) { if (bars[j].h > mx) mx = bars[j].h; if (bars[j].l < mn) mn = bars[j].l; }
+        up[i] = mx; lo[i] = mn; md[i] = (mx + mn) / 2;
+      } else {
+        s = 0; for (j = i - p + 1; j <= i; j++) s += bars[j].c; s /= p; md[i] = s;
+        if (d.type === "bb") {
+          q = 0; for (j = i - p + 1; j <= i; j++) q += (bars[j].c - s) * (bars[j].c - s);
+          q = Math.sqrt(q / p); up[i] = s + d.k * q; lo[i] = s - d.k * q;
+        }
+      }
+    }
+    return { up: d.type === "sma" ? null : up, lo: d.type === "sma" ? null : lo, md: md };
+  }
+
+  function draw(ch, c) {
+    if (charts.indexOf(ch) < 0) charts.push(ch);
+    ch._indV = version;
+    var B = ch.bars, a = Math.max(0, Math.floor(ch.i0)), z = Math.min(ch.vis, Math.ceil(ch.i1));
+    list.forEach(function (d) {
+      if (!d.on) return;
+      var T = TYPES[d.type], S = series(B, d, a, z), col = hex(d.col, T.a), i, st;
+      var stroke = function (arr, dash, w) {
+        c.strokeStyle = col; c.lineWidth = w; c.setLineDash(dash || []); c.beginPath(); st = true;
+        for (i = a; i <= z; i++) { if (arr[i] === undefined) continue; var x = ch.x(i), y = ch.y(arr[i]); if (st) { c.moveTo(x, y); st = false; } else c.lineTo(x, y); }
+        c.stroke(); c.setLineDash([]);
+      };
+      if (S.up && S.lo) {
+        /* a faint fill between the outer lines */
+        var first = -1; for (i = a; i <= z; i++) if (S.up[i] !== undefined) { first = i; break; }
+        if (first >= 0) {
+          c.fillStyle = hex(d.col, 0.07); c.beginPath(); c.moveTo(ch.x(first), ch.y(S.up[first]));
+          for (i = first + 1; i <= z; i++) c.lineTo(ch.x(i), ch.y(S.up[i]));
+          for (i = z; i >= first; i--) c.lineTo(ch.x(i), ch.y(S.lo[i]));
+          c.closePath(); c.fill();
+        }
+        stroke(S.up, null, 1.1); stroke(S.lo, null, 1.1);
+        if (d.type === "bb" || d.mid) stroke(S.md, [4, 3], 1);
+      } else stroke(S.md, null, 1.2);
+    });
+    /* a key in the corner, once the list is not the default */
+    if (!isDefault() && list.length) {
+      c.font = "10px 'IBM Plex Mono',monospace"; c.textBaseline = "middle"; c.textAlign = "left";
+      var x0 = 8;
+      list.forEach(function (d) {
+        if (!d.on) return;
+        c.fillStyle = d.col; c.beginPath(); c.arc(x0 + 3, 33, 3, 0, 6.284); c.fill();
+        c.fillStyle = "rgba(214,218,226,.8)"; c.fillText(label(d), x0 + 10, 33.5);
+        x0 += 10 + c.measureText(label(d)).width + 12;
+      });
+    }
+  }
+
+  /** redraw the charts that are on screen now; the others when they are shown */
+  function sync() {
+    charts = charts.filter(function (ch) { return document.body.contains(ch.cv); });
+    charts.forEach(function (ch) { if (ch._indV !== version && ch.cv.offsetParent !== null) { try { ch.render(); } catch (e) { } } });
+  }
+  function changed(rebuild) { version++; save(); sync(); if (built) built.paint(rebuild); }
+  function add(type) {
+    if (!TYPES[type] || list.length >= MAX) return null;
+    var used = list.map(function (d) { return d.col.toUpperCase(); }), col = PALETTE.filter(function (c) { return used.indexOf(c) < 0; })[0] || TYPES[type].col;
+    var d = clean({ type: type, p: TYPES[type].p, k: TYPES[type].k, col: type === "ema" && !list.length ? "#F2A93B" : col });
+    list.push(d); changed(true); return d;
+  }
+  function remove(id) { list = list.filter(function (d) { return d.id !== id; }); changed(true); }
+  function update(id, patch) {
+    var d = list.filter(function (x) { return x.id === id; })[0]; if (!d) return null;
+    if ("on" in patch) d.on = !!patch.on;
+    if ("p" in patch) d.p = clampP(patch.p, d.p);
+    if ("k" in patch && d.type === "bb") d.k = clampK(patch.k, d.k);
+    if ("mid" in patch && d.type === "dc") d.mid = !!patch.mid;
+    if ("col" in patch && /^#[0-9a-f]{6}$/i.test(patch.col)) d.col = patch.col;
+    changed(false); return d;
+  }
+  function reset() { list = def(); changed(true); }
+
+  /* ---- the editor ---- */
+  function rowHtml(d) {
+    return '<div class="indrow" data-id="' + d.id + '">' +
+      '<label class="indon" title="Show or hide it"><input type="checkbox" data-f="on"' + (d.on ? " checked" : "") + '><b>' + TYPES[d.type].name + '</b></label>' +
+      '<label>Period <input type="number" data-f="p" min="2" max="300" step="1" value="' + d.p + '"></label>' +
+      (d.type === "bb" ? '<label>Deviations <input type="number" data-f="k" min="0.5" max="5" step="0.1" value="' + d.k + '"></label>' : '') +
+      (d.type === "dc" ? '<label class="indmid"><input type="checkbox" data-f="mid"' + (d.mid ? " checked" : "") + '> Middle line</label>' : '') +
+      '<input type="color" data-f="col" value="' + d.col.toLowerCase() + '" aria-label="Colour">' +
+      '<button type="button" class="indrm" data-f="rm" title="Remove" aria-label="Remove ' + TYPES[d.type].name + '">&#x2715;</button></div>';
+  }
+  function build() {
+    if (built) return built;
+    var ov = document.createElement("div"); ov.id = "indOv"; ov.className = "indov";
+    ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "Indicators");
+    ov.innerHTML = '<div class="indbox"><div class="indhead"><b>Indicators</b><span class="indgap"></span><button type="button" class="indx" data-i="close" aria-label="Close">&#x2715;</button></div>' +
+      '<p class="indnote">Drawn on the Path, Practice, Desk and History charts and on the Drawing board. This method is taught with the 20 EMA alone, so the Learn lessons always show only that: their pictures match their words. Changes are kept on this device.</p>' +
+      '<div class="indlist"></div>' +
+      '<div class="indadd"><select data-i="type" aria-label="Indicator to add">' + Object.keys(TYPES).map(function (k) { return '<option value="' + k + '">' + TYPES[k].name + '</option>'; }).join("") + '</select>' +
+      '<button type="button" class="btn sm primary" data-i="add">+ Add</button><button type="button" class="btn sm" data-i="reset">Reset to the 20 EMA</button></div>' +
+      '<p class="indhelp"></p></div>';
+    document.body.appendChild(ov);
+    var box = ov.querySelector(".indlist"), sel = ov.querySelector('[data-i="type"]'), help = ov.querySelector(".indhelp"), addb = ov.querySelector('[data-i="add"]');
+    function paint(rebuild) {
+      if (rebuild !== false) box.innerHTML = list.length ? list.map(rowHtml).join("") : '<div class="indnone">No indicators: the charts show candles only.</div>';
+      help.textContent = TYPES[sel.value].help;
+      addb.disabled = list.length >= MAX; addb.title = list.length >= MAX ? "At most " + MAX + " indicators" : "";
+    }
+    function close() { ov.classList.remove("on"); document.removeEventListener("keydown", onKey); if (opener && document.body.contains(opener)) opener.focus(); }
+    function onKey(e) { if (e.key === "Escape") close(); }
+    ov.addEventListener("click", function (e) {
+      if (e.target === ov) return close();
+      var t = e.target.closest("[data-i],[data-f]"); if (!t) return;
+      if (t.dataset.i === "close") return close();
+      if (t.dataset.i === "add") return void add(sel.value);
+      if (t.dataset.i === "reset") return reset();
+      if (t.dataset.f === "rm") remove(t.closest(".indrow").dataset.id);
+    });
+    function edit(e) {
+      var t = e.target; if (!t.dataset || !t.dataset.f || t.dataset.f === "rm") return;
+      var id = t.closest(".indrow").dataset.id, f = t.dataset.f, v = t.type === "checkbox" ? t.checked : t.value;
+      if ((f === "p" || f === "k") && (v === "" || !isFinite(+v))) return;
+      update(id, (function () { var o = {}; o[f] = v; return o; })());
+    }
+    ov.addEventListener("input", edit);
+    ov.addEventListener("change", function (e) {   /* leaving a number field: show the value it was cut to */
+      edit(e); var t = e.target; if (t.dataset && (t.dataset.f === "p" || t.dataset.f === "k")) { var d = list.filter(function (x) { return x.id === t.closest(".indrow").dataset.id; })[0]; if (d) t.value = d[t.dataset.f]; }
+    });
+    sel.addEventListener("change", function () { paint(false); });
+    built = { ov: ov, paint: paint, close: close, onKey: onKey };
+    return built;
+  }
+  function open(from) {
+    var B = build(); opener = from || null; B.paint(true);
+    B.ov.classList.add("on"); document.addEventListener("keydown", B.onKey);
+    var f = B.ov.querySelector("input,button"); if (f) f.focus();
+  }
+  function attach(wrap) {
+    if (!wrap || wrap.querySelector(".indbtn")) return;
+    var b = document.createElement("button"); b.type = "button"; b.className = "indbtn";
+    b.title = "Indicators: add, remove or edit"; b.setAttribute("aria-label", "Indicators: add, remove or edit");
+    b.innerHTML = "<i>&fnof;x</i><span>Indicators</span>";
+    b.addEventListener("click", function (e) { e.stopPropagation(); open(b); });
+    b.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+    wrap.appendChild(b);
+  }
+  function attachAll() { [].forEach.call(document.querySelectorAll(".chartwrap"), attach); }
+  load();
+  return { TYPES: TYPES, get list() { return list; }, isDefault: isDefault, series: series, draw: draw, sync: sync, add: add, remove: remove, update: update, reset: reset,
+    values: function (bars, i, dec) {
+      var f = function (x) { return x === undefined ? "n/a" : (+x).toFixed(dec); };
+      var out = list.filter(function (d) { return d.on; }).map(function (d) {
+        var S = series(bars, d, i, i);
+        return label(d) + " " + (S.up ? "upper " + f(S.up[i]) + ", " + (d.type === "dc" && !d.mid ? "" : "middle " + f(S.md[i]) + ", ") + "lower " + f(S.lo[i]) : f(S.md[i]));
+      });
+      return out.join("; ") || "none";
+    },
+    open: open, attach: attach, attachAll: attachAll, label: label, text: function () { return list.filter(function (d) { return d.on; }).map(label).join(", ") || "none"; },
+    reload: function () { load(); version++; sync(); } };
+})();
 Chart.prototype._emas = function (c, b) {
+  if (!this.opts.fixedEma) return IND.draw(this, c);
   var self = this;
   function line(n, col) {
     var e = Mkt.ema(self.bars, n, self.vis);
@@ -5912,6 +6140,7 @@ var PROG = (function () {
   var chD = new Chart($("cvDrill"));
   var chB = new Chart($("cvBT"));
   var chP = new Chart($("cvPrac"));
+  IND.attachAll();
 
   /* ---------------- chrome ---------------- */
   var toastT = null;
@@ -5937,6 +6166,7 @@ var PROG = (function () {
     if (v === "practice") { if (!prac.ch) newPractice(); else setTimeout(function () { chP.render(); }, 30); }
     if (v === "drill") setTimeout(function () { chD.fit(); }, 30);
     if (v === "desk") { if (!BT.ch) btNew(); else setTimeout(function () { chB.render(); }, 30); }
+    IND.sync();
   }
   [].forEach.call(document.querySelectorAll("nav button[data-view]"), function (b) {
     b.addEventListener("click", function () { setView(b.dataset.view); });
@@ -7931,7 +8161,7 @@ var PROG = (function () {
       '<button class="lvb" data-a="copy" title="Copy this step as text: the bars, every line and label on the chart, and what the step says. Paste it into a chat to show exactly what you see.">Copy</button>' +
       '</div><div class="lvscript" style="display:none"></div>';
     this.cv = root.querySelector("canvas");
-    this.ch = new Chart(this.cv);
+    this.ch = new Chart(this.cv); this.ch.opts.fixedEma = true;
     this.ch.passive = true;
     this.ex = this.def.example();
     this.scenes = this.def.scenes(this.ex);
@@ -8356,7 +8586,7 @@ var PROG = (function () {
     var scr = root.querySelector(".lfscr");
     scr.innerHTML = '<canvas></canvas>';
     this.cv = scr.querySelector("canvas");
-    this.ch = new Chart(this.cv);
+    this.ch = new Chart(this.cv); this.ch.opts.fixedEma = true;
     this.ch.passive = true;
     this.ch.load({ bars: this.ex.bars, dec: this.ex.dec, sym: this.ex.alias || this.ex.sym, tf: this.ex.tf }, 0);
     this.ch.locked = true; this.ch.opts.vol = false;
@@ -10379,6 +10609,7 @@ var PROG = (function () {
           ["whether a losing streak is normal", lgo("expect", "What to expect")],
           ["when your markets move, in Amsterdam time", lgo("markets", "Your markets and their hours")],
           ["what the method makes of a chart you saw", lgo("board", "Drawing board")],
+          ["an indicator of your own, such as the Donchian channel", "the <b>&fnof;x Indicators</b> button on a chart; see " + lgo("ema", "The 20-bar EMA")],
           ["a word you don't know", lgo("glossary", "Glossary")],
           ["everything on one page, to print", lgo("sheets", "Cheat sheets")]
         ]) +
@@ -10470,6 +10701,7 @@ var PROG = (function () {
     sub: "The only line on your chart, and what it tells you.",
     body: function () {
       return lvideo("ema") + lp("Brooks puts one line on his charts: the <b>20-bar exponential moving average</b>. It is the orange line in this app. In cTrader add <i>Exponential Moving Average</i>, period 20, source Close, and remove everything else.") +
+        lp("<i>Want to try another?</i> The <b>&fnof;x Indicators</b> button on the Path, Practice, Desk and History charts (and the " + lgo("board", "Drawing board") + ") adds, removes and edits indicators: other EMAs and SMAs, the Donchian channel, Bollinger bands. The method does not need them, and the Learn lessons always show the 20 EMA alone, so you can compare for yourself.") +
         lh("What it tells you") +
         lol(["<b>Trend or not.</b> In a bull trend the bars stay above it and it slopes up; in a bear trend below it and down. In a trading range it goes flat and price crosses it again and again.",
           "<b>Where pullbacks end.</b> In a trend, pullbacks often end at or near the EMA. A two-legged pullback to the EMA is the most reliable with-trend setup there is (the H2 or L2).",
@@ -11558,6 +11790,7 @@ var PROG = (function () {
         ["Always-in", "The direction you would hold if you had to be in the market at all times. Flips on strong breakouts with follow-through."],
         ["Barbwire", "Three or more overlapping bars with dojis and big tails around a flat EMA. No trade."],
         ["Bar count (H1, H2, L1, L2)", "In a bull pullback, each new bar going above the prior bar's high after the pullback resumed is the next High (H1, H2…). In a bear pullback, count lows."],
+        ["Bollinger bands", "An indicator, not part of this method: an average of the closes with bands a number of standard deviations either side. Add it from the &fnof;x Indicators button on a chart."],
         ["Breakeven", "Moving the stop to the entry price. In reversal trades after 1R, and for the rest of a trade after half was taken at a magnet."],
         ["Breakout", "Price leaving a range, flag or triangle. Most fail; the strong ones have follow-through."],
         ["Breakout mode", "A narrowing triangle or tight range: it will break, nobody knows which way."],
@@ -11566,6 +11799,7 @@ var PROG = (function () {
         ["Channel", "The slower trend after a spike, with pullbacks."],
         ["Climax", "An accelerating trend of big bars far from the EMA: exhaustion. Expect a correction."],
         ["Doji", "A bar with a small body closing near its middle: balance."],
+        ["Donchian channel", "An indicator, not part of this method: the highest high and the lowest low of the last N bars. Add it from the &fnof;x Indicators button on a chart."],
         ["EMA (20)", "The 20-bar exponential moving average: the only indicator in this method."],
         ["Entry bar", "The bar that fills your order."],
         ["Failed breakout", "A breakout that reverses back inside; the trapped traders fuel a move to the other side."],
@@ -12121,6 +12355,7 @@ var PROG = (function () {
     var q = function (s) { return el.querySelector(s); };
     var cv = q("canvas"), ch = new Chart(cv);
     ch.passive = true; ch.opts.vol = false;
+    IND.attach(q(".bdchart"));
     q('[data-b="sym"]').value = S.sym; q('[data-b="tf"]').value = String(S.tf);
     var mk = function () { return bdMk(S.sym); };
     /** a normal bar's size on this market and chart, before there are bars to measure */
@@ -12550,6 +12785,7 @@ var PROG = (function () {
     };
     q('[data-b="copy"]').onclick = function () {
       var d = mk().dec, f = function (p) { return (+p).toFixed(d); }, L = ["TRADE TRAINER v" + (typeof APP !== "undefined" ? APP.version : "") + " · Drawing board · " + mk().n + " " + S.tf + " min · " + S.bars.length + " bars", ""];
+      if (!IND.isDefault() && S.bars.length) L.splice(1, 0, "Indicators on the chart, values at the last bar: " + IND.values(S.bars, S.bars.length - 1, mk().dec));
       L.push("WHAT THE APP SEES");
       if (!S.found.length) L.push("  nothing" + (S.bars.length <= 60 ? " (fewer than 61 bars)" : ""));
       S.found.forEach(function (x, k) {
@@ -12796,7 +13032,7 @@ var PROG = (function () {
 
 
   window.TT = {
-    chD: chD, chP: chP, startNode: startNode, nodeById: nodeById,
+    chD: chD, chP: chP, IND: IND, startNode: startNode, nodeById: nodeById,
     PROG: PROG, Mkt: Mkt, setView: setView, APP: APP,
     chB: chB, get BT() { return BT; }, btNew: btNew, btStep: btStep, btOpen: btOpen, btClose: btClose,
     btFills: btFills, btSeries: btSeries, equity: equity, openPL: openPL,
@@ -15736,6 +15972,7 @@ var PROG = (function () {
     var f = function (x) { return fmtN(x, dec); }, A = Mkt.atr(bars, 14, v);
     L.push("TRADE TRAINER v" + APP.version + " — chart " + ch.sym + " " + ch.tfLbl +
       "   seed=" + ch.seed + "   bar " + (v + 1) + " of " + bars.length + "   ATR(14) " + f(A));
+    if (!IND.isDefault()) L.push("Indicators on the chart, values at the last bar: " + IND.values(bars, v, dec));
     var rd = structRead();
     if (rd) L.push("Read: " + rd.name + (rd.why ? " — " + rd.why : ""));
     var g = liveSignal();
