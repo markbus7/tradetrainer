@@ -124,18 +124,28 @@
   @media(max-width:640px){.indbtn{right:62px}.indbtn span{display:none}}
   .indov{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;padding:12px}
   .indov.on{display:flex}
-  .indbox{background:var(--bg2);border:1px solid var(--line);border-radius:12px;width:min(580px,100%);max-height:100%;overflow-y:auto;padding:14px 16px 16px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+  .indbox{background:var(--bg2);border:1px solid var(--line);border-radius:12px;width:min(660px,100%);max-height:100%;overflow-y:auto;padding:14px 16px 16px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
   .indhead{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:16px}
   .indgap{flex:1}
   .indx{width:30px;height:28px;border:1px solid var(--line);border-radius:7px;background:var(--bg3);font-size:14px}
   .indnote{font-size:12.5px;line-height:1.5;color:var(--muted);margin:0 0 10px}
   .indlist{display:grid;gap:6px;margin-bottom:10px}
-  .indrow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px}
+  .indrow{background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px}
+  .indtop,.indln{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+  .indln{gap:6px 10px}
+  .indln .indon{min-width:96px}
   .indrow label{display:flex;gap:6px;align-items:center;color:var(--muted)}
   .indrow .indon{color:var(--paper);min-width:150px}
   .indrow input[type=number]{width:70px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:13px;color:var(--paper)}
   .indrow input[type=color]{width:34px;height:26px;padding:0;border:1px solid var(--line);border-radius:6px;background:var(--bg2);cursor:pointer}
   .indrow input[type=checkbox]{accent-color:var(--amber)}
+  .indrow input[type=range]{width:84px;accent-color:var(--amber)}
+  .indrow .indop span{min-width:34px;text-align:right;color:var(--paper);font:11px 'IBM Plex Mono',monospace}
+  .indrow select{background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:13px;color:var(--paper)}
+  .indsty{height:26px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg2);font-size:12px;font-weight:600;color:var(--paper)}
+  .indsty[aria-expanded=true]{border-color:var(--amber);color:var(--amber)}
+  .indstb{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);display:grid;gap:8px}
+  .indstb[hidden]{display:none}
   .indrm{margin-left:auto;width:28px;height:26px;border:1px solid var(--line);border-radius:6px;background:var(--bg2);font-size:12px;color:var(--muted)}
   .indrm:hover{border-color:var(--dn);color:var(--dn)}
   .indnone{font-size:13px;color:var(--muted);padding:6px 2px}
@@ -632,7 +642,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.72.0", build: "2026-10-06", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.73.0", build: "2026-10-06", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -3025,22 +3035,49 @@ Chart.prototype._vol = function (c, b) {
    The value at bar i uses only bars up to i, so nothing leaks the bars still
    to come. */
 var IND = (function () {
-  var KEY = "tt_inds", MAX = 8, list = [], charts = [], seq = 0, version = 1, built = null, opener = null;
+  var KEY = "tt_inds", MAX = 8, list = [], charts = [], seq = 0, version = 1, built = null, opener = null, openSet = {};
+  var SRC = [["close", "Close"], ["open", "Open"], ["high", "High"], ["low", "Low"], ["hl2", "HL/2"], ["hlc3", "HLC/3"]], SRCN = {};
+  SRC.forEach(function (x) { SRCN[x[0]] = 1; });
+  var LSTY = { solid: [], dashed: [6, 4], dotted: [2, 3] };
+  /* what each indicator is made of: its inputs, its lines (each with its own colour,
+     opacity, width and style, as on cTrader and TradingView) and its background */
   var TYPES = {
-    ema: { name: "EMA", p: 20, col: "#F2A93B", a: 0.6, help: "Exponential moving average of the closes: recent bars count more. The 20 EMA is the line this method is taught with." },
-    sma: { name: "SMA", p: 50, col: "#5B9BD5", a: 0.75, help: "Simple moving average of the closes: every bar of the period counts the same." },
-    dc: { name: "Donchian Channel", p: 20, col: "#4FC3F7", a: 0.85, help: "The highest high and the lowest low of the last N bars, including the bar itself, with the middle between them (dashed). Price at the top line is making a new N-bar high." },
-    bb: { name: "Bollinger Bands", p: 20, k: 2, col: "#B58CFF", a: 0.85, help: "A simple average of the closes, with bands that many standard deviations above and below it. They widen when the bars get bigger." }
+    ema: { name: "EMA", p: 20, col: "#F2A93B", src: true, a: 0.6, w: 1.2, roles: [["main", "Line"]], help: "Exponential moving average: recent bars count more. The 20 EMA of the close is the line this method is taught with." },
+    sma: { name: "SMA", p: 50, col: "#5B9BD5", src: true, a: 0.75, w: 1.2, roles: [["main", "Line"]], help: "Simple moving average: every bar of the period counts the same." },
+    dc: { name: "Donchian Channel", p: 20, col: "#4FC3F7", a: 0.85, w: 1.1, fill: true, roles: [["up", "Upper"], ["md", "Middle"], ["lo", "Lower"]], help: "The highest high and the lowest low of the last N bars, including the bar itself, and the middle between them. Price at the upper line is making a new N-bar high." },
+    bb: { name: "Bollinger Bands", p: 20, k: 2, col: "#B58CFF", src: true, a: 0.85, w: 1.1, fill: true, roles: [["up", "Upper band"], ["md", "Basis"], ["lo", "Lower band"]], help: "A simple average (the basis) with a band that many standard deviations above and below it. The bands widen when the bars get bigger." }
   };
   var PALETTE = ["#F2A93B", "#4FC3F7", "#B58CFF", "#5B9BD5", "#3FBF7F", "#F06292", "#E5E7EB", "#FF8A65"];
+  function isHex(c) { return typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c); }
   function hex(c, al) { var n = parseInt(c.slice(1), 16); return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + al + ")"; }
+  function num(v, lo, hi, d) { v = +v; return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; }
   function clampP(v, d) { v = Math.round(+v); return isFinite(v) ? Math.max(2, Math.min(300, v)) : d; }
   function clampK(v, d) { v = Math.round(+v * 10) / 10; return isFinite(v) ? Math.max(0.5, Math.min(5, v)) : d; }
+  function roleDef(type, role, col) {
+    var T = TYPES[type];
+    return { on: true, col: col, a: T.a, w: role === "md" && type !== "ema" && type !== "sma" ? 1 : T.w, ls: role === "md" && T.fill ? "dashed" : "solid" };
+  }
+  function cleanLine(x, d) {
+    x = x && typeof x === "object" ? x : {};
+    return { on: x.on !== undefined ? !!x.on : d.on, col: isHex(x.col) ? x.col : d.col, a: Math.round(num(x.a, 0, 1, d.a) * 100) / 100, w: Math.round(num(x.w, 0.5, 6, d.w) * 10) / 10, ls: LSTY[x.ls] ? x.ls : d.ls };
+  }
+  function cleanFill(x, d) {
+    x = x && typeof x === "object" ? x : {};
+    return { on: x.on !== undefined ? !!x.on : d.on, col: isHex(x.col) ? x.col : d.col, a: Math.round(num(x.a, 0, 1, d.a) * 100) / 100 };
+  }
+  /** a saved or new indicator, made valid. An old one (a single colour, a middle line flag) is carried over. */
   function clean(d) {
     if (!d || !TYPES[d.type]) return null;
-    var T = TYPES[d.type], o = { id: "i" + (++seq), type: d.type, on: d.on !== false, p: clampP(d.p, T.p), col: typeof d.col === "string" && /^#[0-9a-f]{6}$/i.test(d.col) ? d.col : T.col };
+    var T = TYPES[d.type], base = isHex(d.col) ? d.col : T.col;
+    var o = { id: "i" + (++seq), type: d.type, on: d.on !== false, p: clampP(d.p, T.p), lines: {} };
+    if (T.src) o.src = SRCN[d.src] ? d.src : "close";
     if (d.type === "bb") o.k = clampK(d.k, 2);
-    if (d.type === "dc") o.mid = d.mid !== false;
+    T.roles.forEach(function (r) {
+      var dd = roleDef(d.type, r[0], base);
+      if (!d.lines && d.type === "dc" && r[0] === "md" && d.mid === false) dd.on = false;
+      o.lines[r[0]] = cleanLine(d.lines && d.lines[r[0]], dd);
+    });
+    if (T.fill) o.fill = cleanFill(d.fill, { on: true, col: base, a: 0.07 });
     return o;
   }
   function def() { return [clean({ type: "ema", p: 20, col: "#F2A93B" })]; }
@@ -3049,16 +3086,23 @@ var IND = (function () {
     try { raw = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { }
     list = Array.isArray(raw) ? raw.slice(0, MAX).map(clean).filter(Boolean) : def();   /* [] is a choice: no indicators */
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(list.map(function (d) { var o = {}; for (var k in d) if (k !== "id") o[k] = d[k]; return o; }))); } catch (e) { } }
-  function isDefault() { return list.length === 1 && list[0].type === "ema" && list[0].on && list[0].p === 20 && list[0].col.toUpperCase() === "#F2A93B"; }
+  function plain(d) { var o = {}; for (var k in d) if (k !== "id") o[k] = d[k]; return o; }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(list.map(plain))); } catch (e) { } }
+  function isDefault() { return list.length === 1 && JSON.stringify(plain(list[0])) === JSON.stringify(plain(def()[0])); }
   function label(d) { return d.type === "bb" ? "BB " + d.p + ", " + d.k : (d.type === "dc" ? "DC " : d.type.toUpperCase() + " ") + d.p; }
+  function mainCol(d) { return (d.lines.main || d.lines.up).col; }
+  function srcOf(d) {
+    return { close: function (b) { return b.c; }, open: function (b) { return b.o; }, high: function (b) { return b.h; }, low: function (b) { return b.l; },
+      hl2: function (b) { return (b.h + b.l) / 2; }, hlc3: function (b) { return (b.h + b.l + b.c) / 3; } }[d.src || "close"];
+  }
 
   /** the values for bars a..z: md the middle line (the average, or the DC middle), up / lo the outer lines */
   function series(bars, d, a, z) {
-    var p = d.p, up = [], lo = [], md = [], i, j, s, q, mx, mn;
+    var p = d.p, up = [], lo = [], md = [], i, j, s, q, mx, mn, f = srcOf(d);
     a = Math.max(0, a); z = Math.min(z, bars.length - 1);
     if (d.type === "ema") {
-      var e = Mkt.ema(bars, p, z); for (i = Math.max(p, a); i <= z; i++) md[i] = e[i];
+      var k = 2 / (p + 1), v = f(bars[0]);
+      for (i = 0; i <= z; i++) { v = f(bars[i]) * k + v * (1 - k); if (i >= p && i >= a) md[i] = v; }
       return { up: null, lo: null, md: md };
     }
     for (i = Math.max(p - 1, a); i <= z; i++) {
@@ -3067,9 +3111,9 @@ var IND = (function () {
         for (j = i - p + 1; j <= i; j++) { if (bars[j].h > mx) mx = bars[j].h; if (bars[j].l < mn) mn = bars[j].l; }
         up[i] = mx; lo[i] = mn; md[i] = (mx + mn) / 2;
       } else {
-        s = 0; for (j = i - p + 1; j <= i; j++) s += bars[j].c; s /= p; md[i] = s;
+        s = 0; for (j = i - p + 1; j <= i; j++) s += f(bars[j]); s /= p; md[i] = s;
         if (d.type === "bb") {
-          q = 0; for (j = i - p + 1; j <= i; j++) q += (bars[j].c - s) * (bars[j].c - s);
+          q = 0; for (j = i - p + 1; j <= i; j++) q += (f(bars[j]) - s) * (f(bars[j]) - s);
           q = Math.sqrt(q / p); up[i] = s + d.k * q; lo[i] = s - d.k * q;
         }
       }
@@ -3083,24 +3127,24 @@ var IND = (function () {
     var B = ch.bars, a = Math.max(0, Math.floor(ch.i0)), z = Math.min(ch.vis, Math.ceil(ch.i1));
     list.forEach(function (d) {
       if (!d.on) return;
-      var T = TYPES[d.type], S = series(B, d, a, z), col = hex(d.col, T.a), i, st;
-      var stroke = function (arr, dash, w) {
-        c.strokeStyle = col; c.lineWidth = w; c.setLineDash(dash || []); c.beginPath(); st = true;
+      var S = series(B, d, a, z), i, st;
+      var stroke = function (arr, L) {
+        if (!L.on || L.a <= 0) return;
+        c.strokeStyle = hex(L.col, L.a); c.lineWidth = L.w; c.setLineDash(LSTY[L.ls]); c.beginPath(); st = true;
         for (i = a; i <= z; i++) { if (arr[i] === undefined) continue; var x = ch.x(i), y = ch.y(arr[i]); if (st) { c.moveTo(x, y); st = false; } else c.lineTo(x, y); }
         c.stroke(); c.setLineDash([]);
       };
       if (S.up && S.lo) {
-        /* a faint fill between the outer lines */
+        /* the background between the outer lines */
         var first = -1; for (i = a; i <= z; i++) if (S.up[i] !== undefined) { first = i; break; }
-        if (first >= 0) {
-          c.fillStyle = hex(d.col, 0.07); c.beginPath(); c.moveTo(ch.x(first), ch.y(S.up[first]));
+        if (d.fill && d.fill.on && d.fill.a > 0 && first >= 0) {
+          c.fillStyle = hex(d.fill.col, d.fill.a); c.beginPath(); c.moveTo(ch.x(first), ch.y(S.up[first]));
           for (i = first + 1; i <= z; i++) c.lineTo(ch.x(i), ch.y(S.up[i]));
           for (i = z; i >= first; i--) c.lineTo(ch.x(i), ch.y(S.lo[i]));
           c.closePath(); c.fill();
         }
-        stroke(S.up, null, 1.1); stroke(S.lo, null, 1.1);
-        if (d.type === "bb" || d.mid) stroke(S.md, [4, 3], 1);
-      } else stroke(S.md, null, 1.2);
+        stroke(S.up, d.lines.up); stroke(S.lo, d.lines.lo); stroke(S.md, d.lines.md);
+      } else stroke(S.md, d.lines.main);
     });
     /* a key in the corner, once the list is not the default */
     if (!isDefault() && list.length) {
@@ -3108,7 +3152,7 @@ var IND = (function () {
       var x0 = 8;
       list.forEach(function (d) {
         if (!d.on) return;
-        c.fillStyle = d.col; c.beginPath(); c.arc(x0 + 3, 33, 3, 0, 6.284); c.fill();
+        c.fillStyle = mainCol(d); c.beginPath(); c.arc(x0 + 3, 33, 3, 0, 6.284); c.fill();
         c.fillStyle = "rgba(214,218,226,.8)"; c.fillText(label(d), x0 + 10, 33.5);
         x0 += 10 + c.measureText(label(d)).width + 12;
       });
@@ -3121,33 +3165,55 @@ var IND = (function () {
     charts.forEach(function (ch) { if (ch._indV !== version && ch.cv.offsetParent !== null) { try { ch.render(); } catch (e) { } } });
   }
   function changed(rebuild) { version++; save(); sync(); if (built) built.paint(rebuild); }
+  function find(id) { return list.filter(function (d) { return d.id === id; })[0]; }
   function add(type) {
     if (!TYPES[type] || list.length >= MAX) return null;
-    var used = list.map(function (d) { return d.col.toUpperCase(); }), col = PALETTE.filter(function (c) { return used.indexOf(c) < 0; })[0] || TYPES[type].col;
+    var used = list.map(function (d) { return mainCol(d).toUpperCase(); }), col = PALETTE.filter(function (c) { return used.indexOf(c) < 0; })[0] || TYPES[type].col;
     var d = clean({ type: type, p: TYPES[type].p, k: TYPES[type].k, col: type === "ema" && !list.length ? "#F2A93B" : col });
-    list.push(d); changed(true); return d;
+    list.push(d); openSet[d.id] = false; changed(true); return d;
   }
-  function remove(id) { list = list.filter(function (d) { return d.id !== id; }); changed(true); }
+  function remove(id) { list = list.filter(function (d) { return d.id !== id; }); delete openSet[id]; changed(true); }
+  /** patch: on, p, k, src; line {role: {on, col, a, w, ls}}; fill {on, col, a}; col (every line and the background); mid; reset (the style) */
   function update(id, patch) {
-    var d = list.filter(function (x) { return x.id === id; })[0]; if (!d) return null;
+    var d = find(id); if (!d) return null;
+    var T = TYPES[d.type], rebuild = false;
     if ("on" in patch) d.on = !!patch.on;
     if ("p" in patch) d.p = clampP(patch.p, d.p);
     if ("k" in patch && d.type === "bb") d.k = clampK(patch.k, d.k);
-    if ("mid" in patch && d.type === "dc") d.mid = !!patch.mid;
-    if ("col" in patch && /^#[0-9a-f]{6}$/i.test(patch.col)) d.col = patch.col;
-    changed(false); return d;
+    if ("src" in patch && T.src && SRCN[patch.src]) d.src = patch.src;
+    if (isHex(patch.col)) { for (var r in d.lines) d.lines[r].col = patch.col; if (d.fill) d.fill.col = patch.col; }
+    if ("mid" in patch && d.lines.md) d.lines.md.on = !!patch.mid;
+    if (patch.line) for (var role in patch.line) if (d.lines[role]) d.lines[role] = cleanLine(Object.assign({}, d.lines[role], patch.line[role]), d.lines[role]);
+    if (patch.fill && d.fill) d.fill = cleanFill(Object.assign({}, d.fill, patch.fill), d.fill);
+    if (patch.reset) { var fresh = clean({ type: d.type, p: d.p, k: d.k, src: d.src, on: d.on }); d.lines = fresh.lines; if (fresh.fill) d.fill = fresh.fill; rebuild = true; }
+    changed(rebuild); return d;
   }
-  function reset() { list = def(); changed(true); }
+  function reset() { list = def(); openSet = {}; changed(true); }
 
   /* ---- the editor ---- */
+  function lineRow(d, r, name) {
+    var L = d.lines[r], lab = name.toLowerCase();
+    return '<div class="indln"><label class="indon"><input type="checkbox" data-f="line" data-r="' + r + '" data-s="on"' + (L.on ? " checked" : "") + '> ' + name + '</label>' +
+      '<input type="color" data-f="line" data-r="' + r + '" data-s="col" value="' + L.col.toLowerCase() + '" aria-label="' + name + ' colour">' +
+      '<label class="indop">Opacity <input type="range" min="0" max="100" step="1" data-f="line" data-r="' + r + '" data-s="a" value="' + Math.round(L.a * 100) + '" aria-label="' + name + ' opacity"><span>' + Math.round(L.a * 100) + '%</span></label>' +
+      '<label>Width <input type="number" min="0.5" max="6" step="0.5" data-f="line" data-r="' + r + '" data-s="w" value="' + L.w + '"></label>' +
+      '<select data-f="line" data-r="' + r + '" data-s="ls" aria-label="' + name + ' line style">' + ["solid", "dashed", "dotted"].map(function (k) { return '<option value="' + k + '"' + (L.ls === k ? " selected" : "") + '>' + k[0].toUpperCase() + k.slice(1) + '</option>'; }).join("") + '</select></div>';
+  }
   function rowHtml(d) {
-    return '<div class="indrow" data-id="' + d.id + '">' +
-      '<label class="indon" title="Show or hide it"><input type="checkbox" data-f="on"' + (d.on ? " checked" : "") + '><b>' + TYPES[d.type].name + '</b></label>' +
+    var T = TYPES[d.type], op = !!openSet[d.id], body = '';
+    body += '<div class="indstb"' + (op ? '' : ' hidden') + '>';
+    T.roles.forEach(function (r) { body += lineRow(d, r[0], r[1]); });
+    if (d.fill) body += '<div class="indln"><label class="indon"><input type="checkbox" data-f="fill" data-s="on"' + (d.fill.on ? " checked" : "") + '> Background</label>' +
+      '<input type="color" data-f="fill" data-s="col" value="' + d.fill.col.toLowerCase() + '" aria-label="Background colour">' +
+      '<label class="indop">Opacity <input type="range" min="0" max="100" step="1" data-f="fill" data-s="a" value="' + Math.round(d.fill.a * 100) + '" aria-label="Background opacity"><span>' + Math.round(d.fill.a * 100) + '%</span></label></div>';
+    body += '<div class="indln"><button type="button" class="btn sm" data-f="reset">Reset style</button></div></div>';
+    return '<div class="indrow" data-id="' + d.id + '"><div class="indtop">' +
+      '<label class="indon" title="Show or hide it"><input type="checkbox" data-f="on"' + (d.on ? " checked" : "") + '><b>' + T.name + '</b></label>' +
       '<label>Period <input type="number" data-f="p" min="2" max="300" step="1" value="' + d.p + '"></label>' +
       (d.type === "bb" ? '<label>Deviations <input type="number" data-f="k" min="0.5" max="5" step="0.1" value="' + d.k + '"></label>' : '') +
-      (d.type === "dc" ? '<label class="indmid"><input type="checkbox" data-f="mid"' + (d.mid ? " checked" : "") + '> Middle line</label>' : '') +
-      '<input type="color" data-f="col" value="' + d.col.toLowerCase() + '" aria-label="Colour">' +
-      '<button type="button" class="indrm" data-f="rm" title="Remove" aria-label="Remove ' + TYPES[d.type].name + '">&#x2715;</button></div>';
+      (T.src ? '<label>Source <select data-f="src" aria-label="Source">' + SRC.map(function (x) { return '<option value="' + x[0] + '"' + (d.src === x[0] ? " selected" : "") + '>' + x[1] + '</option>'; }).join("") + '</select></label>' : '') +
+      '<button type="button" class="indsty" data-f="sty" aria-expanded="' + op + '">Style</button>' +
+      '<button type="button" class="indrm" data-f="rm" title="Remove" aria-label="Remove ' + T.name + '">&#x2715;</button></div>' + body + '</div>';
   }
   function build() {
     if (built) return built;
@@ -3174,17 +3240,34 @@ var IND = (function () {
       if (t.dataset.i === "close") return close();
       if (t.dataset.i === "add") return void add(sel.value);
       if (t.dataset.i === "reset") return reset();
-      if (t.dataset.f === "rm") remove(t.closest(".indrow").dataset.id);
+      var row = t.closest(".indrow"); if (!row) return;
+      if (t.dataset.f === "rm") return remove(row.dataset.id);
+      if (t.dataset.f === "reset") return void update(row.dataset.id, { reset: true });
+      if (t.dataset.f === "sty") {
+        var id = row.dataset.id, nowOpen = !openSet[id]; openSet[id] = nowOpen;
+        row.querySelector(".indstb").hidden = !nowOpen; t.setAttribute("aria-expanded", String(nowOpen));
+      }
     });
     function edit(e) {
-      var t = e.target; if (!t.dataset || !t.dataset.f || t.dataset.f === "rm") return;
-      var id = t.closest(".indrow").dataset.id, f = t.dataset.f, v = t.type === "checkbox" ? t.checked : t.value;
-      if ((f === "p" || f === "k") && (v === "" || !isFinite(+v))) return;
-      update(id, (function () { var o = {}; o[f] = v; return o; })());
+      var t = e.target, f = t.dataset && t.dataset.f; if (!f || f === "rm" || f === "sty" || f === "reset") return;
+      var row = t.closest(".indrow"), v = t.type === "checkbox" ? t.checked : t.value, patch = {};
+      if (f === "line" || f === "fill") {
+        var s = t.dataset.s, o = {};
+        if (s === "a") { v = +v / 100; var sp = t.parentNode.querySelector("span"); if (sp) sp.textContent = Math.round(v * 100) + "%"; }
+        else if (s === "w") { if (v === "" || !isFinite(+v)) return; v = +v; }
+        o[s] = v;
+        if (f === "line") { patch.line = {}; patch.line[t.dataset.r] = o; } else patch.fill = o;
+      } else {
+        if ((f === "p" || f === "k") && (v === "" || !isFinite(+v))) return;
+        patch[f] = v;
+      }
+      update(row.dataset.id, patch);
     }
     ov.addEventListener("input", edit);
     ov.addEventListener("change", function (e) {   /* leaving a number field: show the value it was cut to */
-      edit(e); var t = e.target; if (t.dataset && (t.dataset.f === "p" || t.dataset.f === "k")) { var d = list.filter(function (x) { return x.id === t.closest(".indrow").dataset.id; })[0]; if (d) t.value = d[t.dataset.f]; }
+      edit(e); var t = e.target, f = t.dataset && t.dataset.f; if (!f) return;
+      var d = find(t.closest(".indrow").dataset.id); if (!d) return;
+      if (f === "p" || f === "k") t.value = d[f]; else if (f === "line" && t.dataset.s === "w") t.value = d.lines[t.dataset.r].w;
     });
     sel.addEventListener("change", function () { paint(false); });
     built = { ov: ov, paint: paint, close: close, onKey: onKey };
@@ -3210,8 +3293,8 @@ var IND = (function () {
     values: function (bars, i, dec) {
       var f = function (x) { return x === undefined ? "n/a" : (+x).toFixed(dec); };
       var out = list.filter(function (d) { return d.on; }).map(function (d) {
-        var S = series(bars, d, i, i);
-        return label(d) + " " + (S.up ? "upper " + f(S.up[i]) + ", " + (d.type === "dc" && !d.mid ? "" : "middle " + f(S.md[i]) + ", ") + "lower " + f(S.lo[i]) : f(S.md[i]));
+        var S = series(bars, d, i, i), src = d.src && d.src !== "close" ? " of " + d.src : "";
+        return label(d) + src + " " + (S.up ? "upper " + f(S.up[i]) + ", " + (d.lines.md.on ? "middle " + f(S.md[i]) + ", " : "") + "lower " + f(S.lo[i]) : f(S.md[i]));
       });
       return out.join("; ") || "none";
     },
@@ -10701,7 +10784,7 @@ var PROG = (function () {
     sub: "The only line on your chart, and what it tells you.",
     body: function () {
       return lvideo("ema") + lp("Brooks puts one line on his charts: the <b>20-bar exponential moving average</b>. It is the orange line in this app. In cTrader add <i>Exponential Moving Average</i>, period 20, source Close, and remove everything else.") +
-        lp("<i>Want to try another?</i> The <b>&fnof;x Indicators</b> button on the Path, Practice, Desk and History charts (and the " + lgo("board", "Drawing board") + ") adds, removes and edits indicators: other EMAs and SMAs, the Donchian channel, Bollinger bands. The method does not need them, and the Learn lessons always show the 20 EMA alone, so you can compare for yourself.") +
+        lp("<i>Want to try another?</i> The <b>&fnof;x Indicators</b> button on the Path, Practice, Desk and History charts (and the " + lgo("board", "Drawing board") + ") adds, removes and edits indicators: other EMAs and SMAs, the Donchian channel, Bollinger bands, each with its own line colours, widths and styles and its background. The method does not need them, and the Learn lessons always show the 20 EMA alone, so you can compare for yourself.") +
         lh("What it tells you") +
         lol(["<b>Trend or not.</b> In a bull trend the bars stay above it and it slopes up; in a bear trend below it and down. In a trading range it goes flat and price crosses it again and again.",
           "<b>Where pullbacks end.</b> In a trend, pullbacks often end at or near the EMA. A two-legged pullback to the EMA is the most reliable with-trend setup there is (the H2 or L2).",
