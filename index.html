@@ -642,7 +642,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.73.0", build: "2026-10-06", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.74.0", build: "2026-10-07", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -1822,6 +1822,68 @@ var Mkt = (function () {
     return first;
   }
 
+  /* ---------- the days before ----------
+     A generated chart is the setup and a little before it: on a 5 minute chart
+     under 8 hours. To mark the levels of the day before and make a prediction
+     you need the day before, so withHistory puts earlier bars in front: the
+     same market and timeframe, built from other generated stretches, joined so
+     the first bar of the chart opens where the last of them closed, stamped
+     backwards in time (skipping weekends like the rest of the tape). Nothing
+     about the setup changes: its prices stay, and every bar position it holds
+     moves along by the number of bars added. */
+  function histLen(tf, days) {
+    var n = Math.ceil(days * 1440 / tf.min);
+    if (tf.min >= 60) n = Math.max(n, 60);          /* an hourly or daily chart: at least 60 bars */
+    return Math.min(n, 3000);
+  }
+  /** every bar position in a setup record (gt), moved along by L bars; -1 means "never happened" and stays */
+  function shiftGt(gt, L) {
+    var seen = [];
+    var pt = function (o) { if (o && typeof o.i === "number" && seen.indexOf(o) < 0) { seen.push(o); o.i += L; } };
+    ["sigIdx", "decision", "pbFrom", "fillAt", "hitTargetAt", "hitInvalidAt"].forEach(function (k) { if (typeof gt[k] === "number" && gt[k] >= 0) gt[k] += L; });
+    if (gt.measure) { pt(gt.measure.a); pt(gt.measure.b); }
+    pt(gt.anchor);
+    (gt.labels || []).forEach(function (l) { pt(l[0]); });
+    if (gt.countIdx) gt.countIdx = gt.countIdx.map(function (i) { return i + L; });
+    pt(gt.firstAttempt);
+    if (gt.trendline) { pt(gt.trendline.a); pt(gt.trendline.b); if (typeof gt.trendline.thru === "number") gt.trendline.thru += L; }
+  }
+  function withHistory(ch, opts) {
+    opts = opts || {};
+    if (!ch || ch.lead) return ch;
+    var tf = TFS.filter(function (x) { return x.k === ch.tf; })[0] || TFS[1], L = histLen(tf, opts.days || 2);
+    var base = ((opts.seed !== undefined ? opts.seed : ch.seed) >>> 0), first = ch.bars[0], lead = [];
+    for (var attempt = 0; attempt < 4; attempt++) {
+      var R = mkR(((base ^ 0x9E3779B1) + attempt * 40503) >>> 0), segs = 0;
+      lead = [];
+      while (lead.length < L && segs < 60) {
+        var c = genOnce({ seed: ((base + 7919 * (segs + 1) + attempt * 104729) >>> 0), ctx: R.pick(KEYS), sym: ch.sym, tf: ch.tf });
+        var off = lead.length ? lead[lead.length - 1].c - c.bars[0].o : 0;
+        for (var i = 0; i < c.bars.length; i++) {
+          var b = c.bars[i];
+          lead.push({ t: 0, o: b.o + off, h: b.h + off, l: b.l + off, c: b.c + off, v: b.v });
+        }
+        segs++;
+      }
+      lead = lead.slice(lead.length - L);
+      /* the last of them closes where the chart opens */
+      var d = first.o - lead[lead.length - 1].c, lo = Infinity, hi = -Infinity;
+      for (var j = 0; j < lead.length; j++) { var q = lead[j]; q.o += d; q.h += d; q.l += d; q.c += d; if (q.l < lo) lo = q.l; if (q.h > hi) hi = q.h; }
+      /* a stretch that wandered to absurd prices reads badly: draw another */
+      if (lo > first.o * 0.5 && hi < first.o * 1.8) break;
+    }
+    var step = tf.min * 60000, t = first.t, skipWk = ch.kind !== "crypto";
+    for (var k = L - 1; k >= 0; k--) {
+      t -= step;
+      if (skipWk) { var dw = new Date(t).getUTCDay(); while (dw === 6 || dw === 0) { t -= 86400000; dw = new Date(t).getUTCDay(); } }
+      lead[k].t = t;
+    }
+    ch.bars = lead.concat(ch.bars);
+    shiftGt(ch.gt, L);
+    ch.lead = L;
+    return ch;
+  }
+
   function genOnce(opts) {
     opts = opts || {};
     var seed = opts.seed || ((Math.random() * 1e9) | 0);
@@ -2380,7 +2442,7 @@ var Mkt = (function () {
   }
 
   return {
-    gen: gen, CTX: CTX, KEYS: KEYS, BASE: BASE, INSTR: INSTR, TFS: TFS, DATA: DATA,
+    gen: gen, withHistory: withHistory, histLen: histLen, TFSBY: function (k) { return TFS.filter(function (x) { return x.k === k; })[0]; }, CTX: CTX, KEYS: KEYS, BASE: BASE, INSTR: INSTR, TFS: TFS, DATA: DATA,
     /* FIB is declared after this module returns, so a plain reference would
        capture undefined — the getter reads it at call time instead */
     get FIB() { return FIB; },
@@ -2830,7 +2892,7 @@ Chart.prototype._bind = function () {
   }
 };
 Chart.prototype.setSpan = function (span, anchorI) {
-  span = Math.max(14, Math.min(400, span));
+  span = Math.max(14, Math.min(1000, span));
   var f = (anchorI - this.i0) / (this.i1 - this.i0);
   this.i0 = anchorI - f * span; this.i1 = this.i0 + span;
   this.clampView(); this.render();
@@ -2961,6 +3023,7 @@ Chart.prototype.render = function () {
   c.fillStyle = COL.bg; c.fillRect(0, 0, this.w, this.h);
 
   this._grid(c, b);
+  if (this.opts.dayLines) this._dayLines(c, b);
   if (this.opts.vol) this._vol(c, b);
   /* everything price-mapped stays inside the price pane, never over the volume */
   c.save(); c.beginPath(); c.rect(0, 0, this.w, b.t + b.h); c.clip();
@@ -3007,6 +3070,39 @@ Chart.prototype._grid = function (c, b) {
     c.beginPath(); c.moveTo(x, b.t); c.lineTo(x, b.b); c.stroke();
     c.fillStyle = COL.txt; c.fillText(this._tlabel(this.bars[i].t), x, b.b + 5);
   }
+};
+/** the bars where a new day starts (UTC), for the separators; only on intraday charts */
+Chart.prototype.dayBreaks = function (a, z) {
+  var out = [];
+  if (!/^(1m|5m|15m|30m|1H)$/.test(this.tf)) return out;
+  a = Math.max(1, a);
+  for (var i = a; i <= Math.min(z, this.bars.length - 1); i++) if (Math.floor(this.bars[i].t / 86400000) !== Math.floor(this.bars[i - 1].t / 86400000)) out.push(i);
+  return out;
+};
+Chart.prototype._dayLines = function (c, b) {
+  var vis = Math.min(this.vis, Math.ceil(this.i1)), br = this.dayBreaks(Math.floor(this.i0), vis);
+  if (!br.length) return;
+  var D = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], M = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var perDay = Math.min.apply(null, br.map(function (k, j) { return j ? k - br[j - 1] : Infinity; }).concat([Infinity]));
+  var px = isFinite(perDay) ? perDay * this.bw : Infinity;
+  if (px < 5) return;
+  var self = this;
+  c.save(); c.font = "10px 'IBM Plex Mono',monospace"; c.textAlign = "left"; c.textBaseline = "top";
+  br.forEach(function (i) {
+    var x = Math.round(self.x(i) - self.bw / 2) + 0.5;
+    if (x < 0 || x > b.r) return;
+    c.strokeStyle = "rgba(138,146,162,.30)"; c.lineWidth = 1; c.setLineDash([2, 4]);
+    c.beginPath(); c.moveTo(x, b.t); c.lineTo(x, b.b); c.stroke(); c.setLineDash([]);
+    if (px >= 64) { var d = new Date(self.bars[i].t); c.fillStyle = "rgba(138,146,162,.75)"; c.fillText(D[d.getUTCDay()] + " " + d.getUTCDate() + " " + M[d.getUTCMonth()], x + 4, b.t + 3); }
+  });
+  c.restore();
+};
+/** show today and the `days - 1` trading days before it (the revealed bars; weekends have none, so they do not count) */
+Chart.prototype.fitDays = function (days) {
+  if (!/^(1m|5m|15m|30m|1H)$/.test(this.tf)) return this.fit();       /* a daily chart has no "day before" to look at */
+  var bars = this.bars, vis = this.vis, a = vis, buckets = 1, day = function (i) { return Math.floor(bars[i].t / 86400000); };
+  while (a > 0) { if (day(a - 1) !== day(a)) { if (buckets >= days) break; buckets++; } a--; }
+  this.fitRange(a, vis);
 };
 Chart.prototype._tlabel = function (t) {
   var d = new Date(t), M = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -6223,6 +6319,7 @@ var PROG = (function () {
   var chD = new Chart($("cvDrill"));
   var chB = new Chart($("cvBT"));
   var chP = new Chart($("cvPrac"));
+  chB.opts.dayLines = true; chP.opts.dayLines = true;
   IND.attachAll();
 
   /* ---------------- chrome ---------------- */
@@ -7384,7 +7481,7 @@ var PROG = (function () {
     opts = opts || {};
     var seed = (Date.now() ^ (Math.random() * 1e9)) >>> 0;
     var key = opts.ctx || Mkt.KEYS[(Math.random() * Mkt.KEYS.length) | 0];
-    prac.ch = Mkt.gen({ seed: seed, ctx: key });
+    prac.ch = Mkt.withHistory(Mkt.gen({ seed: seed, ctx: key }), { days: 2 });
     prac.live = null; prac.playing = false;
     if (prac.timer) { clearInterval(prac.timer); prac.timer = null; }
     if (prac.sim) { prac.sim.abort(); prac.sim = null; }
@@ -7405,6 +7502,7 @@ var PROG = (function () {
       actBtn("undo", "↺", "Undo", "Undo the last drawing") +
       actBtn("clear", "✕", "Clear all", "Clear every drawing — to remove just one, click it and press its ✕") +
       actBtn("fit", "⤢", "Fit", "Fit the chart to the bars") +
+      actBtn("days", "2D", "2 days", "Show the last two days: the day before, to mark its levels") +
       '<div class="tsep"></div>' +
       '<button class="tool wide" data-act="step">Step ▸</button>' +
       '<button class="tool wide" data-act="play" id="playBtn">Play ▶</button>' +
@@ -7419,6 +7517,7 @@ var PROG = (function () {
         if (a === "undo") chP.undo();
         if (a === "clear") chP.clearAll();
         if (a === "fit") chP.fit();
+        if (a === "days") chP.fitDays(2);
         if (a === "step") stepPrac(1);
         if (a === "play") togglePlay();
         if (a === "new") newPractice();
@@ -7452,7 +7551,7 @@ var PROG = (function () {
     var r = chP.readout(), ch = prac.ch, out = [];
     out.push('<div class="task">Practice · free chart</div>');
     out.push('<div class="brief">' + esc(ch.nm) + ' — ' + ch.tfLbl +
-      '. Step the tape forward, mark the structure, measure the move, then put a position on it.</div>');
+      '. The two days before are loaded (scroll left, or press 2D) to mark the levels of the day before. Step the tape forward, mark the structure, measure the move, then put a position on it.</div>');
 
     out.push(dirTogglePrac());
 
@@ -12437,7 +12536,7 @@ var PROG = (function () {
       '<div class="bdres"></div>';
     var q = function (s) { return el.querySelector(s); };
     var cv = q("canvas"), ch = new Chart(cv);
-    ch.passive = true; ch.opts.vol = false;
+    ch.passive = true; ch.opts.vol = false; ch.opts.dayLines = true;
     IND.attach(q(".bdchart"));
     q('[data-b="sym"]').value = S.sym; q('[data-b="tf"]').value = String(S.tf);
     var mk = function () { return bdMk(S.sym); };
@@ -14466,6 +14565,11 @@ var PROG = (function () {
     BT.pos.slice().forEach(function (p) { btClose(p, at, 1, "new tape"); });
     return true;
   }
+  /** where the Desk's tape is first shown: two days in, at least 140 bars, and never past 40% of the tape */
+  function deskStart(ch) {
+    var tf = Mkt.TFSBY(ch.tf) || { min: 5 }, two = Math.ceil(2 * 1440 / tf.min);
+    return Math.max(140, Math.min(two, Math.floor(ch.bars.length * 0.4)));
+  }
   function btNew(keepAccount) {
     if (BT.timer) { clearInterval(BT.timer); BT.timer = null; }
     if (BT.ch) histDetach();
@@ -14478,7 +14582,7 @@ var PROG = (function () {
       BT.balance = BT.start; BT.log = []; BT.peak = BT.start; BT.maxDD = 0; BT.curve = [BT.start];
       BT.coachSeen = BT.coachTaken = BT.coachSkipped = 0;
     }
-    chB.load(BT.ch, 140);              /* a real run-up of context, not a few bars */
+    chB.load(BT.ch, deskStart(BT.ch));  /* two days of context (and never less than 140 bars), not a few bars */
     chB.locked = false;
     chB.gt = null; chB.sigBar = null;
     chB.setSpan(150, 110);
@@ -15202,7 +15306,7 @@ var PROG = (function () {
   function histSetup() {
     if (chH) return;
     chH = new Chart($("cvHist"));
-    chH.opts.vol = true;
+    chH.opts.vol = true; chH.opts.dayLines = true;
   }
   function paintHist() {
     histSetup();
@@ -15396,6 +15500,7 @@ var PROG = (function () {
       actBtn("undo", "↺", "Undo", "Undo the last drawing") +
       actBtn("clear", "✕", "Clear all", "Clear every drawing — to remove just one, click it and press its ✕") +
       actBtn("fit", "⤢", "Fit", "Fit the chart to the bars") +
+      actBtn("days", "2D", "2 days", "Show the last two days: the day before, to mark its levels") +
       '<button class="tool lab' + (BT.dealMap ? ' on' : '') + '" data-act="deals" title="Deal map — draw every closed trade on this tape from entry to exit">' +
       '<span class="ic">⤳</span><span class="tl">Deals</span></button>' +
       actBtn("copy", "⧉", "Copy", "Copy what's on screen as text — the bars, the read, the setup and your orders — to paste into a chat") +
@@ -15430,6 +15535,7 @@ var PROG = (function () {
         if (a === "undo") { chB.undo(); syncDraw(); }
         if (a === "clear") { chB.drawings = chB.drawings.filter(function (d) { return d._bt; }); }
         if (a === "fit") chB.fit();
+        if (a === "days") chB.fitDays(2);
         if (a === "copy") { copyText(btChartText()); return; }
         if (a === "s1") btStep(1);
         if (a === "s10") btStep(10);
