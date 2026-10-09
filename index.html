@@ -152,6 +152,36 @@
   .indadd{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .indadd select{background:var(--bg3);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px;color:var(--paper)}
   .indhelp{font-size:12.5px;line-height:1.5;color:var(--muted);margin:10px 0 0}
+  /* the colour picker: a swatch button, and its palette */
+  .clrbtn{width:34px;height:26px;padding:0;border:1px solid rgba(255,255,255,.28);border-radius:6px;background:var(--c,#888);cursor:pointer;flex:0 0 auto}
+  .clrbtn:hover,.clrbtn:focus-visible{border-color:var(--amber)}
+  .clrpop{position:fixed;z-index:10060;width:252px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px;box-shadow:0 14px 40px rgba(0,0,0,.6);font-size:12px;color:var(--muted)}
+  .clrlab{font:700 9.5px Archivo,sans-serif;letter-spacing:.12em;text-transform:uppercase;margin:9px 0 4px}
+  .clrlab:first-child{margin-top:0}
+  .clrrow,.clrgrid{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
+  .clrsw{aspect-ratio:1;min-height:18px;border-radius:4px;border:1px solid rgba(255,255,255,.16);padding:0;cursor:pointer}
+  .clrsw:hover{transform:scale(1.18);border-color:#fff;position:relative;z-index:1}
+  .clrsw.on{outline:2px solid #fff;outline-offset:1px}
+  .clrhex{display:flex;gap:6px;align-items:center;margin-top:10px}
+  .clrhex input[type=text]{flex:1;min-width:0;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:12px 'IBM Plex Mono',monospace;color:var(--paper)}
+  .clrmore{position:relative;display:inline-flex;align-items:center;font-size:11px;cursor:pointer;color:var(--muted);padding:0 4px}
+  .clrmore input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+  /* the settings of one drawing */
+  .drbox{width:min(540px,100%)}
+  .drlist{display:grid;gap:5px;margin-bottom:8px}
+  .drlv{display:flex;gap:8px;align-items:center;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+  .drlv input[type=checkbox],.drgrid input[type=checkbox]{accent-color:var(--amber)}
+  .drlv .drval{width:86px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:13px 'IBM Plex Mono',monospace;color:var(--paper)}
+  .drpct{width:62px;color:var(--muted);font:12px 'IBM Plex Mono',monospace}
+  .drgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:9px 16px;margin:12px 0 4px;font-size:13px}
+  .drgrid label{display:flex;gap:8px;align-items:center;color:var(--muted)}
+  .drgrid input[type=number]{width:72px;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:13px;color:var(--paper)}
+  .drgrid select{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:13px;color:var(--paper)}
+  .drgrid input[type=range]{width:96px;accent-color:var(--amber)}
+  .drpv{min-width:34px;color:var(--paper);font:11px 'IBM Plex Mono',monospace}
+  .drfoot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+  .drfoot .btn.danger:hover{border-color:var(--dn);color:var(--dn)}
+  .drmsg{font-size:12px;color:var(--up)}
   canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
   /* A scrollable toolbar with no hint that it scrolls hides whatever sits past
      the fold on any screen narrower than its content -- which is exactly what
@@ -642,7 +672,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.74.0", build: "2026-10-07", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.75.0", build: "2026-10-09", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2588,7 +2618,7 @@ Chart.prototype.dPrices = function (d) {
     case "hline": return [d.p];
     case "trend": case "rect": case "fib": return [d.a.p, d.b && d.b.p];
     case "fibext": return d.a && d.b && d.c
-      ? [d.a.p, d.b.p, d.c.p].concat(FIB.ext.map(function (f) { return fibPrice(d, f); }))
+      ? [d.a.p, d.b.p, d.c.p].concat(fibLevels(d).map(function (f) { return fibPrice(d, f); }))
       : [d.a.p, d.b && d.b.p, d.c && d.c.p];
     case "measure": return [d.a.p, d.b && d.b.p, d.c && d.c.p, this.measureTarget(d)];
     case "pos": return [d.entry, d.stop, d.target];
@@ -2646,7 +2676,10 @@ var FIB = {
   /* the ones Brooks-style traders actually watch, drawn brighter */
   key: { 0.5: 1, 0.618: 1, 1: 1, 1.272: 1, 1.618: 1 }
 };
-function fibLevels(d) { return d.type === "fibext" ? FIB.ext : FIB.ret; }
+function fibLevels(d) {
+  if (d.fs) return d.fs.levels.filter(function (l) { return l.on; }).map(function (l) { return l.v; });
+  return d.type === "fibext" ? FIB.ext : FIB.ret;
+}
 /* price of a ratio on either kind. Extension projects the a->b leg forward
    from c, 0% sitting at c (the last point placed). Retracement mirrors that:
    0% sits at b (the last point placed, the recent extreme you pulled back
@@ -2654,10 +2687,303 @@ function fibLevels(d) { return d.type === "fibext" ? FIB.ext : FIB.ret; }
    convention. Anchoring 0% at a instead (the old behaviour here) reads as
    the whole ladder flipped end-to-end for the exact same two clicks. */
 function fibPrice(d, f) {
-  return d.type === "fibext"
-    ? d.c.p + (d.b.p - d.a.p) * f
-    : d.b.p + (d.a.p - d.b.p) * f;
+  var rev = !!(d.fs && d.fs.rev);
+  if (d.type === "fibext") return rev ? d.c.p - (d.b.p - d.a.p) * f : d.c.p + (d.b.p - d.a.p) * f;
+  return rev ? d.a.p + (d.b.p - d.a.p) * f : d.b.p + (d.a.p - d.b.p) * f;
 }
+
+/* ---------- colour picker ----------
+   The browser's own colour box asks you to hit the exact spot or type a code,
+   which makes "the same colour twice" a matter of luck. This is a swatch
+   palette like TradingView's and cTrader's: a grid, the colours already used
+   in the box you are editing (a second line can match the first in one tap),
+   the ones you picked lately, a hex field, and the browser's picker behind
+   "More". */
+var CLR = (function () {
+  var KEY = "tt_clr_recent", pop = null, st = null, recent = [];
+  function norm(t) {
+    t = String(t || "").trim().replace(/^#/, "");
+    if (/^[0-9a-f]{3}$/i.test(t)) t = t.split("").map(function (ch) { return ch + ch; }).join("");
+    return /^[0-9a-f]{6}$/i.test(t) ? "#" + t.toLowerCase() : null;
+  }
+  try { recent = (JSON.parse(localStorage.getItem(KEY) || "[]") || []).map(norm).filter(Boolean).slice(0, 10); } catch (e) { recent = []; }
+  function hsl2hex(h, sat, l) {
+    sat /= 100; l /= 100;
+    var a = sat * Math.min(l, 1 - l), k = function (n) { return (n + h / 30) % 12; };
+    var f = function (n) { var v = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return ("0" + Math.round(v * 255).toString(16)).slice(-2); };
+    return "#" + f(0) + f(8) + f(4);
+  }
+  var GREYS = ["#ffffff", "#e5e7eb", "#c9cdd4", "#a9aeb8", "#8a92a2", "#6b7280", "#4b5563", "#2f3542", "#161a22", "#000000"];
+  var APP = ["#f2a93b", "#3fbf7f", "#e5634d", "#5b9bd5", "#b58cff", "#4fc3f7", "#f06292", "#ff8a65", "#e8e6e0", "#8a92a2"];
+  var HUES = [356, 28, 50, 88, 135, 172, 192, 218, 280, 330], SH = [[88, 90], [74, 85], [58, 78], [44, 72], [30, 66]];
+  var GRID = GREYS.slice(); SH.forEach(function (x) { HUES.forEach(function (h) { GRID.push(hsl2hex(h, x[1], x[0])); }); });
+  function rgba(c, a) { var n = parseInt(norm(c).slice(1), 16); return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")"; }
+  function sw(c, cur) { return '<button type="button" class="clrsw' + (cur === c ? " on" : "") + '" data-c="' + c + '" style="background:' + c + '" title="' + c + '" aria-label="' + c + '"></button>'; }
+  function row(label, arr, cur, cls) { return arr.length ? '<div class="clrlab">' + label + '</div><div class="' + (cls || "clrrow") + '">' + arr.map(function (c) { return sw(c, cur); }).join("") + '</div>' : ""; }
+  function close() {
+    if (pop && pop.parentNode) pop.parentNode.removeChild(pop);
+    pop = null; st = null;
+    document.removeEventListener("pointerdown", outside, true); document.removeEventListener("keydown", onKey, true);
+  }
+  function outside(e) { if (pop && !pop.contains(e.target) && !(st && st.btn.contains(e.target))) close(); }
+  function onKey(e) { if (e.key === "Escape") { e.stopPropagation(); e.preventDefault(); close(); } }
+  function pick(c) {
+    c = norm(c); if (!c || !st) return;
+    recent = [c].concat(recent.filter(function (x) { return x !== c; })).slice(0, 10);
+    try { localStorage.setItem(KEY, JSON.stringify(recent)); } catch (e) { }
+    var cb = st.cb; close(); cb(c);
+  }
+  function place(btn) {
+    var r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+    var left = Math.max(8, Math.min(r.left, vw - w - 8)), top = r.bottom + 6;
+    if (top + h > vh - 8) top = Math.max(8, r.top - h - 6);
+    pop.style.left = left + "px"; pop.style.top = top + "px";
+  }
+  /** open the palette for button `btn`; used: colours already in the box being edited; cb(hex) gets the pick */
+  function open(btn, cur, used, cb) {
+    if (pop && st && st.btn === btn) { close(); return; }
+    close();
+    cur = norm(cur) || "#ffffff";
+    var uniq = []; (used || []).forEach(function (c) { c = norm(c); if (c && uniq.indexOf(c) < 0) uniq.push(c); });
+    pop = document.createElement("div"); pop.className = "clrpop"; pop.setAttribute("role", "dialog"); pop.setAttribute("aria-label", "Choose a colour");
+    pop.innerHTML = row("In use here", uniq, cur) + row("App colours", APP, cur) + row("Palette", GRID, cur, "clrgrid") + row("Recent", recent, cur) +
+      '<div class="clrhex"><span>#</span><input type="text" maxlength="7" spellcheck="false" aria-label="Hex colour" placeholder="4fc3f7" value="' + cur.slice(1) + '">' +
+      '<button type="button" class="btn sm" data-x="use">Use</button><label class="clrmore" title="The browser\'s own colour picker">More&hellip;<input type="color" value="' + cur + '" aria-label="Browser colour picker"></label></div>';
+    document.body.appendChild(pop);
+    st = { btn: btn, cb: cb };
+    place(btn);
+    pop.addEventListener("click", function (e) {
+      var t = e.target.closest("[data-c],[data-x]"); if (!t) return;
+      if (t.dataset.c) pick(t.dataset.c);
+      else if (t.dataset.x === "use") { var v = norm(pop.querySelector(".clrhex input[type=text]").value); if (v) pick(v); else pop.querySelector(".clrhex input[type=text]").select(); }
+    });
+    var hx = pop.querySelector(".clrhex input[type=text]");
+    hx.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); var v = norm(hx.value); if (v) pick(v); } });
+    var nat = pop.querySelector('input[type="color"]');
+    nat.addEventListener("input", function () { if (st) st.cb(nat.value); });
+    nat.addEventListener("change", function () { pick(nat.value); });
+    document.addEventListener("pointerdown", outside, true); document.addEventListener("keydown", onKey, true);
+  }
+  function btnHtml(v, attrs, label) { v = norm(v) || "#ffffff"; return '<button type="button" class="clrbtn" ' + attrs + ' data-v="' + v + '" style="--c:' + v + '" aria-label="' + label + ' colour"></button>'; }
+  function setBtn(btn, v) { v = norm(v); if (!v) return; btn.dataset.v = v; btn.style.setProperty("--c", v); }
+  return { open: open, close: close, btn: btnHtml, set: setBtn, norm: norm, rgba: rgba, get isOpen() { return !!pop; } };
+})();
+
+/* ---------- snapping (the "magnet") ----------
+   A fib is only as good as where its two ends sit. With snap on, a point
+   placed (or dragged) near a bar jumps to that bar's high, low, open or close,
+   so a fib lands on the swing high exactly, not a few pixels off it. */
+var MAGNET = {
+  on: (function () { try { return localStorage.getItem("tt_magnet") !== "0"; } catch (e) { return true; } })(),
+  toggle: function () {
+    MAGNET.on = !MAGNET.on;
+    try { localStorage.setItem("tt_magnet", MAGNET.on ? "1" : "0"); } catch (e) { }
+    [].forEach.call(document.querySelectorAll('[data-act="magnet"]'), function (b) { b.classList.toggle("on", MAGNET.on); });
+    return MAGNET.on;
+  }
+};
+var SNAP_TOOLS = { hline: 1, trend: 1, rect: 1, fib: 1, fibext: 1, measure: 1 };
+/** the nearest bar price to the pointer within 14 px (high and low a little ahead of open and close) */
+Chart.prototype.snap = function (p) {
+  var i = Math.round(this.iAt(p.x)), pr = this.pAt(p.y), out = { i: i, p: pr, snapped: false };
+  if (!MAGNET.on) return out;
+  var best = null, bd = 14, self = this;
+  for (var k = i - 1; k <= i + 1; k++) {
+    var bar = this.bars[k];
+    if (!bar || k < 0 || k > this.vis) continue;
+    var dx = Math.abs(this.x(k) - p.x);
+    if (dx > Math.max(this.bw * 1.2, 12)) continue;
+    [[bar.h, 0], [bar.l, 0], [bar.o, 2], [bar.c, 2]].forEach(function (q) {
+      var d = Math.sqrt(dx * dx + Math.pow(self.y(q[0]) - p.y, 2)) + q[1];
+      if (d < bd) { bd = d; best = { i: k, p: q[0], snapped: true }; }
+    });
+  }
+  return best || out;
+};
+Chart.prototype.snapTool = function (p) {
+  if (SNAP_TOOLS[this.tool]) return this.snap(p);
+  return { i: Math.round(this.iAt(p.x)), p: this.pAt(p.y), snapped: false };
+};
+Chart.prototype._snapMark = function (c, b) {
+  var h = this._hoverPt;
+  if (this.tool === "cursor" || !h || !h.snapped || !SNAP_TOOLS[this.tool]) return;
+  c.save(); c.strokeStyle = COL.amber; c.lineWidth = 1.6;
+  c.beginPath(); c.arc(this.x(h.i), this.y(h.p), 6, 0, 6.284); c.stroke(); c.restore();
+};
+
+/* ---------- the settings of one drawing ----------
+   Double-click a drawing, or press the cog beside its ✕: a fib's levels (each
+   with its own value, colour and tick), line style, width, labels, background
+   zones and direction; a line's or a zone's colour, width and style. Applies to
+   that drawing only; "Save as default" makes a fib's settings the start for new
+   ones. */
+var LSTYLE = { solid: [], dashed: [6, 4], dotted: [2, 3] };
+var FIBTPL = { ret: null, ext: null };
+function fibKeyColour(v) { return FIB.key[v] ? "#f2a93b" : "#8a92a2"; }
+function fibDefaultSettings(type) {
+  return {
+    levels: (type === "fibext" ? FIB.ext : FIB.ret).map(function (v) { return { v: v, on: true, col: fibKeyColour(v) }; }),
+    ls: "dashed", w: 1, la: 0.75, bg: false, bga: 0.08, pct: true, price: true, rev: false
+  };
+}
+function cleanFs(x, type) {
+  var base = fibDefaultSettings(type), n = function (v, lo, hi, d) { v = +v; return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; };
+  if (!x || typeof x !== "object") return base;
+  var lv = Array.isArray(x.levels) ? x.levels.map(function (l) {
+    var v = +(l && l.v); if (!(v >= -5 && v <= 10)) return null;
+    return { v: Math.round(v * 10000) / 10000, on: !(l.on === false), col: CLR.norm(l.col) || fibKeyColour(v) };
+  }).filter(Boolean) : [];
+  if (lv.length && !lv.some(function (l) { return l.on; })) lv[0].on = true;
+  return { levels: lv.length ? lv : base.levels, ls: LSTYLE[x.ls] ? x.ls : "dashed", w: n(x.w, 0.5, 6, 1), la: n(x.la, 0.1, 1, 0.75), bg: !!x.bg, bga: n(x.bga, 0, 0.6, 0.08), pct: x.pct !== false, price: x.price !== false, rev: !!x.rev };
+}
+(function () {
+  ["ret", "ext"].forEach(function (k) {
+    try { var v = JSON.parse(localStorage.getItem("tt_fibtpl_" + k) || "null"); if (v && v.levels) FIBTPL[k] = cleanFs(v, k === "ext" ? "fibext" : "fib"); } catch (e) { }
+  });
+})();
+function tplKey(type) { return type === "fibext" ? "ext" : "ret"; }
+/** a fib that has just been drawn starts like the one saved as default, if there is one */
+Chart.prototype.applyTemplate = function (d) {
+  if ((d.type === "fib" || d.type === "fibext") && FIBTPL[tplKey(d.type)]) d.fs = JSON.parse(JSON.stringify(FIBTPL[tplKey(d.type)]));
+};
+Chart.prototype.openSettings = function (d) {
+  d = d || this.sel;
+  if (!d || this.locked || !this.canSelect(d) || !DRAWSET.supports(d)) return false;
+  DRAWSET.open(this, d); return true;
+};
+var DRAWSET = (function () {
+  var ov = null, cur = null, msgT = null;
+  var TITLE = { fib: "Fibonacci retracement", fibext: "Fibonacci extension", trend: "Trend line", hline: "Horizontal line", rect: "Zone" };
+  var DEF = { hline: { col: "#F2A93B", w: 1.4, ls: "solid" }, trend: { col: "#F2A93B", w: 1.6, ls: "solid", ext: true },
+    rect: { col: "#5B9BD5", w: 1.2, ls: "solid", fon: true, fcol: "#5B9BD5", fa: 0.13 } };
+  var COMMON = [[0, 0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.272, 1.618, 2, 2.618]][0];
+  function isFib(d) { return d.type === "fib" || d.type === "fibext"; }
+  function obj() { return isFib(cur.d) ? cur.d.fs : cur.d; }
+  function get(k) { var o = obj(); return o[k] !== undefined ? o[k] : (DEF[cur.d.type] || {})[k]; }
+  function parseRatio(t) {
+    t = String(t).trim().replace(",", "."); var pc = /%\s*$/.test(t), v = parseFloat(t);
+    if (!isFinite(v)) return null;
+    if (pc || Math.abs(v) > 10) v = v / 100;
+    return v < -5 || v > 10 ? null : Math.round(v * 10000) / 10000;
+  }
+  function pctText(v) { return (Math.round(v * 1000) / 10).toFixed(1) + "%"; }
+  function sel(k, v) { return '<select data-k="' + k + '">' + [["solid", "Solid"], ["dashed", "Dashed"], ["dotted", "Dotted"]].map(function (o) { return '<option value="' + o[0] + '"' + (v === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select>'; }
+  function numF(k, v, lo, hi, step) { return '<input type="number" data-k="' + k + '" min="' + lo + '" max="' + hi + '" step="' + step + '" value="' + v + '">'; }
+  function rng(k, v) { return '<input type="range" data-k="' + k + '" min="0" max="100" step="1" value="' + Math.round(v * 100) + '"><span class="drpv">' + Math.round(v * 100) + '%</span>'; }
+  function chk(k, v, label) { return '<label><input type="checkbox" data-k="' + k + '"' + (v ? " checked" : "") + '> ' + label + '</label>'; }
+  function clr(k, label) { return '<label>' + label + ' ' + CLR.btn(get(k), 'data-k="' + k + '"', label) + '</label>'; }
+  function levelRow(L, k, only) {
+    return '<div class="drlv" data-k="' + k + '"><input type="checkbox" data-lv="on" aria-label="Show this level"' + (L.on ? " checked" : "") + '>' +
+      '<input type="text" class="drval" data-lv="v" inputmode="decimal" aria-label="Level" value="' + L.v + '"><span class="drpct">' + pctText(L.v) + '</span>' +
+      CLR.btn(L.col, 'data-lv="col"', pctText(L.v) + " level") +
+      '<button type="button" class="indrm" data-lv="rm" title="Remove this level" aria-label="Remove this level"' + (only ? " disabled" : "") + '>&#x2715;</button></div>';
+  }
+  function fields() {
+    var d = cur.d, t = d.type;
+    if (t === "hline") return clr("col", "Colour") + '<label>Width ' + numF("w", get("w"), 0.5, 6, 0.5) + '</label><label>Style ' + sel("ls", get("ls")) + '</label>';
+    if (t === "trend") return clr("col", "Colour") + '<label>Width ' + numF("w", get("w"), 0.5, 6, 0.5) + '</label><label>Style ' + sel("ls", get("ls")) + '</label>' + chk("ext", get("ext") !== false, "Extend to the right");
+    if (t === "rect") return clr("col", "Border") + '<label>Width ' + numF("w", get("w"), 0.5, 6, 0.5) + '</label><label>Style ' + sel("ls", get("ls")) + '</label>' +
+      chk("fon", get("fon") !== false, "Fill") + clr("fcol", "Fill colour") + '<label>Fill opacity ' + rng("fa", get("fa")) + '</label>';
+    var fs = d.fs;
+    return '<label>Line style ' + sel("ls", fs.ls) + '</label><label>Width ' + numF("w", fs.w, 0.5, 6, 0.5) + '</label><label>Line opacity ' + rng("la", fs.la) + '</label>' +
+      chk("pct", fs.pct, "Show levels (61.8%)") + chk("price", fs.price, "Show prices") +
+      chk("bg", fs.bg, "Background zones") + '<label>Zone opacity ' + rng("bga", fs.bga) + '</label>' +
+      chk("rev", fs.rev, t === "fib" ? "Reverse: 0% at the start of the leg" : "Reverse: project the other way");
+  }
+  function paint() {
+    var d = cur.d, t = d.type, h = '<div class="indbox drbox"><div class="indhead"><b>' + TITLE[t] + '</b><span class="indgap"></span><button type="button" class="indx" data-d="close" aria-label="Close">&#x2715;</button></div>';
+    if (isFib(d)) {
+      var lv = d.fs.levels;
+      h += '<p class="indnote">Each level is a ratio of the leg: 0.618 or 61.8%. Tick to show it, type to change it, press its colour to pick another. This changes this fib only.</p>' +
+        '<div class="drlist">' + lv.map(function (L, k) { return levelRow(L, k, lv.length === 1); }).join("") + '</div>' +
+        '<div class="indadd"><button type="button" class="btn sm" data-d="addlevel">+ Add level</button><button type="button" class="btn sm" data-d="resetlevels">Reset levels</button></div>';
+    }
+    h += '<div class="drgrid">' + fields() + '</div><div class="drfoot">' +
+      (isFib(d) ? '<button type="button" class="btn sm" data-d="default" title="New fibs of this kind start like this one">Save as default</button>' : '') +
+      '<button type="button" class="btn sm danger" data-d="delete">Delete</button><span class="drmsg" role="status"></span><span class="indgap"></span>' +
+      '<button type="button" class="btn sm primary" data-d="close">Done</button></div></div>';
+    ov.innerHTML = h;
+  }
+  function used() {
+    var d = cur.d, o = [];
+    if (isFib(d)) d.fs.levels.forEach(function (L) { o.push(L.col); }); else { o.push(get("col")); if (d.type === "rect") o.push(get("fcol")); }
+    return o;
+  }
+  function say(t) { var m = ov.querySelector(".drmsg"); if (!m) return; m.textContent = t; clearTimeout(msgT); msgT = setTimeout(function () { if (m) m.textContent = ""; }, 2600); }
+  function onKey(e) { if (e.key === "Escape") close(); }
+  function close() {
+    if (!ov) return;
+    ov.classList.remove("on"); document.removeEventListener("keydown", onKey);
+    var c = cur && cur.ch; cur = null; if (c) { try { c.cv.focus(); } catch (e) { } }
+  }
+  function build() {
+    if (ov) return;
+    ov = document.createElement("div"); ov.id = "drOv"; ov.className = "indov"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "Drawing settings");
+    document.body.appendChild(ov);
+    ov.addEventListener("click", function (e) {
+      if (!cur) return;
+      if (e.target === ov) return close();
+      var t = e.target.closest("[data-d],[data-lv],[data-k]"); if (!t) return;
+      if (t.classList.contains("clrbtn")) { CLR.open(t, t.dataset.v, used(), function (v) { CLR.set(t, v); t.dispatchEvent(new Event("input", { bubbles: true })); }); return; }
+      var a = t.dataset.d, d = cur.d;
+      if (a === "close") return close();
+      if (a === "delete") { var ch = cur.ch; ch.deleteDrawing(d); return close(); }
+      if (a === "addlevel") {
+        var have = d.fs.levels.map(function (l) { return l.v; }), v = COMMON.filter(function (x) { return have.indexOf(x) < 0; })[0];
+        if (v === undefined) v = Math.round((Math.max.apply(null, have) + 0.5) * 1000) / 1000;
+        d.fs.levels.push({ v: v, on: true, col: fibKeyColour(v) }); paint(); cur.ch.render(); return;
+      }
+      if (a === "resetlevels") { d.fs.levels = fibDefaultSettings(d.type).levels; paint(); cur.ch.render(); say("Levels back to the defaults"); return; }
+      if (a === "default") {
+        var key = tplKey(d.type), tpl = cleanFs(d.fs, d.type);
+        FIBTPL[key] = tpl;
+        var vis = tpl.levels.filter(function (l) { return l.on; }).map(function (l) { return l.v; }).sort(function (x, z) { return x - z; });
+        FIB[key] = vis;
+        try { localStorage.setItem("tt_fibtpl_" + key, JSON.stringify(tpl)); localStorage.setItem("tt_fib_" + key, JSON.stringify(vis)); } catch (e) { }
+        say("Saved: new " + (d.type === "fib" ? "retracements" : "extensions") + " start like this one"); return;
+      }
+      if (t.dataset.lv === "rm") {
+        var k = +t.closest(".drlv").dataset.k;
+        if (d.fs.levels.length > 1) { d.fs.levels.splice(k, 1); if (!d.fs.levels.some(function (l) { return l.on; })) d.fs.levels[0].on = true; paint(); cur.ch.render(); }
+      }
+    });
+    ov.addEventListener("input", function (e) {
+      if (!cur) return;
+      var t = e.target;
+      if (t.dataset.lv) {
+        var row = t.closest(".drlv"), L = cur.d.fs.levels[+row.dataset.k], f = t.dataset.lv;
+        if (f === "on") {
+          L.on = t.checked;
+          if (!cur.d.fs.levels.some(function (l) { return l.on; })) { L.on = true; t.checked = true; say("At least one level stays on"); }
+        } else if (f === "v") { var v = parseRatio(t.value); if (v === null) return; L.v = v; row.querySelector(".drpct").textContent = pctText(v); }
+        else if (f === "col") { L.col = t.dataset.v; }
+        cur.ch.render(); return;
+      }
+      var k = t.dataset.k; if (!k) return;
+      var o = obj(), v;
+      if (t.classList.contains("clrbtn")) v = t.dataset.v;
+      else if (t.type === "checkbox") v = t.checked;
+      else if (t.type === "range") { v = +t.value / 100; var sp = t.parentNode.querySelector(".drpv"); if (sp) sp.textContent = t.value + "%"; }
+      else if (t.type === "number") { v = parseFloat(String(t.value).replace(",", ".")); if (!isFinite(v)) return; v = Math.max(+t.min, Math.min(+t.max, v)); }
+      else v = t.value;
+      o[k] = v; cur.ch.render();
+    });
+    ov.addEventListener("change", function (e) {   /* leaving a field: show the value it was cut to */
+      if (!cur) return;
+      var t = e.target;
+      if (t.dataset.lv === "v") { var L = cur.d.fs.levels[+t.closest(".drlv").dataset.k]; t.value = L.v; t.closest(".drlv").querySelector(".drpct").textContent = pctText(L.v); }
+      else if (t.type === "number" && t.dataset.k) { var x = obj()[t.dataset.k]; if (x !== undefined) t.value = x; }
+    });
+  }
+  function open(ch, d) {
+    build();
+    if (isFib(d) && !d.fs) d.fs = fibDefaultSettings(d.type);
+    cur = { ch: ch, d: d };
+    paint(); ov.classList.add("on"); document.addEventListener("keydown", onKey);
+    var f = ov.querySelector("input,select,button"); if (f) f.focus();
+  }
+  return { open: open, close: close, supports: function (d) { return !!TITLE[d.type]; }, parseRatio: parseRatio, get isOpen() { return !!(ov && ov.classList.contains("on")); } };
+})();
 
 /* ---------- selection ----------
    Only the annotation tools take part. A `pos` is the answer a drill is asking
@@ -2686,7 +3012,7 @@ Chart.prototype.hitDrawing = function (x, y) {
     var x1 = this.x(d.a.i), y1 = this.y(d.a.p), x2 = this.x(d.b.i), y2 = this.y(d.b.p);
     if (d.type === "trend") {
       var ex = b.r, ey = x2 === x1 ? y2 : y2 + ((y2 - y1) / (x2 - x1)) * (b.r - x2);
-      if (segDist(x, y, x1, y1, x2, y2) <= tol || segDist(x, y, x2, y2, ex, ey) <= tol) return d;
+      if (segDist(x, y, x1, y1, x2, y2) <= tol || (d.ext !== false && segDist(x, y, x2, y2, ex, ey) <= tol)) return d;
       continue;
     }
     if (d.type === "rect") {
@@ -2742,6 +3068,19 @@ Chart.prototype.badgeDist = function (x, y) {
   return Math.sqrt((x - a.x) * (x - a.x) + (y - a.y) * (y - a.y));
 };
 Chart.prototype.hitBadge = function (x, y) { return this.badgeDist(x, y) <= 13; };
+/* the cog sits beside the cross (to its right, or its left when there is no room) */
+Chart.prototype.gearAnchor = function (d) {
+  if (!d || !DRAWSET.supports(d)) return null;
+  var a = this.selAnchor(d); if (!a) return null;
+  var b = this.box();
+  return { x: a.x + 24 <= b.r - 11 ? a.x + 24 : a.x - 24, y: a.y };
+};
+Chart.prototype.gearDist = function (x, y) {
+  if (!this.sel || this.tool !== "cursor" || this.locked || this.drawings.indexOf(this.sel) < 0) return Infinity;
+  var g = this.gearAnchor(this.sel);
+  return g ? Math.sqrt((x - g.x) * (x - g.x) + (y - g.y) * (y - g.y)) : Infinity;
+};
+Chart.prototype.hitGear = function (x, y) { return this.gearDist(x, y) <= 13; };
 Chart.prototype.select = function (d) {
   this.sel = this.canSelect(d) ? d : null;
   this.render(); return this.sel;
@@ -2795,7 +3134,8 @@ Chart.prototype._bind = function () {
       if (!self.locked) {
         /* The ✕ sits near the corner handle, so whichever is nearer wins. A fixed
            priority would turn "grab the corner" into "delete the drawing". */
-        var bd = self.badgeDist(p.x, p.y), h = self.hitHandle(p.x, p.y);
+        var bd = self.badgeDist(p.x, p.y), gd = self.gearDist(p.x, p.y), h = self.hitHandle(p.x, p.y);
+        if (gd <= 13 && gd <= (h ? h.dist : Infinity)) { drag = { kind: "gear" }; return; }
         if (bd <= 13 && bd <= (h ? h.dist : Infinity)) { drag = { kind: "badge" }; return; }
         if (h) { self.select(h.d); self._freezeScale = true; drag = { kind: "handle", h: h }; return; }
         var hd = self.hitDrawing(p.x, p.y);
@@ -2810,6 +3150,13 @@ Chart.prototype._bind = function () {
       }
       /* locked only freezes the answer — looking around the chart stays free */
       drag = { kind: "pan", x: p.x, y: p.y, i0: self.i0, i1: self.i1 };
+    } else if (!self.locked && !self.pending && (TOOL_PTS[self.tool] || 1) >= 2) {
+      /* the first press of a two-point drawing places its start at once, so the
+         drawing can be dragged out to its end (press, drag, release) or finished
+         with a second click: both ways, as on TradingView and cTrader */
+      self.pending = { type: self.tool, a: self.snapTool(p) };
+      self._press = { x: p.x, y: p.y };
+      self._hoverPt = self.snapTool(p);
     }
   });
   this.cv.addEventListener("pointermove", function (e) {
@@ -2823,7 +3170,7 @@ Chart.prototype._bind = function () {
       self.setSpan(sp, mid); return;
     }
     self.cross = { x: p.x, y: p.y };
-    self._hoverPt = { i: Math.round(self.iAt(p.x)), p: self.pAt(p.y) };
+    self._hoverPt = self.snapTool(p);
     if (drag && drag.kind === "pan") {
       var db = (drag.x - p.x) / Math.max(0.5, self.bw);
       self.i0 = drag.i0 + db; self.i1 = drag.i1 + db;
@@ -2836,7 +3183,7 @@ Chart.prototype._bind = function () {
       drag.i = ni; drag.p = np; drag.moved = true;
     } else if (!drag && self.tool === "cursor" && !self.locked) {
       /* tell the pointer what it is over before it commits to a drag */
-      var hb = self.badgeDist(p.x, p.y), hh = self.hitHandle(p.x, p.y);
+      var hb = Math.min(self.badgeDist(p.x, p.y), self.gearDist(p.x, p.y)), hh = self.hitHandle(p.x, p.y);
       self.cv.style.cursor = (hb <= 13 && hb <= (hh ? hh.dist : Infinity)) ? "pointer"
         : hh ? "grab"
         : self.hitDrawing(p.x, p.y) ? "move" : "crosshair";
@@ -2856,19 +3203,30 @@ Chart.prototype._bind = function () {
   }
   this.cv.addEventListener("pointerup", function (e) {
     if (self.passive) return;
-    var wasBadge = drag && drag.kind === "badge";
+    var wasBadge = drag && drag.kind === "badge", wasGear = drag && drag.kind === "gear";
     up(e);
     if (self.locked) return;
     /* deleting on release, not on press, so a mis-tap can still be dragged off */
     if (wasBadge) { if (self.hitBadge(pos(e).x, pos(e).y)) self.deleteSelected(); return; }
-    if (self.tool !== "cursor") { self.addPoint(pos(e)); }
+    if (wasGear) { if (self.hitGear(pos(e).x, pos(e).y)) self.openSettings(); return; }
+    if (self.tool !== "cursor") {
+      var pr = self._press; self._press = null;
+      /* a press that started this drawing and barely moved was a click: its start is placed, click again for the end */
+      if (pr && Math.sqrt(Math.pow(pos(e).x - pr.x, 2) + Math.pow(pos(e).y - pr.y, 2)) < 8) { self.render(); self._changed(); return; }
+      self.addPoint(pos(e));
+    }
   });
-  this.cv.addEventListener("pointercancel", up);
+  this.cv.addEventListener("pointercancel", function (e) {
+    if (self._press) { self._press = null; self.pending = null; self.render(); }
+    up(e);
+  });
   /* Delete removes the selected drawing, Escape just lets go of it. Scoped to
      the chart the pointer is over, so two charts on a page never fight. */
   this.cv.addEventListener("pointerenter", function () { self._hover = true; });
   this.cv.addEventListener("pointerleave", function () { self._hover = false; });
   window.addEventListener("keydown", function (e) {
+    /* Escape lets go of a drawing that is half placed */
+    if (e.key === "Escape" && self._hover && self.pending && !self.locked) { self.pending = null; self._press = null; self.render(); return; }
     if (!self._hover || self.locked || !self.sel) return;
     var t = e.target && e.target.tagName;
     if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT") return;
@@ -2883,7 +3241,13 @@ Chart.prototype._bind = function () {
     var f = e.deltaY > 0 ? 1.12 : 0.89;
     self.setSpan((self.i1 - self.i0) * f, anchor);
   }, { passive: false });
-  this.cv.addEventListener("dblclick", function () { if (!self.passive) self.fit(); });
+  /* double-click a drawing for its settings; double-click empty chart to fit it */
+  this.cv.addEventListener("dblclick", function (e) {
+    if (self.passive) return;
+    var q = pos(e), hd = (!self.locked && self.tool === "cursor") ? self.hitDrawing(q.x, q.y) : null;
+    if (hd) { self.select(hd); if (self.openSettings(hd)) return; }
+    self.fit();
+  });
 
   window.addEventListener("resize", function () { if (self.dead) return; self._fitCanvas(); self.render(); });
   if (window.ResizeObserver) {
@@ -2905,7 +3269,7 @@ Chart.prototype.clampView = function () {
 
 /* ---------- building drawings by clicking ---------- */
 Chart.prototype.addPoint = function (px) {
-  var pt = { i: Math.round(this.iAt(px.x)), p: this.pAt(px.y) };
+  var pt = this.snapTool(px);
   var t = this.tool, need = TOOL_PTS[t] || 1;
   if (t === "mark") {
     this.userMark = pt;
@@ -2914,8 +3278,9 @@ Chart.prototype.addPoint = function (px) {
     this.render(); this._changed(); return;      /* stays armed so a second tap moves it */
   }
   if (t === "hline") {
-    this.drawings.push({ type: "hline", p: pt.p, tag: this.nextTag });
-    this.nextTag = null; this.setTool("cursor"); this._changed(); return;
+    var hl = { type: "hline", p: pt.p, tag: this.nextTag };
+    this.drawings.push(hl);
+    this.nextTag = null; this.setTool("cursor"); this.select(hl); this._changed(); return;
   }
   if (t === "pos") {
     var atr = this.chart ? this.chart.atr : (this.pMax - this.pMin) * 0.02;
@@ -2931,7 +3296,8 @@ Chart.prototype.addPoint = function (px) {
   else if (!this.pending.b) this.pending.b = pt;
   else if (need > 2 && !this.pending.c) this.pending.c = pt;
   if (this.pending && (need === 1 || (need === 2 && this.pending.b) || (need === 3 && this.pending.c))) {
-    this.drawings.push(this.pending); this.pending = null; this.setTool("cursor");
+    var done = this.pending;
+    this.drawings.push(done); this.pending = null; this.applyTemplate(done); this.setTool("cursor"); this.select(done);
   }
   this.render(); this._changed();
 };
@@ -2972,6 +3338,7 @@ Chart.prototype.hitHandle = function (x, y) {
 };
 Chart.prototype.moveHandle = function (h, x, y) {
   var p = this.pAt(y), i = Math.round(this.iAt(x));
+  if (h.d && h.d.type !== "pos" && MAGNET.on) { var sn = this.snap({ x: x, y: y }); p = sn.p; i = sn.i; }
   if (h.f === "p" || h.f === "entry" || h.f === "stop" || h.f === "target") {
     h.d[h.f] = p;
     if (h.d.type === "pos") {
@@ -3041,6 +3408,7 @@ Chart.prototype.render = function () {
   this._selBadge(c);
   this._axes(c, b);
   this._crosshair(c, b);
+  this._snapMark(c, b);
   this._watermark(c, b);
 };
 
@@ -3285,12 +3653,13 @@ var IND = (function () {
     changed(rebuild); return d;
   }
   function reset() { list = def(); openSet = {}; changed(true); }
+  function usedColours() { var o = []; list.forEach(function (d) { for (var r in d.lines) o.push(d.lines[r].col); if (d.fill) o.push(d.fill.col); }); return o; }
 
   /* ---- the editor ---- */
   function lineRow(d, r, name) {
     var L = d.lines[r], lab = name.toLowerCase();
     return '<div class="indln"><label class="indon"><input type="checkbox" data-f="line" data-r="' + r + '" data-s="on"' + (L.on ? " checked" : "") + '> ' + name + '</label>' +
-      '<input type="color" data-f="line" data-r="' + r + '" data-s="col" value="' + L.col.toLowerCase() + '" aria-label="' + name + ' colour">' +
+      CLR.btn(L.col, 'data-f="line" data-r="' + r + '" data-s="col"', name) +
       '<label class="indop">Opacity <input type="range" min="0" max="100" step="1" data-f="line" data-r="' + r + '" data-s="a" value="' + Math.round(L.a * 100) + '" aria-label="' + name + ' opacity"><span>' + Math.round(L.a * 100) + '%</span></label>' +
       '<label>Width <input type="number" min="0.5" max="6" step="0.5" data-f="line" data-r="' + r + '" data-s="w" value="' + L.w + '"></label>' +
       '<select data-f="line" data-r="' + r + '" data-s="ls" aria-label="' + name + ' line style">' + ["solid", "dashed", "dotted"].map(function (k) { return '<option value="' + k + '"' + (L.ls === k ? " selected" : "") + '>' + k[0].toUpperCase() + k.slice(1) + '</option>'; }).join("") + '</select></div>';
@@ -3300,7 +3669,7 @@ var IND = (function () {
     body += '<div class="indstb"' + (op ? '' : ' hidden') + '>';
     T.roles.forEach(function (r) { body += lineRow(d, r[0], r[1]); });
     if (d.fill) body += '<div class="indln"><label class="indon"><input type="checkbox" data-f="fill" data-s="on"' + (d.fill.on ? " checked" : "") + '> Background</label>' +
-      '<input type="color" data-f="fill" data-s="col" value="' + d.fill.col.toLowerCase() + '" aria-label="Background colour">' +
+      CLR.btn(d.fill.col, 'data-f="fill" data-s="col"', "Background") +
       '<label class="indop">Opacity <input type="range" min="0" max="100" step="1" data-f="fill" data-s="a" value="' + Math.round(d.fill.a * 100) + '" aria-label="Background opacity"><span>' + Math.round(d.fill.a * 100) + '%</span></label></div>';
     body += '<div class="indln"><button type="button" class="btn sm" data-f="reset">Reset style</button></div></div>';
     return '<div class="indrow" data-id="' + d.id + '"><div class="indtop">' +
@@ -3336,6 +3705,7 @@ var IND = (function () {
       if (t.dataset.i === "close") return close();
       if (t.dataset.i === "add") return void add(sel.value);
       if (t.dataset.i === "reset") return reset();
+      if (t.classList.contains("clrbtn")) { CLR.open(t, t.dataset.v, usedColours(), function (v) { CLR.set(t, v); t.dispatchEvent(new Event("input", { bubbles: true })); }); return; }
       var row = t.closest(".indrow"); if (!row) return;
       if (t.dataset.f === "rm") return remove(row.dataset.id);
       if (t.dataset.f === "reset") return void update(row.dataset.id, { reset: true });
@@ -3346,7 +3716,7 @@ var IND = (function () {
     });
     function edit(e) {
       var t = e.target, f = t.dataset && t.dataset.f; if (!f || f === "rm" || f === "sty" || f === "reset") return;
-      var row = t.closest(".indrow"), v = t.type === "checkbox" ? t.checked : t.value, patch = {};
+      var row = t.closest(".indrow"), v = t.classList.contains("clrbtn") ? t.dataset.v : (t.type === "checkbox" ? t.checked : t.value), patch = {};
       if (f === "line" || f === "fill") {
         var s = t.dataset.s, o = {};
         if (s === "a") { v = +v / 100; var sp = t.parentNode.querySelector("span"); if (sp) sp.textContent = Math.round(v * 100) + "%"; }
@@ -3752,7 +4122,7 @@ Chart.prototype._outline = function (c, b, d) {
     c.stroke(); return;
   }
   c.moveTo(x1, y1); c.lineTo(x2, y2);
-  if (d.type === "trend" && x2 !== x1) c.lineTo(b.r, y2 + ((y2 - y1) / (x2 - x1)) * (b.r - x2));
+  if (d.type === "trend" && x2 !== x1 && d.ext !== false) c.lineTo(b.r, y2 + ((y2 - y1) / (x2 - x1)) * (b.r - x2));
   if (d.type === "measure" && d.c) {
     var cx = this.x(d.c.i);
     c.moveTo(cx, this.y(d.c.p)); c.lineTo(cx, this.y(this.measureTarget(d)));
@@ -3773,12 +4143,26 @@ Chart.prototype._selBadge = function (c) {
   c.moveTo(a.x - 3.2, a.y - 3.2); c.lineTo(a.x + 3.2, a.y + 3.2);
   c.moveTo(a.x + 3.2, a.y - 3.2); c.lineTo(a.x - 3.2, a.y + 3.2);
   c.stroke();
+  /* the cog: this drawing's settings */
+  var g = this.gearAnchor(this.sel);
+  if (g) {
+    c.fillStyle = "#39404C"; c.strokeStyle = "#0B0E13"; c.lineWidth = 1.5;
+    c.beginPath(); c.arc(g.x, g.y, 9, 0, 6.284); c.fill(); c.stroke();
+    c.fillStyle = "#fff"; c.beginPath();
+    for (var k = 0; k < 24; k++) {
+      var ang = (k / 24) * 6.2832, r = (k % 3 === 2) ? 3.7 : 5.4;
+      var px = g.x + Math.cos(ang) * r, py = g.y + Math.sin(ang) * r;
+      if (k) c.lineTo(px, py); else c.moveTo(px, py);
+    }
+    c.closePath(); c.fill();
+    c.fillStyle = "#39404C"; c.beginPath(); c.arc(g.x, g.y, 1.7, 0, 6.284); c.fill();
+  }
   c.restore();
 };
 Chart.prototype._drawH = function (c, b, d) {
   var y = Math.round(this.y(d.p)) + 0.5, col = d.col || COL.amber;
-  c.strokeStyle = col; c.lineWidth = 1.4; c.setLineDash([]);
-  c.beginPath(); c.moveTo(0, y); c.lineTo(b.r, y); c.stroke();
+  c.strokeStyle = col; c.lineWidth = d.w || 1.4; c.setLineDash(LSTYLE[d.ls] || []);
+  c.beginPath(); c.moveTo(0, y); c.lineTo(b.r, y); c.stroke(); c.setLineDash([]);
   this._tag(c, b.r + 1, y, this.fmt(d.p), col, "#14100a");
   if (d.tag) {
     c.font = "700 10px Archivo,sans-serif"; c.fillStyle = col; c.textAlign = "left"; c.textBaseline = "bottom";
@@ -3788,21 +4172,22 @@ Chart.prototype._drawH = function (c, b, d) {
 Chart.prototype._drawTrend = function (c, b, d) {
   if (!d.b) return;
   var x1 = this.x(d.a.i), y1 = this.y(d.a.p), x2 = this.x(d.b.i), y2 = this.y(d.b.p);
-  c.strokeStyle = COL.amber; c.lineWidth = 1.6;
+  c.strokeStyle = d.col || COL.amber; c.lineWidth = d.w || 1.6; c.setLineDash(LSTYLE[d.ls] || []);
   c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2);
   /* extend to the right edge */
-  if (x2 !== x1) {
+  if (x2 !== x1 && d.ext !== false) {
     var m = (y2 - y1) / (x2 - x1);
     c.lineTo(b.r, y2 + m * (b.r - x2));
   }
-  c.stroke();
+  c.stroke(); c.setLineDash([]);
 };
 Chart.prototype._drawRect = function (c, b, d) {
   if (!d.b) return;
   var x1 = this.x(d.a.i), y1 = this.y(d.a.p), x2 = this.x(d.b.i), y2 = this.y(d.b.p);
-  c.fillStyle = "rgba(91,155,213,.13)"; c.strokeStyle = "rgba(91,155,213,.75)"; c.lineWidth = 1.2;
-  c.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
-  c.strokeRect(Math.min(x1, x2) + 0.5, Math.min(y1, y2) + 0.5, Math.abs(x2 - x1), Math.abs(y2 - y1));
+  c.fillStyle = CLR.rgba(d.fcol || "#5b9bd5", d.fa !== undefined ? d.fa : 0.13); c.strokeStyle = d.col || "rgba(91,155,213,.75)"; c.lineWidth = d.w || 1.2;
+  if (d.fon !== false) c.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
+  c.setLineDash(LSTYLE[d.ls] || []);
+  c.strokeRect(Math.min(x1, x2) + 0.5, Math.min(y1, y2) + 0.5, Math.abs(x2 - x1), Math.abs(y2 - y1)); c.setLineDash([]);
 };
 /* Draws both kinds. A retracement needs two points and measures across the
    leg; an extension needs a third and projects the leg forward from it. */
@@ -3827,19 +4212,30 @@ Chart.prototype._drawFib = function (c, b, d) {
     c.lineTo(this.x(d.b.i), this.y(d.b.p));
     c.stroke(); c.setLineDash([]);
   }
+  /* a fib with settings draws what they say; one without draws the shared list as it always did */
+  var fs = d.fs, lv = fs ? fs.levels.filter(function (l) { return l.on; })
+    : fibLevels(d).map(function (v) { return { v: v, hot: !!FIB.key[v] }; });
+  if (fs && fs.bg && lv.length > 1) {
+    /* zones between neighbouring levels, in the colour of the outer one */
+    var srt = lv.slice().sort(function (p, q) { return p.v - q.v; });
+    for (var k = 1; k < srt.length; k++) {
+      var ya = this.y(fibPrice(d, srt[k - 1].v)), yb = this.y(fibPrice(d, srt[k].v));
+      c.fillStyle = CLR.rgba(srt[k].col, fs.bga); c.fillRect(x1, Math.min(ya, yb), b.r - x1, Math.abs(yb - ya));
+    }
+  }
   c.font = "10px 'IBM Plex Mono',monospace"; c.textAlign = "left"; c.textBaseline = "bottom";
-  fibLevels(d).forEach(function (f) {
-    var p = fibPrice(d, f), y = Math.round(self.y(p)) + 0.5;
-    var hot = FIB.key[f];
-    c.strokeStyle = hot ? "rgba(242,169,59,.75)" : "rgba(138,146,162,.45)";
-    c.setLineDash([4, 4]); c.lineWidth = 1;
+  lv.forEach(function (L) {
+    var f = L.v, p = fibPrice(d, f), y = Math.round(self.y(p)) + 0.5, line, text;
+    if (fs) { line = CLR.rgba(L.col, fs.la); text = CLR.rgba(L.col, Math.min(1, fs.la + 0.15)); }
+    else { line = L.hot ? "rgba(242,169,59,.75)" : "rgba(138,146,162,.45)"; text = L.hot ? "rgba(242,169,59,.9)" : "rgba(138,146,162,.9)"; }
+    c.strokeStyle = line; c.setLineDash(fs ? LSTYLE[fs.ls] : [4, 4]); c.lineWidth = fs ? fs.w : 1;
     c.beginPath(); c.moveTo(x1, y); c.lineTo(b.r, y); c.stroke(); c.setLineDash([]);
-    c.fillStyle = hot ? "rgba(242,169,59,.9)" : "rgba(138,146,162,.9)";
-    c.fillText((f * 100).toFixed(1) + "%  " + self.fmt(p), x1 + 4, y - 2);
+    var parts = [];
+    if (!fs || fs.pct) parts.push((f * 100).toFixed(1) + "%");
+    if (!fs || fs.price) parts.push(self.fmt(p));
+    if (parts.length) { c.fillStyle = text; c.fillText(parts.join("  "), x1 + 4, y - 2); }
   });
 };
-
-/* --- the measured-move tool: leg A->B projected from C --- */
 Chart.prototype._drawMeasure = function (c, b, d) {
   var self = this;
   function dot(pt, lab) {
@@ -6651,7 +7047,7 @@ var PROG = (function () {
     ["hline",   "─", "Horizontal level", "Level"],
     ["trend",   "╱", "Trendline", "Trend"],
     ["rect",    "▭", "Zone / rectangle", "Zone"],
-    ["fib",     "≡", "Fibonacci retracement — click the start and end of the leg", "Fib"],
+    ["fib",     "≡", "Fibonacci retracement — click the start and the end of the leg, or drag from one to the other. Double-click it afterwards for its settings", "Fib"],
     ["fibext",  "≣", "Fibonacci extension — click A, then B, then the point to project from", "Fib ext"],
     ["measure", "⇕", "Measured move (A → B → C)", "Measure"],
     ["pos",     "⌸", "Position (entry / stop / target)", "Position"]
@@ -6664,6 +7060,11 @@ var PROG = (function () {
   function actBtn(act, icon, label, title) {
     return '<button class="tool lab" data-act="' + act + '" title="' + title + '">' +
       '<span class="ic">' + icon + '</span><span class="tl">' + label + '</span></button>';
+  }
+  /* snap on or off: drawing points jump to the nearest high, low, open or close of a bar */
+  function snapBtn() {
+    return '<button class="tool lab' + (MAGNET.on ? ' on' : '') + '" data-act="magnet" title="Snap: drawing points jump to the nearest high, low, open or close of a bar. Switch it off to place a point exactly where you click.">' +
+      '<span class="ic">&#8982;</span><span class="tl">Snap</span></button>';
   }
 
   function buildToolbar(prep) {
@@ -6678,7 +7079,7 @@ var PROG = (function () {
     html += '<div class="tsep"></div>' +
       actBtn("undo", "↺", "Undo", "Undo the last drawing") +
       actBtn("clear", "✕", "Clear all", "Clear every drawing — to remove just one, click it and press its ✕") +
-      actBtn("fit", "⤢", "Fit", "Fit the chart to the bars");
+      actBtn("fit", "⤢", "Fit", "Fit the chart to the bars") + snapBtn();
     if (S.learnBases && S.learnBases.length) {
       html += '<div class="tsep"></div><button class="tool wide" data-act="learn" title="Review the worked examples">Learn</button>';
     }
@@ -6688,6 +7089,7 @@ var PROG = (function () {
     });
     [].forEach.call(wrap.querySelectorAll("[data-act]"), function (b) {
       b.onclick = function () {
+        if (b.dataset.act === "magnet") { MAGNET.toggle(); return; }
         if (b.dataset.act === "undo") chD.undo();
         if (b.dataset.act === "clear") { chD.clearAll(); chD.userMark = null; chD.markers = chD.markers.filter(function (m) { return !m.user; }); chD.render(); }
         if (b.dataset.act === "fit") chD.fit();
@@ -7502,7 +7904,7 @@ var PROG = (function () {
       actBtn("undo", "↺", "Undo", "Undo the last drawing") +
       actBtn("clear", "✕", "Clear all", "Clear every drawing — to remove just one, click it and press its ✕") +
       actBtn("fit", "⤢", "Fit", "Fit the chart to the bars") +
-      actBtn("days", "2D", "2 days", "Show the last two days: the day before, to mark its levels") +
+      actBtn("days", "2D", "2 days", "Show the last two days: the day before, to mark its levels") + snapBtn() +
       '<div class="tsep"></div>' +
       '<button class="tool wide" data-act="step">Step ▸</button>' +
       '<button class="tool wide" data-act="play" id="playBtn">Play ▶</button>' +
@@ -7514,6 +7916,7 @@ var PROG = (function () {
     [].forEach.call(wrap.querySelectorAll("[data-act]"), function (b) {
       b.onclick = function () {
         var a = b.dataset.act;
+        if (a === "magnet") { MAGNET.toggle(); return; }
         if (a === "undo") chP.undo();
         if (a === "clear") chP.clearAll();
         if (a === "fit") chP.fit();
@@ -8177,13 +8580,14 @@ var PROG = (function () {
       '<h3>Fibonacci levels</h3>' +
       '<p>Which ratios get drawn, as a comma-separated list. Retracement runs across the leg you ' +
       'draw; extension projects that leg forward from a third point. Anything you type here applies ' +
-      'to every fib on every chart, new or already drawn.</p>' +
+      'to every fib on every chart, new or already drawn. To change one fib on its own (its levels, colours, line style, background), double-click it on the chart, or press the cog beside its ✕.</p>' +
       '<div class="prefrow"><label for="fibRet">Retracement</label>' +
       '<input type="text" id="fibRet" style="flex:1;min-width:150px"></div>' +
       '<div class="prefrow"><label for="fibExt">Extension</label>' +
       '<input type="text" id="fibExt" style="flex:1;min-width:150px"></div>' +
       '<div class="prefrow"><button class="btn sm" id="fibReset">Back to defaults</button>' +
       '<span class="hint" id="fibMsg"></span></div>' +
+      '<p><b>Drawing:</b> pick a tool, then click the start and click the end, or press at the start and drag to the end, as on TradingView and cTrader. With <b>Snap</b> on (the toolbar button), a point jumps to the nearest high, low, open or close of a bar, so a fib lands on the swing exactly. Escape cancels a drawing you have started.</p>' +
       '<p><b>To adjust one you have already drawn:</b> pick the <b>Select</b> tool, click the fib, ' +
       'and drag the round handles at its ends to re-fit it — drag its body to slide the whole thing. ' +
       'Press the red ✕ to delete just that one.</p>' +
@@ -13214,7 +13618,7 @@ var PROG = (function () {
 
 
   window.TT = {
-    chD: chD, chP: chP, IND: IND, startNode: startNode, nodeById: nodeById,
+    chD: chD, chP: chP, IND: IND, CLR: CLR, DRAWSET: DRAWSET, MAGNET: MAGNET, FIBTPL: FIBTPL, startNode: startNode, nodeById: nodeById,
     PROG: PROG, Mkt: Mkt, setView: setView, APP: APP,
     chB: chB, get BT() { return BT; }, btNew: btNew, btStep: btStep, btOpen: btOpen, btClose: btClose,
     btFills: btFills, btSeries: btSeries, equity: equity, openPL: openPL,
@@ -14364,6 +14768,8 @@ var PROG = (function () {
       var v = fibParse(el.value);
       if (!v.length) { el.value = fibFmt(Mkt.FIB[which]); if (msg) msg.textContent = "Need at least one number"; return; }
       Mkt.FIB[which] = v;
+      /* typing the list here replaces a default saved from a fib's own settings */
+      FIBTPL[which] = null; try { localStorage.removeItem("tt_fibtpl_" + which); } catch (err) {}
       el.value = fibFmt(v);
       if (msg) msg.textContent = "Saved";
       try { localStorage.setItem("tt_fib_" + which, JSON.stringify(v)); } catch (err) {}
@@ -14375,7 +14781,8 @@ var PROG = (function () {
       Mkt.FIB.ret = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
       Mkt.FIB.ext = [0, 0.618, 1, 1.272, 1.618, 2, 2.618];
       r.value = fibFmt(Mkt.FIB.ret); e.value = fibFmt(Mkt.FIB.ext);
-      try { localStorage.removeItem("tt_fib_ret"); localStorage.removeItem("tt_fib_ext"); } catch (err) {}
+      FIBTPL.ret = FIBTPL.ext = null;
+      try { localStorage.removeItem("tt_fib_ret"); localStorage.removeItem("tt_fib_ext"); localStorage.removeItem("tt_fibtpl_ret"); localStorage.removeItem("tt_fibtpl_ext"); } catch (err) {}
       if (msg) msg.textContent = "Back to defaults";
       [chD, chP, chB].forEach(function (c) { if (c && c.bars && c.bars.length) c.render(); });
     };
@@ -15500,7 +15907,7 @@ var PROG = (function () {
       actBtn("undo", "↺", "Undo", "Undo the last drawing") +
       actBtn("clear", "✕", "Clear all", "Clear every drawing — to remove just one, click it and press its ✕") +
       actBtn("fit", "⤢", "Fit", "Fit the chart to the bars") +
-      actBtn("days", "2D", "2 days", "Show the last two days: the day before, to mark its levels") +
+      actBtn("days", "2D", "2 days", "Show the last two days: the day before, to mark its levels") + snapBtn() +
       '<button class="tool lab' + (BT.dealMap ? ' on' : '') + '" data-act="deals" title="Deal map — draw every closed trade on this tape from entry to exit">' +
       '<span class="ic">⤳</span><span class="tl">Deals</span></button>' +
       actBtn("copy", "⧉", "Copy", "Copy what's on screen as text — the bars, the read, the setup and your orders — to paste into a chat") +
@@ -15531,6 +15938,7 @@ var PROG = (function () {
       b.onclick = function () {
         var a = b.dataset.act;
         if (BT.autoVis && /^(s1|s10|play|coach|new)$/.test(a)) { toast("The backtest is driving the chart — pause or stop it first"); return; }
+        if (a === "magnet") { MAGNET.toggle(); return; }
         if (a === "deals") { BT.dealMap = !BT.dealMap; buildBTTools(); chB.render(); return; }
         if (a === "undo") { chB.undo(); syncDraw(); }
         if (a === "clear") { chB.drawings = chB.drawings.filter(function (d) { return d._bt; }); }
