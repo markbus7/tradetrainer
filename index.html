@@ -672,7 +672,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.75.0", build: "2026-10-09", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.75.1", build: "2026-10-09", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -2815,8 +2815,8 @@ Chart.prototype._snapMark = function (c, b) {
    Double-click a drawing, or press the cog beside its ✕: a fib's levels (each
    with its own value, colour and tick), line style, width, labels, background
    zones and direction; a line's or a zone's colour, width and style. Applies to
-   that drawing only; "Save as default" makes a fib's settings the start for new
-   ones. */
+   that drawing, and are also what the next one of its kind starts with
+   ("Back to standard" forgets them). */
 var LSTYLE = { solid: [], dashed: [6, 4], dotted: [2, 3] };
 var FIBTPL = { ret: null, ext: null };
 function fibKeyColour(v) { return FIB.key[v] ? "#f2a93b" : "#8a92a2"; }
@@ -2842,9 +2842,27 @@ function cleanFs(x, type) {
   });
 })();
 function tplKey(type) { return type === "fibext" ? "ext" : "ret"; }
-/** a fib that has just been drawn starts like the one saved as default, if there is one */
+/* what a level, a trend line or a zone looks like when nothing has been chosen, and what the last one you set looks like */
+var DRAWDEF = { hline: { col: "#F2A93B", w: 1.4, ls: "solid" }, trend: { col: "#F2A93B", w: 1.6, ls: "solid", ext: true },
+  rect: { col: "#5B9BD5", w: 1.2, ls: "solid", fon: true, fcol: "#5B9BD5", fa: 0.13 } };
+var DRAWTPL = { hline: null, trend: null, rect: null };
+function cleanTpl(x, t) {
+  var D = DRAWDEF[t], o = {}, n = function (v, lo, hi, d) { v = +v; return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; };
+  x = x && typeof x === "object" ? x : {};
+  o.col = CLR.norm(x.col) || D.col; o.w = n(x.w, 0.5, 6, D.w); o.ls = LSTYLE[x.ls] ? x.ls : D.ls;
+  if (t === "trend") o.ext = x.ext !== false;
+  if (t === "rect") { o.fon = x.fon !== false; o.fcol = CLR.norm(x.fcol) || D.fcol; o.fa = n(x.fa, 0, 1, D.fa); }
+  return o;
+}
+(function () {
+  Object.keys(DRAWTPL).forEach(function (t) {
+    try { var v = JSON.parse(localStorage.getItem("tt_drawtpl_" + t) || "null"); if (v) DRAWTPL[t] = cleanTpl(v, t); } catch (e) { }
+  });
+})();
+/** a drawing that has just been made starts like the last one of its kind you set up, if you have */
 Chart.prototype.applyTemplate = function (d) {
-  if ((d.type === "fib" || d.type === "fibext") && FIBTPL[tplKey(d.type)]) d.fs = JSON.parse(JSON.stringify(FIBTPL[tplKey(d.type)]));
+  if (d.type === "fib" || d.type === "fibext") { if (FIBTPL[tplKey(d.type)]) d.fs = JSON.parse(JSON.stringify(FIBTPL[tplKey(d.type)])); }
+  else if (DRAWTPL[d.type] && !d.tag) { var t = DRAWTPL[d.type]; for (var k in t) d[k] = t[k]; }
 };
 Chart.prototype.openSettings = function (d) {
   d = d || this.sel;
@@ -2854,8 +2872,7 @@ Chart.prototype.openSettings = function (d) {
 var DRAWSET = (function () {
   var ov = null, cur = null, msgT = null;
   var TITLE = { fib: "Fibonacci retracement", fibext: "Fibonacci extension", trend: "Trend line", hline: "Horizontal line", rect: "Zone" };
-  var DEF = { hline: { col: "#F2A93B", w: 1.4, ls: "solid" }, trend: { col: "#F2A93B", w: 1.6, ls: "solid", ext: true },
-    rect: { col: "#5B9BD5", w: 1.2, ls: "solid", fon: true, fcol: "#5B9BD5", fa: 0.13 } };
+  var DEF = DRAWDEF;
   var COMMON = [[0, 0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.272, 1.618, 2, 2.618]][0];
   function isFib(d) { return d.type === "fib" || d.type === "fibext"; }
   function obj() { return isFib(cur.d) ? cur.d.fs : cur.d; }
@@ -2894,12 +2911,13 @@ var DRAWSET = (function () {
     var d = cur.d, t = d.type, h = '<div class="indbox drbox"><div class="indhead"><b>' + TITLE[t] + '</b><span class="indgap"></span><button type="button" class="indx" data-d="close" aria-label="Close">&#x2715;</button></div>';
     if (isFib(d)) {
       var lv = d.fs.levels;
-      h += '<p class="indnote">Each level is a ratio of the leg: 0.618 or 61.8%. Tick to show it, type to change it, press its colour to pick another. This changes this fib only.</p>' +
+      h += '<p class="indnote">Each level is a ratio of the leg: 0.618 or 61.8%. Tick to show it, type to change it, press its colour to pick another. What you set here is also what the next ' + (t === "fib" ? "retracement" : "extension") + ' starts with.</p>' +
         '<div class="drlist">' + lv.map(function (L, k) { return levelRow(L, k, lv.length === 1); }).join("") + '</div>' +
         '<div class="indadd"><button type="button" class="btn sm" data-d="addlevel">+ Add level</button><button type="button" class="btn sm" data-d="resetlevels">Reset levels</button></div>';
     }
+    if (!isFib(d)) h += '<p class="indnote">What you set here is also what the next one starts with.</p>';
     h += '<div class="drgrid">' + fields() + '</div><div class="drfoot">' +
-      (isFib(d) ? '<button type="button" class="btn sm" data-d="default" title="New fibs of this kind start like this one">Save as default</button>' : '') +
+      '<button type="button" class="btn sm" data-d="standard" title="Forget what you set: this one, and the next ones, go back to the standard look">Back to standard</button>' +
       '<button type="button" class="btn sm danger" data-d="delete">Delete</button><span class="drmsg" role="status"></span><span class="indgap"></span>' +
       '<button type="button" class="btn sm primary" data-d="close">Done</button></div></div>';
     ov.innerHTML = h;
@@ -2908,6 +2926,21 @@ var DRAWSET = (function () {
     var d = cur.d, o = [];
     if (isFib(d)) d.fs.levels.forEach(function (L) { o.push(L.col); }); else { o.push(get("col")); if (d.type === "rect") o.push(get("fcol")); }
     return o;
+  }
+  /** what you set on this drawing is what the next one of its kind starts with */
+  function saveTpl() {
+    var d = cur.d, t = d.type;
+    try {
+      if (isFib(d)) { var key = tplKey(t); FIBTPL[key] = cleanFs(d.fs, t); localStorage.setItem("tt_fibtpl_" + key, JSON.stringify(FIBTPL[key])); }
+      else { var o = {}; Object.keys(DEF[t]).forEach(function (k) { o[k] = get(k); }); DRAWTPL[t] = cleanTpl(o, t); localStorage.setItem("tt_drawtpl_" + t, JSON.stringify(DRAWTPL[t])); }
+    } catch (e) { }
+  }
+  function standard() {
+    var d = cur.d, t = d.type;
+    try {
+      if (isFib(d)) { FIBTPL[tplKey(t)] = null; localStorage.removeItem("tt_fibtpl_" + tplKey(t)); d.fs = fibDefaultSettings(t); }
+      else { DRAWTPL[t] = null; localStorage.removeItem("tt_drawtpl_" + t); Object.keys(DEF[t]).forEach(function (k) { delete d[k]; }); }
+    } catch (e) { }
   }
   function say(t) { var m = ov.querySelector(".drmsg"); if (!m) return; m.textContent = t; clearTimeout(msgT); msgT = setTimeout(function () { if (m) m.textContent = ""; }, 2600); }
   function onKey(e) { if (e.key === "Escape") close(); }
@@ -2931,20 +2964,13 @@ var DRAWSET = (function () {
       if (a === "addlevel") {
         var have = d.fs.levels.map(function (l) { return l.v; }), v = COMMON.filter(function (x) { return have.indexOf(x) < 0; })[0];
         if (v === undefined) v = Math.round((Math.max.apply(null, have) + 0.5) * 1000) / 1000;
-        d.fs.levels.push({ v: v, on: true, col: fibKeyColour(v) }); paint(); cur.ch.render(); return;
+        d.fs.levels.push({ v: v, on: true, col: fibKeyColour(v) }); saveTpl(); paint(); cur.ch.render(); return;
       }
-      if (a === "resetlevels") { d.fs.levels = fibDefaultSettings(d.type).levels; paint(); cur.ch.render(); say("Levels back to the defaults"); return; }
-      if (a === "default") {
-        var key = tplKey(d.type), tpl = cleanFs(d.fs, d.type);
-        FIBTPL[key] = tpl;
-        var vis = tpl.levels.filter(function (l) { return l.on; }).map(function (l) { return l.v; }).sort(function (x, z) { return x - z; });
-        FIB[key] = vis;
-        try { localStorage.setItem("tt_fibtpl_" + key, JSON.stringify(tpl)); localStorage.setItem("tt_fib_" + key, JSON.stringify(vis)); } catch (e) { }
-        say("Saved: new " + (d.type === "fib" ? "retracements" : "extensions") + " start like this one"); return;
-      }
+      if (a === "resetlevels") { d.fs.levels = fibDefaultSettings(d.type).levels; saveTpl(); paint(); cur.ch.render(); say("Levels back to the standard list"); return; }
+      if (a === "standard") { standard(); paint(); cur.ch.render(); say("Back to the standard look, for this one and the next"); return; }
       if (t.dataset.lv === "rm") {
         var k = +t.closest(".drlv").dataset.k;
-        if (d.fs.levels.length > 1) { d.fs.levels.splice(k, 1); if (!d.fs.levels.some(function (l) { return l.on; })) d.fs.levels[0].on = true; paint(); cur.ch.render(); }
+        if (d.fs.levels.length > 1) { d.fs.levels.splice(k, 1); if (!d.fs.levels.some(function (l) { return l.on; })) d.fs.levels[0].on = true; saveTpl(); paint(); cur.ch.render(); }
       }
     });
     ov.addEventListener("input", function (e) {
@@ -2957,7 +2983,7 @@ var DRAWSET = (function () {
           if (!cur.d.fs.levels.some(function (l) { return l.on; })) { L.on = true; t.checked = true; say("At least one level stays on"); }
         } else if (f === "v") { var v = parseRatio(t.value); if (v === null) return; L.v = v; row.querySelector(".drpct").textContent = pctText(v); }
         else if (f === "col") { L.col = t.dataset.v; }
-        cur.ch.render(); return;
+        saveTpl(); cur.ch.render(); return;
       }
       var k = t.dataset.k; if (!k) return;
       var o = obj(), v;
@@ -2966,7 +2992,7 @@ var DRAWSET = (function () {
       else if (t.type === "range") { v = +t.value / 100; var sp = t.parentNode.querySelector(".drpv"); if (sp) sp.textContent = t.value + "%"; }
       else if (t.type === "number") { v = parseFloat(String(t.value).replace(",", ".")); if (!isFinite(v)) return; v = Math.max(+t.min, Math.min(+t.max, v)); }
       else v = t.value;
-      o[k] = v; cur.ch.render();
+      o[k] = v; saveTpl(); cur.ch.render();
     });
     ov.addEventListener("change", function (e) {   /* leaving a field: show the value it was cut to */
       if (!cur) return;
@@ -3279,6 +3305,7 @@ Chart.prototype.addPoint = function (px) {
   }
   if (t === "hline") {
     var hl = { type: "hline", p: pt.p, tag: this.nextTag };
+    this.applyTemplate(hl);
     this.drawings.push(hl);
     this.nextTag = null; this.setTool("cursor"); this.select(hl); this._changed(); return;
   }
@@ -8580,7 +8607,7 @@ var PROG = (function () {
       '<h3>Fibonacci levels</h3>' +
       '<p>Which ratios get drawn, as a comma-separated list. Retracement runs across the leg you ' +
       'draw; extension projects that leg forward from a third point. Anything you type here applies ' +
-      'to every fib on every chart, new or already drawn. To change one fib on its own (its levels, colours, line style, background), double-click it on the chart, or press the cog beside its ✕.</p>' +
+      'to every fib on every chart, new or already drawn. To change one fib on its own (its levels, colours, line style, background), double-click it on the chart, or press the cog beside its ✕: what you set there is also what the next fib starts with, and "Back to standard" undoes it.</p>' +
       '<div class="prefrow"><label for="fibRet">Retracement</label>' +
       '<input type="text" id="fibRet" style="flex:1;min-width:150px"></div>' +
       '<div class="prefrow"><label for="fibExt">Extension</label>' +
@@ -13618,7 +13645,7 @@ var PROG = (function () {
 
 
   window.TT = {
-    chD: chD, chP: chP, IND: IND, CLR: CLR, DRAWSET: DRAWSET, MAGNET: MAGNET, FIBTPL: FIBTPL, startNode: startNode, nodeById: nodeById,
+    chD: chD, chP: chP, IND: IND, CLR: CLR, DRAWSET: DRAWSET, MAGNET: MAGNET, FIBTPL: FIBTPL, DRAWTPL: DRAWTPL, startNode: startNode, nodeById: nodeById,
     PROG: PROG, Mkt: Mkt, setView: setView, APP: APP,
     chB: chB, get BT() { return BT; }, btNew: btNew, btStep: btStep, btOpen: btOpen, btClose: btClose,
     btFills: btFills, btSeries: btSeries, equity: equity, openPL: openPL,
