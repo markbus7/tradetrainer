@@ -672,7 +672,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.76.0", build: "2026-10-10", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.77.0", build: "2026-10-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -9432,7 +9432,9 @@ var PROG = (function () {
       var sp = raw[0], cm = raw[1] / 100, c = sp + cm, R = g.entry - g.invalid, cR = c / R, rr = (g.target - g.entry) / R;
       var f2 = function (x) { return x.toFixed(2); }, cents = function (x) { return Math.round(x * 100) + " cents"; };
       var c1 = c / 1, be1 = (1 + c1) / 2;
-      var two = [N.hl(b[56].c, 44, "Bid " + fp(b[56].c) + ": the chart", COL.txt, true), N.hl(b[56].c + sp, 44, "Ask " + fp(b[56].c + sp) + ": you buy here", COL.blue, true)];
+      /* the two lines are a spread apart, a few pixels: the Ask is labelled above, the Bid below */
+      var two = [N.hl(b[56].c, 44, "", COL.txt, true), N.pt(50, b[56].c, "Bid " + fp(b[56].c) + ": the chart", COL.txt, false),
+        N.hl(b[56].c + sp, 44, "Ask " + fp(b[56].c + sp) + ": you buy here", COL.blue, true)];
       return [
         { title: "Two prices", vis: 56, view: [8, 88], add: two,
           say: "Gold on the 5 minute chart. Every candle you see is drawn from one price: the Bid. There is a second price a little higher: the Ask. You buy at the Ask and you sell at the Bid. The difference is the spread, here about " + cents(sp) + " on a raw account. You pay it on every trade: you get in at one price and out at the other." },
@@ -11260,7 +11262,7 @@ var PROG = (function () {
           "<b>The routine</b>: what to ask on every bar, and the decision tree to keep open while you practise.",
           "<b>Setups</b>, in three groups: with the trend, in a trading range, and reversals. Learn your first two first.",
           "<b>Placing the trade</b> and <b>managing the trade</b>: orders, stops, targets, late entries, scalp or swing, holding, getting out early, and what to do when it goes wrong.",
-          "<b>Risk and what to expect</b>, then <b>your markets</b>: position size, trading costs, losing streaks, your hours in Amsterdam time, the open, and 5 or 15 minutes.",
+          "<b>Risk and what to expect</b>, <b>trading costs</b> (spread, commission, the smallest stop and target), then <b>your markets</b>: position size, losing streaks, your hours in Amsterdam time, the open, and 5 or 15 minutes.",
           "<b>Advanced</b>, after your first hundred trades: trading against the trend, limit orders and scaling in. And the <b>cheat sheets</b> and glossary at the end."]) +
         lp("Most chapters have a <b>narrated lesson</b>: press Play and the chart builds bar by bar while a voice explains what matters on each bar. At some steps it stops and asks what you would do. Every chapter ends with a short check and buttons into the drills, a free Practice chart, or the Desk with the Coach. Mark a chapter <i>understood</i> when you can explain it without looking.") +
         lkey("<b>The one idea:</b> take a trade only when the odds and the reward together are in your favour. Brooks calls it the <b>trader's equation</b>: probability × reward must be bigger than (1 − probability) × risk. A 40% setup that pays 3R is a good trade. A 70% setup that pays 0.3R loses money. Everything in this tab is a way to find the good moments and skip the rest.") +
@@ -11282,7 +11284,9 @@ var PROG = (function () {
           ["when to get out before the stop or the target", lgo("early", "Getting out early")],
           ["what happens at the target, and after it", lgo("after", "At the target, and after it")],
           ["how big a position to take", lgo("sizing", "Position size")],
-          ["what spread, commission and swap cost you, and the smallest stop worth taking", lgo("costs", "Trading costs")],
+          ["what spread, commission and swap cost you", lgo("costs", "What a trade really costs") + ", " + lgo("cspread", "Spread: Bid and Ask") + ", " + lgo("ccomm", "Commission, swap and slippage")],
+          ["the smallest stop and the smallest target worth trading after costs", lgo("cminimum", "The smallest stop and the smallest target")],
+          ["where your broker's costs are in cTrader", lgo("cctrader", "Costs in cTrader and in this app")],
           ["whether a losing streak is normal", lgo("expect", "What to expect")],
           ["when your markets move, in Amsterdam time", lgo("markets", "Your markets and their hours")],
           ["what the method makes of a chart you saw", lgo("board", "Drawing board")],
@@ -12423,11 +12427,17 @@ var PROG = (function () {
     practise: [{ label: "Drill: size from the stop", go: "node", node: "t8b" }, { label: "Drill: size from the stop, again", go: "node", node: "t11a" }]
   });
 
-  lch({ id: "costs", part: "Your markets", title: "Trading costs",
-    sub: "Spread, commission, swap and slippage: what every trade pays, in R, and the smallest stop and target worth taking.",
+  /* ================= TRADING COSTS: a part of its own ================= */
+  lch({ id: "costs", part: "Trading costs", title: "What a trade really costs",
+    sub: "The overview: four costs, paid on every trade, and why you measure them in R.",
     body: function () {
       return lvideo("costs") +
-        lp("Every trade pays the broker, win or lose. On the chart the costs are invisible, so a setup that wins 55% at 1R looks like a good trade. Whether it is depends on the costs, measured against the stop. This chapter shows what the costs are, how to put them in R, and what they mean for the smallest stop and the smallest target worth trading.") +
+        lp("Every trade pays the broker, win or lose. On the chart the costs are invisible, so a setup that wins 55% at 1R looks like a good trade. Whether it is depends on the costs, <b>measured against the stop</b>. This part of the method has five chapters:") +
+        lol([lgo("costs", "What a trade really costs") + ": this overview, and the lesson above.",
+          lgo("cspread", "Spread: Bid and Ask") + ": the two prices, which of your orders trigger at which one, and when spreads widen.",
+          lgo("ccomm", "Commission, swap and slippage") + ": the other three costs, per market, and raw against standard accounts.",
+          lgo("cminimum", "The smallest stop and the smallest target") + ": the break-even win rate after costs, the minimum reward per setup, and the smallest stop per market.",
+          lgo("cctrader", "Costs in cTrader and in this app") + ": where to find your broker's figures, and how the Desk and Practice charge them."]) +
         lh("The four costs") +
         ltable(["Cost", "What it is", "When you pay it", "In this app"], [
           ["<b>Spread</b>", "Ask minus Bid. The cTrader chart shows the Bid; you buy at the Ask (Bid + spread) and sell at the Bid.", "On every trade, once per round trip: in at one price, out at the other.", "Desk: buys, and the stop and target of a short, fill at the Ask (the blue line). Practice: taken off each result."],
@@ -12435,42 +12445,136 @@ var PROG = (function () {
           ["<b>Swap</b>", "Financing for holding a position past the daily rollover, 23:00 Amsterdam time. It can be paid or earned, and is usually triple on Wednesday for FX.", "Only if you hold past 23:00.", "Not modelled: a day trade on 5 or 15 minutes is closed before the rollover."],
           ["<b>Slippage</b>", "A fill worse than the order's price: stop and market orders in a fast market, at news, or across a gap. Limit orders don't slip, but may not fill.", "Mostly on stops, at the worst moments.", "Desk: only when a bar opens beyond your level (it fills at the open). Real markets slip more around news."]
         ]) +
-        lh("Costs in R") +
-        lp("Measure the costs the way you measure everything else: against the stop. <b>Costs in R = (spread + commission per unit, in price) ÷ stop distance.</b> The commission per unit is the commission per lot ÷ the units in a lot: $7 on a 100-ounce gold lot is 0.07 on the price; $7 on a 100,000 EURUSD lot is 0.00007, 0.7 pip.") +
-        lkey("<b>Gold on a raw account:</b> spread 0.12 + commission 0.07 = 0.19 a trade. With a stop of 2.90 that is 0.07R. With a stop of 1.00 it is 0.19R: the same trade and the same costs, nearly three times as expensive.") +
-        lp("With costs of c (in R), a winner at a reward of X R pays <b>X − c</b> and a loser costs <b>1 + c</b>. So the win rate you need just to break even rises from 1 ÷ (1 + X) to <b>(1 + c) ÷ (1 + X)</b>:") +
-        lcostBE() +
-        lh("The smallest stop, and the smallest target") +
-        lul(["<b>Stop:</b> keep the costs at or under about a <b>tenth of the stop</b> (0.1R). The smallest stop worth trading is about 10 × the costs. Under that, the costs eat a big part of the edge of every trade.",
-          "<b>Target:</b> the reward has to pay the costs too. A scalp at 1R needs about 55% wins with costs of 0.1R, and 60% at 0.2R. With a small stop, trade for 1.5–2R or more, or don't trade it.",
-          "<b>If the chart gives you a stop that is too small</b>, the setup is too small for this market and timeframe. Skip it, or trade the same setup on the 15-minute chart: its bars, and so its stops, are about 1.7 times bigger, and the costs stay the same.",
-          "<b>Prop firms:</b> some count only trades or days above a minimum profit, or forbid very short trades. Read your firm's rules; they are one more reason not to scalp tiny stops."]) +
-        lp("Measured on this app's charts, which are calibrated to real data: the average bar of each market on 5 and 15 minutes, and what a stop of one average bar pays in costs. The costs are typical figures; yours are in cTrader. Orange is over 0.1R, red over 0.15R.") +
-        lcostTable() +
-        lh("Spreads are not constant") +
+        lh("Costs in R: the one number to know") +
+        lp("<b>Costs in R = (spread + commission per unit, in price) ÷ stop distance.</b> The same costs are cheap on a wide stop and expensive on a small one:") +
+        lfigs([
+          lfig("costs", "Costs in R", "<b>Gold, raw account:</b> 0.19 in costs on a 2.89 stop is 0.07R. Hardly noticeable."),
+          lfig("costs", "A small stop", "<b>The same 0.19 on a 1.00 stop</b> is 0.19R: a 1R scalp now needs about 60% wins just to break even.")
+        ]) +
+        lkey("<b>The rule:</b> costs at most about <b>a tenth of the stop</b> (0.1R). A trade whose stop is smaller than 10 × the costs is too small to pay for itself: skip it, or trade the setup on the 15-minute chart.");
+    },
+    quiz: [
+      { q: "Gold, raw account: spread 0.12, commission 0.07 on the price. Your stop is 1.90. What are the costs in R?", o: ["About 0.01R", "About 0.1R", "About 1R"], a: 1, why: "0.19 ÷ 1.90 = 0.1R." },
+      { q: "Costs are paid…", o: ["Only on winning trades", "On every trade, win or lose"], a: 1, why: "The spread and the commission are paid on the way in and out, whatever the result. They make every win smaller and every loss bigger." }
+    ],
+    practise: [{ label: "Desk: the costs on every ticket", go: "desk" }, { label: "Practice chart", go: "prac" }]
+  });
+
+  lch({ id: "cspread", part: "Trading costs", title: "Spread: Bid and Ask",
+    sub: "The chart is the Bid. Which of your orders trigger at the Ask, and when the spread widens.",
+    body: function () {
+      return lp("Every market has two prices. The <b>Bid</b> is what buyers pay you when you sell; the <b>Ask</b> is what you pay when you buy. The difference is the <b>spread</b>. cTrader draws its candles from the Bid, so the Ask is always a spread <i>above</i> what you see.") +
+        lfigs([
+          lfig("costs", "Two prices", "<b>Two prices.</b> The chart is the Bid; the Ask, a spread higher, is where you buy."),
+          lfig("costs", "The Ask fills you", "<b>A buy stop fills at the Ask</b>, while the chart is still a spread under your order.")
+        ]) +
+        lh("Which price triggers which order") +
+        ltable(["Order", "It is a…", "Triggers when the…", "What to do on a Bid chart"], [
+          ["Long: entry buy stop above a bar", "buy", "<b>Ask</b> reaches it", "To enter only when the chart breaks the high: one tick <b>plus the spread</b> above it."],
+          ["Long: entry buy limit", "buy", "<b>Ask</b> comes down to it", "The chart has to go a spread <i>below</i> your price. Fewer fills."],
+          ["Long: protective stop (sell)", "sell", "<b>Bid</b>, the chart, reaches it", "One tick beyond the level, as you see it."],
+          ["Long: target (sell limit)", "sell", "<b>Bid</b>, the chart, reaches it", "As you see it."],
+          ["Short: entry sell stop below a bar", "sell", "<b>Bid</b>, the chart, reaches it", "One tick below the bar, as you see it."],
+          ["Short: protective stop (buy)", "buy", "<b>Ask</b> reaches it", "One tick <b>plus the spread</b> above the level, or you are stopped while the chart is still under it."],
+          ["Short: target (buy limit)", "buy", "<b>Ask</b> comes down to it", "The chart has to go a spread below the target. Set it a spread higher if the level matters."]
+        ]) +
+        lp("So the spread hurts in two ways: you pay it on every round trip, and it moves where the trades of the short side trigger. Shorts get stopped a spread sooner, and their targets need the chart to go a spread further.") +
+        lh("Typical spreads, your markets") +
+        lcostSpreads() +
+        lh("The spread is not constant") +
         lul(["<b>The open</b>: index spreads are widest in the first minutes of the cash open: 15:30 Amsterdam for US100 and US500, 09:00 for GER40.",
           "<b>News</b>: around US data (14:30) and FOMC (20:00) the spread on gold and FX can jump to several times normal for a minute or two, and stops slip.",
           "<b>The rollover</b>, about 22:55 to 23:10 Amsterdam: spreads widen a lot, often on everything. Don't leave orders close to the price there.",
           "<b>Weekends</b>: BTCUSD trades, with wider spreads.",
-          "This app uses one constant spread, the normal one. Real trading is never cheaper than this, only more expensive."]) +
-        lh("Where to find it in cTrader") +
-        lul(["<b>Spread</b>: the number between the Sell and Buy prices, in the order panel and in the watchlist. To see the Ask on the chart, turn on the Ask price line in the chart's viewing options.",
-          "<b>Commission, swap, lot size, pip size</b>: the symbol's information (the <i>i</i> next to the symbol, or the symbol's menu in the watchlist). Commission is often given per side, or per million traded: $35 per million is about $3.50 per lot per side on FX.",
-          "<b>What you actually paid</b>: the History tab has the commission and swap of each closed trade. Add them up for a month and compare them with your net result.",
-          "<b>Raw or standard</b>: which is cheaper depends on the market. Type both into the calculator below for your markets and compare the costs in R."]) +
-        lh("Costs in this app") +
-        lul(["<b>Desk</b>: the <b>Trading costs</b> card sets the account: Raw + commission (the default), Standard, My broker (your own figures) or Off. The chart shows the Ask as a blue line. Buys fill at the Ask; sells, and the stop and target of a long, at the Bid; the stop and target of a short at the Ask. The ticket shows what the trade costs in money and in R, and the win rate it needs; the results show the costs paid.",
-          "<b>Practice</b> shows the costs on the ticket and takes them off each result, in R.",
-          "<b>Drills</b> are about reading the chart and making decisions, and are graded without costs."]) +
+          "This app uses one constant spread, the normal one. Real trading is never cheaper than this, only more expensive."]);
+    },
+    quiz: [
+      { q: "You are short in cTrader. Your stop loss is hit when…", o: ["The Bid, the chart, reaches it", "The Ask, the chart plus the spread, reaches it"], a: 1, why: "The stop of a short is a buy, and buys fill at the Ask: it is hit while the chart is still a spread below it. Put it one tick plus the spread above the level." },
+      { q: "The signal bar's high is 2,350.00, the spread is 0.30, a tick 0.01. You want to buy only when the chart breaks the high. Where is the buy stop?", o: ["2,350.01", "2,350.31"], a: 1, why: "The buy stop triggers at the Ask. At 2,350.31 the Ask gets there when the Bid, the chart, is at 2,350.01: one tick above the high." },
+      { q: "Your long's protective stop, a sell stop, triggers at…", o: ["The Bid: the chart, as you see it", "The Ask"], a: 0, why: "Sells fill at the Bid, and the chart is the Bid." }
+    ],
+    practise: [{ label: "Desk: the blue Ask line", go: "desk" }]
+  });
+
+  lch({ id: "ccomm", part: "Trading costs", title: "Commission, swap and slippage",
+    sub: "The other three costs, what they come to per market, and raw against standard accounts.",
+    body: function () {
+      return lfigs([lfig("costs", "The commission", "<b>Commission on gold:</b> $7 a lot round turn, on 100 ounces, is 0.07 on the price.")]) +
+        lh("Commission") +
+        lul(["A fee per lot, charged when you open (one side) and again when you close (the other side). <b>Round turn</b> is both together. Raw-spread accounts in cTrader: about <b>$3.50 per lot per side</b> on FX and gold, so <b>$7 round turn</b>. Index, oil and bitcoin CFDs usually have no commission, only a spread.",
+          "Brokers often quote it <b>per million traded</b>: $35 per million per side is about $3.50 per lot per side on FX (a lot is 100,000).",
+          "To compare it with the spread, turn it into price: <b>commission per lot ÷ units per lot</b>. $7 on 100 ounces of gold is 0.07; $7 on 100,000 EUR is 0.00007, 0.7 pip; on USDJPY it is about 1.1 pips, because a pip there is worth less than $10."]) +
+        lh("Raw or standard?") +
+        lp("A <b>raw</b> account has a tight spread plus a commission; a <b>standard</b> account has no commission but a wider spread. Which is cheaper depends on the market. With the typical figures this app uses:") +
+        lcostAccounts() +
+        lh("Swap") +
+        lul(["Financing for holding a position past the daily <b>rollover, 23:00 Amsterdam time</b> (17:00 New York). It can be paid or earned, depending on the interest rates of the two currencies and the side you are on.",
+          "Usually <b>triple on Wednesday</b> for FX (it covers the weekend); on index and commodity CFDs often on Friday. Check the symbol information.",
+          "On 5 and 15 minutes you are a day trader: close before the rollover and swap never touches you. The spread widens at the rollover anyway."]) +
+        lh("Slippage") +
+        lul(["A fill worse than your order's price. <b>Stop orders and market orders</b> slip: in a fast market, at news, or when the price gaps over your level. <b>Limit orders</b> don't slip, but may not fill.",
+          "It is mostly your <b>protective stop</b> that slips, at the worst moment, around news. That is a reason not to hold a trade into a big release with a small stop.",
+          "The Desk slips only when a bar opens beyond your level (it fills at the open). Real markets slip a little more often than that."]);
+    },
+    quiz: [
+      { q: "Your broker charges $3.50 per lot per side. A trade of 2 lots, in and out, costs…", o: ["$7", "$14"], a: 1, why: "$3.50 × 2 sides × 2 lots = $14." },
+      { q: "You trade 15-minute setups and are always flat by 22:00. Swap…", o: ["Costs you every day", "Never applies"], a: 1, why: "Swap is charged only on positions held through the 23:00 rollover." }
+    ],
+    practise: [{ label: "Desk: set Raw or Standard", go: "desk" }]
+  });
+
+  lch({ id: "cminimum", part: "Trading costs", title: "The smallest stop and the smallest target",
+    sub: "The break-even win rate after costs, the minimum reward for each setup, and the smallest stop for each of your markets.",
+    body: function () {
+      return lfigs([
+          lfig("costs", "If it had lost", "<b>A loser costs 1R plus the costs</b>; a winner pays its reward minus the costs."),
+          lfig("costs", "The rule", "<b>The smallest stop is about 10 × the costs:</b> 1.90 on gold with a raw account.")
+        ]) +
+        lh("The break-even win rate, after costs") +
+        lp("With costs of c (in R), a winner at a reward of X R pays <b>X − c</b> and a loser costs <b>1 + c</b>. The win rate you need just to break even rises from 1 ÷ (1 + X) to <b>(1 + c) ÷ (1 + X)</b>:") +
+        lcostBE() +
+        lh("The smallest target") +
+        lp("Turn it around: for a setup that wins p of the time, the smallest reward that still breaks even is <b>c + (1 − p) × (1 + c) ÷ p</b>. Anything less loses money, however good the entry looks. For the setups this tab teaches, at their taught odds:") +
+        lcostMinTarget() +
+        lp("A good trade needs clearly more than the minimum: the table is where you lose nothing, not where you make something. The scalps in a trading range (around 60% odds) are where the costs bite most: at 0.2R costs a 1R scalp needs 60% just to break even.") +
+        lh("The smallest stop") +
+        lul(["Keep the costs at or under about <b>a tenth of the stop</b> (0.1R). The smallest stop worth trading is about <b>10 × the costs</b>. Under that, the costs eat a big part of every trade's edge.",
+          "<b>If the chart gives you a smaller stop</b>, the setup is too small for this market and timeframe. Skip it, or trade the same setup on the 15-minute chart: its bars, and so its stops, are about 1.7 times bigger, and the costs stay the same.",
+          "<b>Prop firms</b>: some count only trades or days above a minimum profit, or forbid very short trades. Read your firm's rules; they are one more reason not to scalp tiny stops."]) +
+        lp("Measured on this app's charts, which are calibrated to real data: the average bar of each market on 5 and 15 minutes, and what a stop of one average bar pays in costs. The costs are typical figures; yours are in cTrader. Orange is over 0.1R, red over 0.15R.") +
+        lcostTable() +
+        lh("Calculator") +
+        lp("Your market, your account and your stop: the costs in R, what the trade needs to win, and what it makes per trade before and after costs.") +
         '<div class="lcalc" data-calc="costs"></div>';
     },
     quiz: [
-      { q: "Gold, raw account: spread 0.12, commission 0.07 on the price. Your stop is 1.90. What are the costs in R?", o: ["About 0.01R", "About 0.1R", "About 1R"], a: 1, why: "0.19 ÷ 1.90 = 0.1R." },
       { q: "A scalp for 1R, with costs of 0.2R. What win rate do you need to break even?", o: ["50%", "60%", "70%"], a: 1, why: "(1 + 0.2) ÷ (1 + 1) = 60%." },
-      { q: "You are short in cTrader. Your stop loss is hit when…", o: ["The Bid, the chart, reaches it", "The Ask, the chart plus the spread, reaches it"], a: 1, why: "The stop of a short is a buy, and buys fill at the Ask: it is hit while the chart is still a spread below it. Put it one tick plus the spread above the level." },
-      { q: "On the 5-minute chart the stop makes the costs 0.3R. What do you do?", o: ["Take it with a bigger size", "Skip it, or trade the setup on 15 minutes", "Take it with a 0.5R target"], a: 1, why: "At 0.3R the costs eat most of the edge. A bigger size doesn't change the costs in R; a smaller target makes it worse." }
+      { q: "On the 5-minute chart the stop makes the costs 0.3R. What do you do?", o: ["Take it with a bigger size", "Skip it, or trade the setup on 15 minutes", "Take it with a 0.5R target"], a: 1, why: "At 0.3R the costs eat most of the edge. A bigger size doesn't change the costs in R; a smaller target makes it worse." },
+      { q: "EURUSD on a raw account costs about 0.9 pip a trade. The smallest stop worth trading is about…", o: ["2 pips", "9 pips", "30 pips"], a: 1, why: "10 × the costs keeps them at 0.1R: about 9 pips." }
     ],
-    practise: [{ label: "Desk: the costs on every ticket", go: "desk" }, { label: "Practice chart", go: "prac" }]
+    practise: [{ label: "Desk: the break-even win rate on the ticket", go: "desk" }, { label: "Practice chart", go: "prac" }]
+  });
+
+  lch({ id: "cctrader", part: "Trading costs", title: "Costs in cTrader and in this app",
+    sub: "Where your broker's real figures are, and how the Desk and Practice charge the costs.",
+    body: function () {
+      return lfigs([lfig("costs", "Target", "<b>A winner after costs:</b> the result the Desk books is always after the spread and the commission.")]) +
+        lh("Where to find it in cTrader") +
+        lul(["<b>Spread</b>: the number between the Sell and Buy prices, in the order panel and in the watchlist. To see the Ask on the chart, turn on the Ask price line in the chart's viewing options.",
+          "<b>Commission, swap, lot size, pip size</b>: the symbol's information (the <i>i</i> next to the symbol, or the symbol's menu in the watchlist). Commission is often given per side, or per million traded.",
+          "<b>What you actually paid</b>: the History tab has the commission and swap of each closed trade. Add them up for a month and compare them with your net result: many traders find the costs are bigger than their profit.",
+          "<b>Raw or standard</b>: compare your broker's two account types in R for your own markets with the calculator in " + lgo("cminimum", "The smallest stop and the smallest target") + "."]) +
+        lh("Costs in this app") +
+        lul(["<b>Desk</b>: the <b>Trading costs</b> card (below the account) sets the account: <b>Raw + commission</b> (the default), <b>Standard</b>, <b>My broker</b> (type your own spread and commission per market) or <b>Off</b>. The chart shows the Ask as a blue line.",
+          "Desk fills: buys fill at the Ask; sells, and the stop and target of a long, at the Bid; the stop and target of a short at the Ask. The commission is charged per lot when a position closes.",
+          "The Desk <b>ticket</b> shows what the trade costs in money and in R, a win and a loss after costs, and the win rate it needs, with and without costs. It warns when the costs are over a tenth or a fifth of the risk.",
+          "The Desk <b>results</b> are after costs, and show the costs paid and what the result would have been without them. The automatic backtest pays the costs too.",
+          "<b>Practice</b> shows the costs on the ticket and takes them off each result, in R.",
+          "<b>Drills</b> are about reading the chart and making decisions, and are graded without costs.",
+          "What the app does not do: widen the spread at the open, news or the rollover, or charge swap. Real trading is never cheaper than the Desk."]);
+    },
+    quiz: [],
+    practise: [{ label: "Desk: the Trading costs card", go: "desk" }]
   });
 
   /* ================= TOOLS ================= */
@@ -12769,6 +12873,36 @@ var PROG = (function () {
     return { sym: sym, dec: I.dec, kind: I.kind };
   }
   function lcostR(r) { var t = r.toFixed(2) + "R"; return r > 0.15 ? '<span class="dn">' + t + '</span>' : r > 0.1 ? '<span class="am">' + t + '</span>' : t; }
+  /** typical spreads per market, both account types, in the market's own unit */
+  function lcostSpreads() {
+    return ltable(["Market", "Raw account", "Standard account", "In price (raw)"], COST_MK.slice(0, 8).map(function (m) {
+      var ch = lcostCh(m[0]), u = COSTS.isFx(m[0]) ? " pips" : "", r = COST_PRE.raw.v[m[0]], d = COST_PRE.std.v[m[0]];
+      return ["<b>" + m[1] + "</b>", r[0] + u, d[0] + u, ldist(ch, COSTS.spread(ch, "raw"))];
+    }));
+  }
+  /** raw against standard: what one round trip costs on each, and which is cheaper */
+  function lcostAccounts() {
+    return ltable(["Market", "Raw: spread + commission", "Standard: spread", "Cheaper"], COST_MK.slice(0, 8).map(function (m) {
+      var ch = lcostCh(m[0]), sr = COSTS.spread(ch, "raw"), cr = COSTS.commPx(ch, "raw"), st = COSTS.perTrade(ch, "std");
+      var diff = (sr + cr) - st;
+      return ["<b>" + m[1] + "</b>", ldist(ch, sr) + " + " + ldist(ch, cr) + " = " + ldist(ch, sr + cr), ldist(ch, st),
+        Math.abs(diff) < 1e-12 ? "the same" : diff < 0 ? "raw" : "standard"];
+    }));
+  }
+  /** the smallest reward that breaks even, for each taught setup, with and without costs */
+  function lcostMinTarget() {
+    var keys = ["twoLegPullback", "spikeChannel", "tightChannel", "broadChannel", "rangeLow", "failedBo", "successBo", "wedgeBottom", "mtr", "finalFlag", "climax"];
+    var nm = { twoLegPullback: "Two-legged pullback", spikeChannel: "Spike and channel", tightChannel: "Tight channel", broadChannel: "Broad channel", rangeLow: "Range edge",
+      failedBo: "Failed breakout", successBo: "Breakout pullback", wedgeBottom: "Wedge", mtr: "Major trend reversal", finalFlag: "Final flag", climax: "Climax" };
+    var need = function (p, c) { return c + (1 - p) * (1 + c) / p; };
+    return ltable(["Setup", "Taught odds", "Smallest reward: no costs", "costs 0.05R", "costs 0.1R", "costs 0.2R"],
+      keys.filter(function (k) { return Mkt.CTX[k] && Mkt.CTX[k].pWin; }).map(function (k) {
+        var p = Mkt.CTX[k].pWin;
+        return ["<b>" + nm[k] + "</b>", Math.round(p * 100) + "%"].concat([0, 0.05, 0.1, 0.2].map(function (c) {
+          var v = need(p, c).toFixed(2) + "R"; return c >= 0.2 ? '<span class="dn">' + v + '</span>' : v;
+        }));
+      }));
+  }
   /** the break-even win rate for each reward, with and without costs */
   function lcostBE() {
     var cs = [0, 0.05, 0.1, 0.2, 0.3];
@@ -13686,7 +13820,8 @@ var PROG = (function () {
       ["Setups: reversals", ["wedge", "mtr", "flag", "climax"]],
       ["Placing the trade", ["orders", "stops", "targets", "late", "scalpswing"]],
       ["Managing the trade", ["manage", "early", "after", "bad", "badgood"]],
-      ["Risk and what to expect", ["sizing", "costs", "expect"]],
+      ["Risk and what to expect", ["sizing", "expect"]],
+      ["Trading costs", ["costs", "cspread", "ccomm", "cminimum", "cctrader"]],
       ["Your markets", ["markets", "open", "timeframes"]],
       ["Advanced: after your first 100 trades", ["counter", "limits"]],
       ["Tools", ["board"]],
