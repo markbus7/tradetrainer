@@ -672,7 +672,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.77.3", build: "2026-10-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.77.4", build: "2026-10-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -6539,7 +6539,7 @@ var PROG = (function () {
       var vs = [];
       try { vs = synth.getVoices() || []; } catch (e) { return; }
       var en = vs.filter(usable);
-      var chosen = PREF.voice ? vs.filter(function (v) { return v.name === PREF.voice; })[0] : null;
+      var chosen = PREF.voice ? (vs.filter(function (v) { return vid(v) === PREF.voice; })[0] || vs.filter(function (v) { return v.name === PREF.voice; })[0]) : null;
       voice = chosen || ranked(en)[0] || vs[0] || null;
     }
     /* the neural voices (Edge "Natural", Apple "Premium"/"Enhanced", Google) sound
@@ -6567,7 +6567,17 @@ var PROG = (function () {
       return all ? ranked(vs) : ranked(vs.filter(usable));
     }
     function total() { try { return (synth.getVoices() || []).length; } catch (e) { return 0; } }
-    function setVoice(name) { PREF.voice = name || ""; PREF.save(); pickVoice(); }
+    /* two voices can share a name (Apple lists the standard and the Enhanced
+       Samantha as "Samantha"); the voiceURI tells them apart */
+    function vid(v) { return v.voiceURI || v.name; }
+    /** a label that tells the quality apart: "Samantha · Enhanced · en-US" */
+    function label(v, list) {
+      var q = /premium/i.test(vid(v) + v.name) ? "Premium" : /enhanced/i.test(vid(v) + v.name) ? "Enhanced" : /compact/i.test(vid(v)) ? "Standard" : "";
+      var same = list.filter(function (o) { return o.name === v.name; });
+      if (!q && same.length > 1) q = "version " + (same.indexOf(v) + 1);
+      return v.name + (q && v.name.indexOf(q) < 0 ? " · " + q : "") + " · " + v.lang;
+    }
+    function setVoice(id) { PREF.voice = id || ""; PREF.save(); pickVoice(); }
     if (supported) {
       pickVoice();
       try { synth.addEventListener("voiceschanged", pickVoice); } catch (e) { synth.onvoiceschanged = pickVoice; }
@@ -6615,7 +6625,7 @@ var PROG = (function () {
       return true;
     }
     return { supported: supported, speak: speak, stop: stop, speaking: speaking, strip: strip,
-      voices: voices, total: total, setVoice: setVoice, get current() { return voice; } };
+      voices: voices, total: total, setVoice: setVoice, vid: vid, label: label, get current() { return voice; } };
   })();
 
   /** the voice picker: every English voice on this device, with a test button */
@@ -6627,7 +6637,7 @@ var PROG = (function () {
       'Pick one, press <b>Test</b>, and it is remembered.</p>' +
       (vs.length ? '<div class="prefrow"><label for="voiceSel">Voice</label><select id="voiceSel" style="max-width:100%">' +
         '<option value="">Automatic (' + esc(best ? best.name : "none") + ')</option>' +
-        vs.map(function (v) { return '<option value="' + esc(v.name) + '"' + (PREF.voice === v.name ? ' selected' : '') + '>' + esc(v.name) + ' · ' + esc(v.lang) + '</option>'; }).join("") +
+        vs.map(function (v) { return '<option value="' + esc(Speech.vid(v)) + '"' + (PREF.voice && Speech.current === v ? ' selected' : '') + '>' + esc(Speech.label(v, vs)) + '</option>'; }).join("") +
         '</select></div>' +
         '<div class="hint" style="margin-top:6px">' + vs.length + ' shown, ' + Speech.total() + ' on this device. ' +
         '<label><input type="checkbox" id="voiceAll"' + (all ? ' checked' : '') + '> Show every voice, in every language</label></div>' +
