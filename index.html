@@ -672,7 +672,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.77.1", build: "2026-10-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.77.2", build: "2026-10-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -6538,13 +6538,17 @@ var PROG = (function () {
       if (!supported) return;
       var vs = [];
       try { vs = synth.getVoices() || []; } catch (e) { return; }
-      var en = vs.filter(function (v) { return /^en[-_]?/i.test(v.lang || ""); });
+      var en = vs.filter(usable);
       var chosen = PREF.voice ? vs.filter(function (v) { return v.name === PREF.voice; })[0] : null;
       voice = chosen || ranked(en)[0] || vs[0] || null;
     }
     /* the neural voices (Edge "Natural", Apple "Premium"/"Enhanced", Google) sound
        like a person; the old built-in ones (eSpeak, "Compact", plain Microsoft
        desktop voices) are the robotic ones, so they go last */
+    /* Apple ships joke voices that are tagged as English (Zarvox, Bubbles, Bad News,
+       Whisper, Organ...). They are never what anyone wants for a lesson. */
+    var NOVELTY = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Deranged|Good News|Hysterical|Jester|Organ|Pipe Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Ralph|Kathy|Princess|Agnes|Bruce|Vicki)\b/i;
+    function usable(v) { return /^en[-_]?/i.test(v.lang || "") && !NOVELTY.test((v.name || "").replace(/^(Microsoft|Google|Apple)\s+/i, "")); }
     function score(v) {
       var n = (v.name || "") + " " + (v.voiceURI || ""), x = 0;
       if (/natural|neural/i.test(n)) x += 100;
@@ -6560,7 +6564,7 @@ var PROG = (function () {
     function voices() {
       if (!supported) return [];
       var vs = []; try { vs = synth.getVoices() || []; } catch (e) { }
-      return ranked(vs.filter(function (v) { return /^en[-_]?/i.test(v.lang || ""); }));
+      return ranked(vs.filter(usable));
     }
     function setVoice(name) { PREF.voice = name || ""; PREF.save(); pickVoice(); }
     if (supported) {
