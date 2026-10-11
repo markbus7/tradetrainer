@@ -672,7 +672,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.78.0", build: "2026-10-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.79.0", build: "2026-10-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -8136,10 +8136,11 @@ var PROG = (function () {
       f("Size", units.toFixed(units > 100 ? 0 : 2) + " u");
       f("Risk", "$" + risk$.toFixed(0));
       f("If target hits", "$" + (risk$ * r.rr).toFixed(0), "up");
-      f("Stop distance", (r.risk / ch.atr).toFixed(2) + " ATR");
+      f("Stop distance", ldist(ch, r.risk) + " · " + (r.risk / ch.atr).toFixed(2) + " ATR");
+      f("Target distance", ldist(ch, Math.abs(r.target - r.entry)));
       if (COSTS.on()) {
         var cR = COSTS.R(ch, r.risk);
-        f("Costs", cR.toFixed(2) + "R ($" + (risk$ * cR).toFixed(0) + ")", cR > 0.2 ? "dn" : cR > 0.1 ? "am" : "");
+        f("Costs", ldist(ch, COSTS.perTrade(ch)) + " · " + cR.toFixed(2) + "R ($" + (risk$ * cR).toFixed(0) + ")", cR > 0.2 ? "dn" : cR > 0.1 ? "am" : "");
         f("Break-even", Math.round(COSTS.be(r.rr, cR) * 100) + "% wins");
       } else f("Costs", "off", "dn");
     } else {
@@ -8154,6 +8155,8 @@ var PROG = (function () {
       out.push('<div class="fb ' + (res.r > 0 ? "good" : res.r < 0 ? "bad" : "mid") + '"><h4>' + esc(res.exit) + ' · ' +
         (res.r >= 0 ? "+" : "") + res.r.toFixed(2) + 'R' + (res.costR ? ' after costs' : '') + '</h4><ul>' +
         (res.costR ? '<li>Before costs ' + (res.gross >= 0 ? "+" : "") + res.gross.toFixed(2) + 'R, costs −' + res.costR.toFixed(2) + 'R.</li>' : '') +
+        (res.risk && res.exit !== "no fill" ? '<li>In ' + (COSTS.isFx(ch.sym) ? 'pips' : 'price') + ': ' + (res.gross >= 0 ? "+" : "−") + ldist(ch, res.gross * res.risk) +
+          (res.costR ? ' moved, ' + ldist(ch, res.costR * res.risk) + ' of it to costs' : '') + '.</li>' : '') +
         '<li>P&amp;L on the modelled size: <b>' + (res.r >= 0 ? "+" : "") + "$" + (res.r * prac.eq * prac.riskPct / 100).toFixed(0) + '</b></li>' +
         '<li>Held ' + res.bars + ' bars.</li></ul></div>');
     }
@@ -8224,7 +8227,7 @@ var PROG = (function () {
       },
       function (res) {
         /* a filled trade pays one round trip of spread and commission, in R of its own stop */
-        res.gross = res.r;
+        res.gross = res.r; res.risk = risk0;
         res.costR = res.exit !== "no fill" && res.filledAt !== -1 && COSTS.on() ? COSTS.R(ch, risk0) : 0;
         res.r = res.gross - res.costR;
         prac.live = false; prac.result = res;
@@ -12572,7 +12575,7 @@ var PROG = (function () {
           ["<b>Slippage</b>", "A fill worse than the order's price: stop and market orders in a fast market, at news, or across a gap. Limit orders don't slip, but may not fill.", "Mostly on stops, at the worst moments.", "Desk: only when a bar opens beyond your level (it fills at the open). Real markets slip more around news."]
         ]) +
         lh("Costs in R: the one number to know") +
-        lp("<b>Costs in R = (spread + commission per unit, in price) ÷ stop distance.</b> The same costs are cheap on a wide stop and expensive on a small one:") +
+        lp("<b>Costs in R = (spread + commission per unit, in price) ÷ stop distance.</b> In pips: on EURUSD about 0.9 pip of costs on a 10-pip stop is 0.09R. The pips are the same on every timeframe; the stop is not, so the same costs are cheap on a wide stop and expensive on a small one:") +
         lfigs([
           lfig("costs", "Costs in R", "<b>Gold, raw account:</b> 0.19 in costs on a 2.89 stop is 0.07R. Hardly noticeable."),
           lfig("costs", "A small stop", "<b>The same 0.19 on a 1.00 stop</b> is 0.19R: a 1R scalp now needs about 60% wins just to break even.")
@@ -12656,6 +12659,10 @@ var PROG = (function () {
           lfig("costs", "If it had lost", "<b>A loser costs 1R plus the costs</b>; a winner pays its reward minus the costs."),
           lfig("costs", "The rule", "<b>The smallest stop is about 10 × the costs:</b> 1.90 on gold with a raw account.")
         ]) +
+        lh("Pips and R: why you need both") +
+        lp("The costs are a <b>fixed number of pips</b>: on EURUSD about 0.9 pip a trade on a raw account (0.2 spread + 0.7 commission), on every timeframe. How much that matters depends on your stop, and the stop depends on the timeframe. <b>R is just the costs in pips divided by your stop in pips.</b> On 1 minute a stop is a few pips and 0.9 pip is a big part of it; on 4 hours a stop is 30 to 40 pips and 0.9 pip hardly matters. Measured on this app's EURUSD charts:") +
+        lcostTF("EURUSD") +
+        lkey("<b>EURUSD in money:</b> account 10,000, risk 1% = $100, stop 10 pips: that is 1 lot (1 pip ≈ $10). Costs ≈ 0.9 pip ≈ $9. A win at 10 pips pays <b>+$91</b>, a loss costs <b>−$109</b>; a win at 20 pips pays <b>+$191</b>. Trading for 3 to 5 pips, the costs take a fifth to a third of every win.") +
         lh("The break-even win rate, after costs") +
         lp("With costs of c (in R), a winner at a reward of X R pays <b>X − c</b> and a loser costs <b>1 + c</b>. The win rate you need just to break even rises from 1 ÷ (1 + X) to <b>(1 + c) ÷ (1 + X)</b>:") +
         lcostBE() +
@@ -12676,7 +12683,8 @@ var PROG = (function () {
     quiz: [
       { q: "A scalp for 1R, with costs of 0.2R. What win rate do you need to break even?", o: ["50%", "60%", "70%"], a: 1, why: "(1 + 0.2) ÷ (1 + 1) = 60%." },
       { q: "On the 5-minute chart the stop makes the costs 0.3R. What do you do?", o: ["Take it with a bigger size", "Skip it, or trade the setup on 15 minutes", "Take it with a 0.5R target"], a: 1, why: "At 0.3R the costs eat most of the edge. A bigger size doesn't change the costs in R; a smaller target makes it worse." },
-      { q: "EURUSD on a raw account costs about 0.9 pip a trade. The smallest stop worth trading is about…", o: ["2 pips", "9 pips", "30 pips"], a: 1, why: "10 × the costs keeps them at 0.1R: about 9 pips." }
+      { q: "EURUSD on a raw account costs about 0.9 pip a trade. The smallest stop worth trading is about…", o: ["2 pips", "9 pips", "30 pips"], a: 1, why: "10 × the costs keeps them at 0.1R: about 9 pips." },
+      { q: "The same 0.9 pip of costs, on a 3-pip stop on 1 minute and on a 35-pip stop on 4 hours. In R that is…", o: ["The same on both", "0.3R on 1 minute, about 0.03R on 4 hours"], a: 1, why: "The pips are the same; the stop is not. 0.9 ÷ 3 = 0.3R, 0.9 ÷ 35 ≈ 0.03R: ten times cheaper on the bigger timeframe." }
     ],
     practise: [{ label: "Desk: the break-even win rate on the ticket", go: "desk" }, { label: "Practice chart", go: "prac" }]
   });
@@ -12769,6 +12777,7 @@ var PROG = (function () {
         ["Market order", "An order filled now at the current price."],
         ["Measured move", "A target projected from a height already on the chart: leg 1 = leg 2, the spike, the range. A magnet, not a wall: the market can go through it, stall there, or turn."],
         ["Micro double bottom / top", "Two lows (highs) at about the same price a few bars apart."],
+        ["Pip", "The usual unit of an FX price move: 0.0001 on EURUSD, 0.01 on USDJPY. On 1 lot of EURUSD one pip is about $10. Indices move in points, gold, oil and bitcoin in dollars."],
         ["Partial profit", "Closing part of a position before the target. Only when the market is rejected at a magnet on the way; never at a fixed 1R or 2R."],
         ["Pullback", "A move against the trend that is expected to end."],
         ["R", "Your risk on the trade: entry to stop. Profits and losses are measured in R."],
@@ -12999,6 +13008,29 @@ var PROG = (function () {
     return { sym: sym, dec: I.dec, kind: I.kind };
   }
   function lcostR(r) { var t = r.toFixed(2) + "R"; return r > 0.15 ? '<span class="dn">' + t + '</span>' : r > 0.1 ? '<span class="am">' + t + '</span>' : t; }
+  /** one market across the timeframes: the average bar in its own unit, and what the same costs are as R */
+  var LCOST_TF = {};
+  function lcostTF(sym) {
+    var ch = lcostCh(sym), B = LCOST_TF[sym], cost = COSTS.perTrade(ch, "raw"), ctx = Object.keys(Mkt.CTX);
+    if (!B) {
+      B = LCOST_TF[sym] = {};
+      ["1m", "5m", "15m", "1H", "1D"].forEach(function (tf) {
+        var t = 0, n = 0;
+        for (var k = 1; k <= 8; k++) {
+          var bars = Mkt.gen({ ctx: ctx[k % ctx.length], seed: k * 977, sym: sym, tf: tf }).bars, z = Math.min(60, bars.length);
+          for (var i = bars.length - z; i < bars.length; i++) { t += bars[i].h - bars[i].l; n++; }
+        }
+        B[tf] = n ? t / n : 0;
+      });
+      B["4H"] = B["1H"] * 2;    /* a bar's range grows with the square root of its time: four hours is about twice one hour */
+    }
+    return ltable(["Chart", "Average bar", "Costs a trade", "Costs on a one-bar stop", "Two-bar stop", "Is the stop at least 10 × the costs?"],
+      [["1m", "1 minute"], ["5m", "5 minutes"], ["15m", "15 minutes"], ["1H", "1 hour"], ["4H", "4 hours (estimate)"], ["1D", "Daily"]].map(function (r) {
+        var bar = B[r[0]];
+        return ["<b>" + r[1] + "</b>", ldist(ch, bar), ldist(ch, cost), lcostR(cost / bar), lcostR(cost / (2 * bar)),
+          bar >= 10 * cost ? "yes" : 2 * bar >= 10 * cost ? "with a two-bar stop" : '<span class="dn">no: too small</span>'];
+      }));
+  }
   /** typical spreads per market, both account types, in the market's own unit */
   function lcostSpreads() {
     return ltable(["Market", "Raw account", "Standard account", "In price (raw)"], COST_MK.slice(0, 8).map(function (m) {
@@ -13053,13 +13085,15 @@ var PROG = (function () {
   function mountCostCalc(el) {
     var C = LSt.ccalc || (LSt.ccalc = {});
     C.mk = C.mk || "XAUUSD"; C.acc = C.acc || (COSTS.st.preset === "off" ? "raw" : COSTS.st.preset);
-    C.stops = C.stops || {}; C.rr = C.rr || 1.5; C.p = C.p || 55;
+    C.stopU = C.stopU || {}; C.rr = C.rr || 1.5; C.p = C.p || 55;
+    /* the stop is typed the way traders say it: pips on FX, dollars or points elsewhere */
+    var unitOf = function (sym) { return COSTS.isFx(sym) ? COSTS.unit(sym) : 1; };
     el.innerHTML =
       '<div class="lcgrid">' +
       '<div class="lcbox"><h5>What a trade costs</h5>' +
       '<label>Market<select class="btin" id="ccMk">' + COST_MK.slice(0, 8).map(function (m) { return '<option value="' + m[0] + '">' + m[1] + '</option>'; }).join("") + '</select></label>' +
       '<label>Account<select class="btin" id="ccAcc"><option value="raw">Raw + commission</option><option value="std">Standard</option><option value="own">My broker (set on the Desk)</option></select></label>' +
-      '<label>Stop distance (in price, e.g. 3.00 or 0.0010)<input class="btin" id="ccStop" inputmode="decimal"></label>' +
+      '<label><span id="ccStopL">Stop distance</span><input class="btin" id="ccStop" inputmode="decimal"></label>' +
       '<div class="hint" id="ccHint"></div>' +
       '<div class="lcout" id="ccOut"></div></div>' +
       '<div class="lcbox"><h5>Is it still worth it?</h5>' +
@@ -13072,13 +13106,15 @@ var PROG = (function () {
     function load() {
       var ch = lcostCh(C.mk), bar = lcostBars()[C.mk + "5m"];
       $$("ccMk").value = C.mk; $$("ccAcc").value = C.acc;
-      $$("ccStop").value = C.stops[C.mk] != null ? C.stops[C.mk] : (+bar.toFixed(ch.dec)).toString();
+      var u = unitOf(C.mk);
+      $$("ccStopL").textContent = COSTS.isFx(C.mk) ? "Stop distance (pips)" : "Stop distance (in price, e.g. 3.00)";
+      $$("ccStop").value = C.stopU[C.mk] != null ? C.stopU[C.mk] : (+(bar / u).toFixed(u === 1 ? ch.dec : 1)).toString();
       $$("ccHint").textContent = "The average 5-minute bar here is " + ldist(ch, bar) + " (15 minutes: " + ldist(ch, lcostBars()[C.mk + "15m"]) + ").";
       $$("ccRR").value = C.rr; $$("ccP").value = C.p;
     }
     function calc() {
-      var ch = lcostCh(C.mk), stop = num("ccStop"), v = COSTS.get(C.mk, C.acc);
-      if ($$("ccStop").value !== "") C.stops[C.mk] = $$("ccStop").value;
+      var ch = lcostCh(C.mk), stop = num("ccStop") * unitOf(C.mk), v = COSTS.get(C.mk, C.acc);
+      if ($$("ccStop").value !== "") C.stopU[C.mk] = $$("ccStop").value;
       var sp = COSTS.spread(ch, C.acc), cm = COSTS.commPx(ch, C.acc), c = sp + cm, o = $$("ccOut"), cR = stop > 0 ? c / stop : NaN;
       o.innerHTML = '<div class="btkv"><span>Spread</span><b>' + ldist(ch, sp) + '</b></div>' +
         '<div class="btkv"><span>Commission ($' + v[1] + ' a lot, round turn)</span><b>' + ldist(ch, cm) + '</b></div>' +
@@ -13092,7 +13128,8 @@ var PROG = (function () {
       if (!(rr > 0 && p > 0 && p < 100 && cR >= 0)) e.innerHTML = '<span class="mu">Enter a stop, a reward in R and a win rate.</span>';
       else {
         var q = p / 100, ev0 = q * rr - (1 - q), ev = q * (rr - cR) - (1 - q) * (1 + cR);
-        e.innerHTML = '<div class="btkv"><span>A win / a loss, after costs</span><b>+' + (rr - cR).toFixed(2) + 'R / −' + (1 + cR).toFixed(2) + 'R</b></div>' +
+        e.innerHTML = '<div class="btkv"><span>Target</span><b>' + ldist(ch, rr * stop) + '</b></div>' +
+          '<div class="btkv"><span>A win / a loss, after costs</span><b>+' + ldist(ch, rr * stop - c) + ' (+' + (rr - cR).toFixed(2) + 'R) / −' + ldist(ch, stop + c) + ' (−' + (1 + cR).toFixed(2) + 'R)</b></div>' +
           '<div class="btkv"><span>Break-even win rate</span><b>' + Math.round(COSTS.be(rr, cR) * 100) + '% (' + Math.round(COSTS.be(rr, 0) * 100) + '% without costs)</b></div>' +
           '<div class="btkv"><span>Per trade, before costs</span><b class="' + (ev0 > 0 ? 'up' : 'dn') + '">' + (ev0 >= 0 ? '+' : '') + ev0.toFixed(2) + 'R</b></div>' +
           '<div class="btkv"><span>Per trade, after costs</span><b class="' + (ev > 0 ? 'up' : 'dn') + '">' + (ev >= 0 ? '+' : '') + ev.toFixed(2) + 'R</b></div>' +
@@ -16601,20 +16638,24 @@ var PROG = (function () {
     /* one position may close in several slices (partials, then the runner);
        a trade is the position, not the slice, or scaling out would inflate
        both the trade count and the win rate */
-    var byId = {}, order = [], comm = 0, sprd = 0;
+    var byId = {}, order = [], comm = 0, sprd = 0, oneSym = BT.log.length ? BT.log[0].ch : null;
     BT.log.forEach(function (t) {
       comm += t.comm || 0; sprd += t.sprd || 0;
-      if (!byId[t.id]) { byId[t.id] = { pl: 0, r: 0 }; order.push(t.id); }
+      if (!t.ch || !oneSym || t.ch.sym !== oneSym.sym) oneSym = null;
+      if (!byId[t.id]) { byId[t.id] = { pl: 0, r: 0, mv: 0, u: 0 }; order.push(t.id); }
+      byId[t.id].mv += (t.exit - t.entry) * t.dir * t.units; byId[t.id].u += t.units;
       byId[t.id].pl += t.pl; byId[t.id].r += t.r;
     });
-    var w = 0, l = 0, gp = 0, gl = 0, rs = 0, n = order.length;
+    var w = 0, l = 0, gp = 0, gl = 0, rs = 0, n = order.length, mv = 0;
     order.forEach(function (id) {
-      var t = byId[id];
+      var t = byId[id]; mv += t.u > 0 ? t.mv / t.u : 0;
       if (t.pl >= 0) { w++; gp += t.pl; } else { l++; gl += -t.pl; }
       rs += t.r;
     });
     return { n: n, w: w, l: l, win: n ? w / n : 0, pf: gl > 0 ? gp / gl : (gp > 0 ? Infinity : 0),
-      avgR: n ? rs / n : 0, netR: rs, net: BT.balance - BT.start, comm: comm, sprd: sprd };
+      avgR: n ? rs / n : 0, netR: rs, net: BT.balance - BT.start, comm: comm, sprd: sprd,
+      /* the distance won and lost, summed per trade, before commission: only meaningful within one market */
+      moved: oneSym ? mv : null, movedCh: oneSym };
   }
   function drawCurve() {
     var cv = $("eqCurve"); if (!cv) return;
@@ -16640,14 +16681,20 @@ var PROG = (function () {
   }
 
   /** what the ticket's trade costs, and what that does to the win rate it needs */
+  /** a distance in this market's own unit: pips on FX, points on indices, $ on gold, oil and bitcoin */
+  function dU(d) { return ldist(BT.ch, d); }
+  function dUs(d) { return (d >= 0 ? "+" : "−") + ldist(BT.ch, d); }
   function costRowsHTML(entry, sl, tp, u) {
-    if (!COSTS.on()) return '<div class="btkv"><span>Trading costs</span><b class="dn">off: results look better than they would</b></div>';
-    var risk = Math.abs(entry - sl), rew = Math.abs(tp - entry), sp = spr();
+    var risk = Math.abs(entry - sl), rew = Math.abs(tp - entry);
+    var dist = '<div class="btkv"><span>Stop / target distance</span><b>' + dU(risk) + ' / ' + dU(rew) + '</b></div>';
+    if (!COSTS.on()) return dist + '<div class="btkv"><span>Trading costs</span><b class="dn">off: results look better than they would</b></div>';
+    var sp = spr(), cmP = COSTS.commPx(BT.ch), cost = sp + cmP;
     var spM = sp * u * qRate(), cmM = COSTS.commMoney(BT.ch, u);
     var cR = COSTS.R(BT.ch, risk), rr = risk > 0 ? rew / risk : 0;
-    return '<div class="btkv" style="margin-top:4px"><span>Costs: spread ' + money(spM) + (cmM > 0 ? ' + commission ' + money(cmM) : '') +
-      '</span><b class="' + (cR > 0.2 ? 'dn' : cR > 0.1 ? 'am' : '') + '">' + money(spM + cmM) + ' · ' + cR.toFixed(2) + 'R</b></div>' +
-      (rr > 0 ? '<div class="btkv"><span>After costs: a win / a loss</span><b>+' + (rr - cR).toFixed(2) + 'R / −' + (1 + cR).toFixed(2) + 'R</b></div>' +
+    return dist + '<div class="btkv" style="margin-top:4px"><span>Costs: spread ' + dU(sp) + (cmP > 0 ? ' + commission ' + dU(cmP) : '') +
+      '</span><b class="' + (cR > 0.2 ? 'dn' : cR > 0.1 ? 'am' : '') + '">' + dU(cost) + ' · ' + money(spM + cmM) + ' · ' + cR.toFixed(2) + 'R</b></div>' +
+      (rr > 0 ? '<div class="btkv"><span>After costs: a win / a loss</span><b>' + dUs(rew - cost) + ' (+' + (rr - cR).toFixed(2) + 'R) / ' + dUs(-(risk + cost)) + ' (−' + (1 + cR).toFixed(2) + 'R)</b></div>' +
+        '<div class="btkv"><span>Smallest stop worth it (costs 0.1R)</span><b class="' + (risk < 10 * cost ? 'dn' : '') + '">' + dU(10 * cost) + '</b></div>' +
         '<div class="btkv"><span>Break-even win rate</span><b>' + Math.round(COSTS.be(rr, cR) * 100) + '%  (' +
         Math.round(COSTS.be(rr, 0) * 100) + '% without costs)</b></div>' : '') +
       (cR > 0.2 ? '<div class="hint" style="color:var(--dn);margin-top:3px">The costs are more than a fifth of the risk: the stop is too small for this market. Use a wider stop with a smaller size, or the 15-minute chart.</div>'
@@ -16670,7 +16717,8 @@ var PROG = (function () {
       '<div><label class="btlab">Commission, $ per lot round turn</label><input class="btin" id="btCCm" type="number" step="any" min="0" value="' + v[1] + '"></div>' +
       '</div>' +
       '<div class="btkv" style="margin-top:6px"><span>Ask = chart + spread</span><b>' + px(sp) + '</b></div>' +
-      '<div class="btkv"><span>One round trip, per lot</span><b>' + money(perLot) + '</b></div>' +
+      '<div class="btkv"><span>One round trip</span><b>' + dU(COSTS.perTrade(BT.ch)) + ' = ' + money(perLot) + ' per lot</b></div>' +
+      '<div class="btkv"><span>Smallest stop worth it (costs 0.1R)</span><b>' + dU(10 * COSTS.perTrade(BT.ch)) + '</b></div>' +
       '<div class="btkv"><span>On a stop of one ATR (' + px(btATR()) + ')</span><b>' + COSTS.R(BT.ch, btATR()).toFixed(2) + 'R</b></div>') +
       '<div class="hint" style="margin-top:5px">Typed values become <b>My broker</b>. Find yours in cTrader: the spread between Sell and Buy, the commission and swap in the symbol information. The spread here never widens; real ones do at the open, at news, at the 23:00 rollover and at weekends. ' +
       lgoBT("costs", "Learn: Trading costs") + '</div></div>';
@@ -16911,7 +16959,7 @@ var PROG = (function () {
         '<b style="color:' + (p.dir > 0 ? "var(--up)" : "var(--dn)") + '">' +
         (p.dir > 0 ? "LONG" : "SHORT") + ' #' + p.id + '</b>' +
         '<span class="btpl" style="color:' + (pl >= 0 ? "var(--up)" : "var(--dn)") + '">' +
-        money(pl) + '  ' + (r >= 0 ? "+" : "") + r.toFixed(2) + 'R</span></div>' +
+        money(pl) + '  ' + dUs((closePx(p) - p.entry) * p.dir) + '  ' + (r >= 0 ? "+" : "") + r.toFixed(2) + 'R</span></div>' +
         '<div class="mono">entry ' + px(p.entry) + ' · ' + fmtLots(p.units) +
         (p.units < p.units0 - 1e-9 ? ' of ' + fmtLots(p.units0) : '') +
         ' · SL ' + (p.sl == null ? "—" : px(p.sl)) + ' · TP ' + (p.tp == null ? "—" : px(p.tp)) + '</div>' +
@@ -16998,6 +17046,7 @@ var PROG = (function () {
       kv("Avg per trade", (st.avgR >= 0 ? "+" : "") + st.avgR.toFixed(2) + "R", st.avgR >= 0 ? "up" : "dn") +
       kv("Profit factor", st.n ? (isFinite(st.pf) ? st.pf.toFixed(2) : "∞") : "—",
         st.pf >= 1 ? "up" : st.n ? "dn" : "") +
+      (st.moved != null && st.n ? kv("Total " + (COSTS.isFx(st.movedCh.sym) ? "pips" : "distance"), (st.moved >= 0 ? "+" : "−") + ldist(st.movedCh, st.moved), st.moved >= 0 ? "up" : "dn") : '') +
       (st.comm + st.sprd > 0 ? kv("Costs paid", money(-(st.comm + st.sprd)), "dn") +
         kv("Net without costs", money(st.net + st.comm + st.sprd), st.net + st.comm + st.sprd >= 0 ? "up" : "dn") : '') +
       '</div>' +
@@ -17265,9 +17314,9 @@ var PROG = (function () {
   }
   function costLine() {
     if (!COSTS.on()) return "Trading costs: off";
-    var v = COSTS.get(BT.ch.sym);
+    var v = COSTS.get(BT.ch.sym), all = COSTS.perTrade(BT.ch);
     return "Trading costs (" + COST_PRE[COSTS.st.preset].n + "): spread " + v[0] + (COSTS.isFx(BT.ch.sym) ? " pips" : "") +
-      " = " + px(spr()) + " (chart = Bid, Ask = Bid + spread), commission $" + v[1] + " per lot round turn";
+      " = " + px(spr()) + " (chart = Bid, Ask = Bid + spread), commission $" + v[1] + " per lot round turn; together " + ldist(BT.ch, all) + " a trade, smallest sensible stop " + ldist(BT.ch, 10 * all);
   }
   /** the run, as text you can paste into a chat and pick apart */
   function btReport() {
@@ -17296,7 +17345,7 @@ var PROG = (function () {
     BT.log.forEach(function (t, i) {
       L.push("  " + (i + 1) + ". " + (t.dir > 0 ? "long " : "short") + " " + fmtLots(t.units) +
         "  " + px(t.entry) + " -> " + px(t.exit) + "  " + t.why + "  " +
-        (t.r >= 0 ? "+" : "") + t.r.toFixed(2) + "R  " + money(t.pl) + (t.comm ? "  (commission " + money(t.comm) + ")" : ""));
+        (t.r >= 0 ? "+" : "") + t.r.toFixed(2) + "R  " + ((t.exit - t.entry) * t.dir >= 0 ? "+" : "-") + ldist(t.ch || BT.ch, (t.exit - t.entry) * t.dir) + "  " + money(t.pl) + (t.comm ? "  (commission " + money(t.comm) + ")" : ""));
     });
     if (BT.pos.length) {
       L.push("");
