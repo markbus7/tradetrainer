@@ -672,7 +672,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.77.2", build: "2026-10-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.77.3", build: "2026-10-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -6561,11 +6561,12 @@ var PROG = (function () {
     }
     function ranked(list) { return list.slice().sort(function (a, z) { return score(z) - score(a); }); }
     /** every English voice this device has, the most natural first */
-    function voices() {
+    function voices(all) {
       if (!supported) return [];
       var vs = []; try { vs = synth.getVoices() || []; } catch (e) { }
-      return ranked(vs.filter(usable));
+      return all ? ranked(vs) : ranked(vs.filter(usable));
     }
+    function total() { try { return (synth.getVoices() || []).length; } catch (e) { return 0; } }
     function setVoice(name) { PREF.voice = name || ""; PREF.save(); pickVoice(); }
     if (supported) {
       pickVoice();
@@ -6614,12 +6615,12 @@ var PROG = (function () {
       return true;
     }
     return { supported: supported, speak: speak, stop: stop, speaking: speaking, strip: strip,
-      voices: voices, setVoice: setVoice, get current() { return voice; } };
+      voices: voices, total: total, setVoice: setVoice, get current() { return voice; } };
   })();
 
   /** the voice picker: every English voice on this device, with a test button */
-  function voiceDialog(back) {
-    var vs = Speech.voices(), cur = Speech.current, best = vs[0];
+  function voiceDialog(back, all) {
+    var vs = Speech.voices(all), cur = Speech.current, best = Speech.voices()[0];
     var natural = vs.some(function (v) { return /natural|neural|premium|enhanced|google/i.test(v.name); });
     modal('<h2>Voice</h2>' +
       '<p>The voice comes from your browser or your device, not from this app, so which voices exist depends on where you open it. ' +
@@ -6628,7 +6629,10 @@ var PROG = (function () {
         '<option value="">Automatic (' + esc(best ? best.name : "none") + ')</option>' +
         vs.map(function (v) { return '<option value="' + esc(v.name) + '"' + (PREF.voice === v.name ? ' selected' : '') + '>' + esc(v.name) + ' · ' + esc(v.lang) + '</option>'; }).join("") +
         '</select></div>' +
+        '<div class="hint" style="margin-top:6px">' + vs.length + ' shown, ' + Speech.total() + ' on this device. ' +
+        '<label><input type="checkbox" id="voiceAll"' + (all ? ' checked' : '') + '> Show every voice, in every language</label></div>' +
         '<button class="btn" id="voiceTest" style="margin-top:8px">&#128266; Test</button> ' : '<p class="dn">This browser has no English voices installed.</p>') +
+      '<div class="hint" style="margin-top:8px">Just downloaded a voice? Close this page completely (swipe it away in the app switcher), open it again, and look here. Some browsers only see new voices after a restart.</div>' +
       (natural ? '' : '<div class="lwarn" style="margin-top:10px"><b>Only the basic voices are installed here, and those sound robotic.</b> The natural ones are free:<ul>' +
         '<li><b>Microsoft Edge</b> (Windows, Mac, Android): open this page in Edge. Its <i>Natural</i> voices (Aria, Jenny, Guy, Sonia) are built in and sound like a person.</li>' +
         '<li><b>Chrome</b>: it lists <i>Google</i> voices; they are better than the system ones.</li>' +
@@ -6638,6 +6642,7 @@ var PROG = (function () {
         'Then reopen this page and choose the new voice here.</div>') +
       '<div style="margin-top:12px"><button class="btn primary" id="voiceOk">Done</button></div>');
     var sel = $("voiceSel");
+    if ($("voiceAll")) $("voiceAll").onchange = function () { Speech.stop(); voiceDialog(back, this.checked); };
     if (sel) {
       sel.onchange = function () { Speech.setVoice(sel.value); };
       $("voiceTest").onclick = function () {
