@@ -672,7 +672,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.77.4", build: "2026-10-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.77.5", build: "2026-10-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -6564,6 +6564,8 @@ var PROG = (function () {
     function voices(all) {
       if (!supported) return [];
       var vs = []; try { vs = synth.getVoices() || []; } catch (e) { }
+      var seen = {};
+      vs = vs.filter(function (v) { var k = vid(v) + "|" + v.name + "|" + v.lang; if (seen[k]) return false; seen[k] = 1; return true; });
       return all ? ranked(vs) : ranked(vs.filter(usable));
     }
     function total() { try { return (synth.getVoices() || []).length; } catch (e) { return 0; } }
@@ -6575,7 +6577,7 @@ var PROG = (function () {
       var q = /premium/i.test(vid(v) + v.name) ? "Premium" : /enhanced/i.test(vid(v) + v.name) ? "Enhanced" : /compact/i.test(vid(v)) ? "Standard" : "";
       var same = list.filter(function (o) { return o.name === v.name; });
       if (!q && same.length > 1) q = "version " + (same.indexOf(v) + 1);
-      return v.name + (q && v.name.indexOf(q) < 0 ? " · " + q : "") + " · " + v.lang;
+      return v.name + (q && v.name.indexOf(q) < 0 ? " · " + q : "") + " · " + v.lang + (list.showId ? " · " + String(vid(v)).replace(/^com\.apple\.(eloquence|ttsbundle|voice)\./, "").slice(0, 40) : "");
     }
     function setVoice(id) { PREF.voice = id || ""; PREF.save(); pickVoice(); }
     if (supported) {
@@ -6631,7 +6633,8 @@ var PROG = (function () {
   /** the voice picker: every English voice on this device, with a test button */
   function voiceDialog(back, all) {
     var vs = Speech.voices(all), cur = Speech.current, best = Speech.voices()[0];
-    var natural = vs.some(function (v) { return /natural|neural|premium|enhanced|google/i.test(v.name); });
+    vs.showId = !!all;
+    var natural = Speech.voices().some(function (v) { return /natural|neural|premium|enhanced|google|siri/i.test(v.name + " " + Speech.vid(v)); });
     modal('<h2>Voice</h2>' +
       '<p>The voice comes from your browser or your device, not from this app, so which voices exist depends on where you open it. ' +
       'Pick one, press <b>Test</b>, and it is remembered.</p>' +
@@ -6643,7 +6646,7 @@ var PROG = (function () {
         '<label><input type="checkbox" id="voiceAll"' + (all ? ' checked' : '') + '> Show every voice, in every language</label></div>' +
         '<button class="btn" id="voiceTest" style="margin-top:8px">&#128266; Test</button> ' : '<p class="dn">This browser has no English voices installed.</p>') +
       '<div class="hint" style="margin-top:8px">Just downloaded a voice? Close this page completely (swipe it away in the app switcher), open it again, and look here. Some browsers only see new voices after a restart.</div>' +
-      (natural ? '' : '<div class="lwarn" style="margin-top:10px"><b>Only the basic voices are installed here, and those sound robotic.</b> The natural ones are free:<ul>' +
+      (natural ? '' : '<div class="lwarn" style="margin-top:10px"><b>This browser only offers the basic voices.</b> On iPhone and iPad that can mean the browser does not pass on the Enhanced or Premium voices you downloaded: try <b>Safari</b>, the one browser Apple always gives them to. On other devices: The natural ones are free:<ul>' +
         '<li><b>Microsoft Edge</b> (Windows, Mac, Android): open this page in Edge. Its <i>Natural</i> voices (Aria, Jenny, Guy, Sonia) are built in and sound like a person.</li>' +
         '<li><b>Chrome</b>: it lists <i>Google</i> voices; they are better than the system ones.</li>' +
         '<li><b>iPhone / iPad</b>: Settings, Accessibility, Spoken Content, Voices, English: download a voice marked <i>Enhanced</i> or <i>Premium</i>.</li>' +
