@@ -672,7 +672,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.77.0", build: "2026-10-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.77.1", build: "2026-10-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -6515,13 +6515,13 @@ var PROG = (function () {
 
   /* ---------------- preferences ---------------- */
   var PREF = (function () {
-    var KEY = "tt.prefs.v1", p = { autoRead: false, rate: 1 };
+    var KEY = "tt.prefs.v1", p = { autoRead: false, rate: 1, voice: "" };
     try {
       var raw = localStorage.getItem(KEY);
-      if (raw) { var o = JSON.parse(raw) || {}; p.autoRead = !!o.autoRead; p.rate = +o.rate || 1; }
+      if (raw) { var o = JSON.parse(raw) || {}; p.autoRead = !!o.autoRead; p.rate = +o.rate || 1; p.voice = typeof o.voice === "string" ? o.voice : ""; }
     } catch (e) { }
     p.save = function () {
-      try { localStorage.setItem(KEY, JSON.stringify({ autoRead: p.autoRead, rate: p.rate })); } catch (e) { }
+      try { localStorage.setItem(KEY, JSON.stringify({ autoRead: p.autoRead, rate: p.rate, voice: p.voice })); } catch (e) { }
     };
     return p;
   })();
@@ -6539,9 +6539,30 @@ var PROG = (function () {
       var vs = [];
       try { vs = synth.getVoices() || []; } catch (e) { return; }
       var en = vs.filter(function (v) { return /^en[-_]?/i.test(v.lang || ""); });
-      voice = en.filter(function (v) { return /(google|natural|premium|enhanced)/i.test(v.name || ""); })[0] ||
-        en[0] || vs[0] || null;
+      var chosen = PREF.voice ? vs.filter(function (v) { return v.name === PREF.voice; })[0] : null;
+      voice = chosen || ranked(en)[0] || vs[0] || null;
     }
+    /* the neural voices (Edge "Natural", Apple "Premium"/"Enhanced", Google) sound
+       like a person; the old built-in ones (eSpeak, "Compact", plain Microsoft
+       desktop voices) are the robotic ones, so they go last */
+    function score(v) {
+      var n = (v.name || "") + " " + (v.voiceURI || ""), x = 0;
+      if (/natural|neural/i.test(n)) x += 100;
+      if (/online/i.test(n)) x += 20;
+      if (/premium|enhanced|siri/i.test(n)) x += 60;
+      if (/google/i.test(n)) x += 40;
+      if (/en[-_]?(GB|US|AU|IE|NL)/i.test(v.lang || "")) x += 5;
+      if (/espeak|compact|zira|david|mark\b|hazel|george|james/i.test(n) && !/natural|neural|online/i.test(n)) x -= 30;
+      return x;
+    }
+    function ranked(list) { return list.slice().sort(function (a, z) { return score(z) - score(a); }); }
+    /** every English voice this device has, the most natural first */
+    function voices() {
+      if (!supported) return [];
+      var vs = []; try { vs = synth.getVoices() || []; } catch (e) { }
+      return ranked(vs.filter(function (v) { return /^en[-_]?/i.test(v.lang || ""); }));
+    }
+    function setVoice(name) { PREF.voice = name || ""; PREF.save(); pickVoice(); }
     if (supported) {
       pickVoice();
       try { synth.addEventListener("voiceschanged", pickVoice); } catch (e) { synth.onvoiceschanged = pickVoice; }
@@ -6588,8 +6609,39 @@ var PROG = (function () {
       next();
       return true;
     }
-    return { supported: supported, speak: speak, stop: stop, speaking: speaking, strip: strip };
+    return { supported: supported, speak: speak, stop: stop, speaking: speaking, strip: strip,
+      voices: voices, setVoice: setVoice, get current() { return voice; } };
   })();
+
+  /** the voice picker: every English voice on this device, with a test button */
+  function voiceDialog(back) {
+    var vs = Speech.voices(), cur = Speech.current, best = vs[0];
+    var natural = vs.some(function (v) { return /natural|neural|premium|enhanced|google/i.test(v.name); });
+    modal('<h2>Voice</h2>' +
+      '<p>The voice comes from your browser or your device, not from this app, so which voices exist depends on where you open it. ' +
+      'Pick one, press <b>Test</b>, and it is remembered.</p>' +
+      (vs.length ? '<div class="prefrow"><label for="voiceSel">Voice</label><select id="voiceSel" style="max-width:100%">' +
+        '<option value="">Automatic (' + esc(best ? best.name : "none") + ')</option>' +
+        vs.map(function (v) { return '<option value="' + esc(v.name) + '"' + (PREF.voice === v.name ? ' selected' : '') + '>' + esc(v.name) + ' · ' + esc(v.lang) + '</option>'; }).join("") +
+        '</select></div>' +
+        '<button class="btn" id="voiceTest" style="margin-top:8px">&#128266; Test</button> ' : '<p class="dn">This browser has no English voices installed.</p>') +
+      (natural ? '' : '<div class="lwarn" style="margin-top:10px"><b>Only the basic voices are installed here, and those sound robotic.</b> The natural ones are free:<ul>' +
+        '<li><b>Microsoft Edge</b> (Windows, Mac, Android): open this page in Edge. Its <i>Natural</i> voices (Aria, Jenny, Guy, Sonia) are built in and sound like a person.</li>' +
+        '<li><b>Chrome</b>: it lists <i>Google</i> voices; they are better than the system ones.</li>' +
+        '<li><b>iPhone / iPad</b>: Settings, Accessibility, Spoken Content, Voices, English: download a voice marked <i>Enhanced</i> or <i>Premium</i>.</li>' +
+        '<li><b>Mac</b>: System Settings, Accessibility, Spoken Content, System voice, Manage Voices: download <i>Premium</i> voices.</li>' +
+        '<li><b>Android</b>: Settings, Text-to-speech output, and install the Google voice data; or use Edge.</li></ul>' +
+        'Then reopen this page and choose the new voice here.</div>') +
+      '<div style="margin-top:12px"><button class="btn primary" id="voiceOk">Done</button></div>');
+    var sel = $("voiceSel");
+    if (sel) {
+      sel.onchange = function () { Speech.setVoice(sel.value); };
+      $("voiceTest").onclick = function () {
+        Speech.speak("This is how the lessons will sound. A buy stop one tick above the signal bar, and the protective stop below it.");
+      };
+    }
+    $("voiceOk").onclick = function () { Speech.stop(); closeModal(); if (back) back(); };
+  }
 
   /** wire a Read/Stop toggle; hides itself entirely when speech is unavailable */
   function wireRead(id, getText) {
@@ -8645,6 +8697,7 @@ var PROG = (function () {
       '<div class="prefrow"><label for="rateSel">Speaking speed</label>' +
       '<select id="rateSel"><option value="0.8">Slower</option><option value="1">Normal</option>' +
       '<option value="1.2">Faster</option><option value="1.4">Fastest</option></select></div>' +
+      '<div class="prefrow"><label>Voice</label><button class="btn" id="voiceBtn">Change voice…</button></div>' +
       '<h3>Disagree with an answer?</h3>' +
       '<p>Every question carries a <b>&#128203; Copy</b> button. One press puts the whole thing on ' +
       'your clipboard, including <b>the bars themselves</b> — every candle drawn on screen as ' +
@@ -8666,6 +8719,7 @@ var PROG = (function () {
       '</b> · build ' + esc(APP.build) + ' · ' + esc(APP.basis) + '</p>' +
       '<button class="btn primary" id="okBtn" style="margin-top:6px">Got it</button>');
     $("okBtn").onclick = closeModal;
+    if ($("voiceBtn")) { if (!Speech.supported) $("voiceBtn").style.display = "none"; else $("voiceBtn").onclick = function () { voiceDialog(showHelp); }; }
     wireFib();
     var chk = $("autoReadChk"), sel = $("rateSel");
     if (chk && sel) {
@@ -8792,6 +8846,7 @@ var PROG = (function () {
       '<div class="lvdots"></div>' +
       '<button class="lvb" data-a="rate" title="Voice speed"></button>' +
       '<button class="lvb" data-a="mute" title="Voice on / off"></button>' +
+      '<button class="lvb" data-a="voice" title="Choose another voice: the natural ones sound much better">Voice…</button>' +
       '<button class="lvb" data-a="script" title="Show every word of this lesson">Script</button>' +
       '<button class="lvb" data-a="full" title="Full screen" aria-label="Full screen">&#x26F6;</button>' +
       '<button class="lvb" data-a="copy" title="Copy this step as text: the bars, every line and label on the chart, and what the step says. Paste it into a chat to show exactly what you see.">Copy</button>' +
@@ -8835,7 +8890,7 @@ var PROG = (function () {
   }
   LessonPlayer.prototype._syncMute = function () {
     var b = this.root.querySelector('[data-a="mute"]');
-    if (!Speech.supported) { b.innerHTML = "No voice"; b.disabled = true; return; }
+    if (!Speech.supported) { b.innerHTML = "No voice"; b.disabled = true; var vb = this.root.querySelector('[data-a="voice"]'); if (vb) vb.style.display = "none"; return; }
     b.innerHTML = this.muted ? "&#128263; Voice off" : "&#128266; Voice on";
   };
   LessonPlayer.prototype._syncRate = function () {
@@ -8892,6 +8947,7 @@ var PROG = (function () {
       learnPlayers.forEach(function (p) { p._syncRate(); });
       if (this.playing) this.go(this.k, true);
     }
+    if (a === "voice") { this.pause(); Speech.stop(); voiceDialog(); }
     if (a === "script") { var s = this.root.querySelector(".lvscript"); s.style.display = s.style.display === "none" ? "block" : "none"; }
   };
   LessonPlayer.prototype.clearTimers = function () {
