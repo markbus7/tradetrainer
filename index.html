@@ -672,7 +672,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.79.0", build: "2026-10-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.79.1", build: "2026-10-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -12580,6 +12580,7 @@ var PROG = (function () {
           lfig("costs", "Costs in R", "<b>Gold, raw account:</b> 0.19 in costs on a 2.89 stop is 0.07R. Hardly noticeable."),
           lfig("costs", "A small stop", "<b>The same 0.19 on a 1.00 stop</b> is 0.19R: a 1R scalp now needs about 60% wins just to break even.")
         ]) +
+        lp("Why the stop and not the target? Because you risk the same money on every trade, the stop decides how many lots you trade, and the costs are paid per lot: a stop half as big is twice the lots and twice the costs. " + lgo("cminimum", "The smallest stop and the smallest target") + " works it out step by step.") +
         lkey("<b>The rule:</b> costs at most about <b>a tenth of the stop</b> (0.1R). A trade whose stop is smaller than 10 × the costs is too small to pay for itself: skip it, or trade the setup on the 15-minute chart.");
     },
     quiz: [
@@ -12659,6 +12660,17 @@ var PROG = (function () {
           lfig("costs", "If it had lost", "<b>A loser costs 1R plus the costs</b>; a winner pays its reward minus the costs."),
           lfig("costs", "The rule", "<b>The smallest stop is about 10 × the costs:</b> 1.90 on gold with a raw account.")
         ]) +
+        lh("Why the stop decides the costs, not only the target") +
+        lp("It feels as if the target pays the costs: the profit has to cover them. That is true, but it is only half of it. The other half is the <b>size</b> of your position, and the size comes from the stop.") +
+        lol(["You decide how much money you risk on a trade: say <b>$100</b>, 1% of 10,000. That stays the same on every trade.",
+          "The stop decides how many lots that $100 buys. On EURUSD 1 pip is about $10 per lot, so a <b>10-pip stop is 1 lot</b>, a 5-pip stop is 2 lots, a 20-pip stop is half a lot.",
+          "The costs are paid <b>per lot</b>: about 0.9 pip, $9, for every lot, in and out. Two lots pay twice, half a lot pays half.",
+          "So a <b>smaller stop means more lots, and more lots means more costs</b>, for exactly the same $100 at risk."]) +
+        lcostLots() +
+        lp("Now the same plan at two stop sizes: a 1:2 trade, risking $100 to make $200. The money at risk and the money aimed for are identical; only the stop, and so the size, is different:") +
+        lcostSameTrade() +
+        lkey("<b>A tight stop looks cheap</b> (\u201cI only risk 5 pips\u201d), but it makes you trade more lots, and every lot pays the costs, on the way in and on the way out, <b>on every trade, the losers too</b>. That is why the costs are measured against the stop: <b>costs in R = costs in pips ÷ stop in pips</b>. One number tells you how much of every win and every loss goes to the broker.") +
+        lp("You can also measure them against the target and reach the same answer: with a 1:2 trade a small stop also means a small target, and 0.9 pip is 9% of a 10-pip target but only 2% of a 40-pip one. Measuring against the stop just gives one number that works for both the win and the loss.") +
         lh("Pips and R: why you need both") +
         lp("The costs are a <b>fixed number of pips</b>: on EURUSD about 0.9 pip a trade on a raw account (0.2 spread + 0.7 commission), on every timeframe. How much that matters depends on your stop, and the stop depends on the timeframe. <b>R is just the costs in pips divided by your stop in pips.</b> On 1 minute a stop is a few pips and 0.9 pip is a big part of it; on 4 hours a stop is 30 to 40 pips and 0.9 pip hardly matters. Measured on this app's EURUSD charts:") +
         lcostTF("EURUSD") +
@@ -12684,6 +12696,7 @@ var PROG = (function () {
       { q: "A scalp for 1R, with costs of 0.2R. What win rate do you need to break even?", o: ["50%", "60%", "70%"], a: 1, why: "(1 + 0.2) ÷ (1 + 1) = 60%." },
       { q: "On the 5-minute chart the stop makes the costs 0.3R. What do you do?", o: ["Take it with a bigger size", "Skip it, or trade the setup on 15 minutes", "Take it with a 0.5R target"], a: 1, why: "At 0.3R the costs eat most of the edge. A bigger size doesn't change the costs in R; a smaller target makes it worse." },
       { q: "EURUSD on a raw account costs about 0.9 pip a trade. The smallest stop worth trading is about…", o: ["2 pips", "9 pips", "30 pips"], a: 1, why: "10 × the costs keeps them at 0.1R: about 9 pips." },
+      { q: "You always risk $100. You use a 5-pip stop instead of a 20-pip stop on EURUSD. Your costs per trade…", o: ["Stay the same: the costs are 0.9 pip either way", "Are four times higher: the small stop means four times the lots"], a: 1, why: "$100 on a 5-pip stop is 2 lots, on a 20-pip stop half a lot. The costs are paid per lot: about $18 against $4.50." },
       { q: "The same 0.9 pip of costs, on a 3-pip stop on 1 minute and on a 35-pip stop on 4 hours. In R that is…", o: ["The same on both", "0.3R on 1 minute, about 0.03R on 4 hours"], a: 1, why: "The pips are the same; the stop is not. 0.9 ÷ 3 = 0.3R, 0.9 ÷ 35 ≈ 0.03R: ten times cheaper on the bigger timeframe." }
     ],
     practise: [{ label: "Desk: the break-even win rate on the ticket", go: "desk" }, { label: "Practice chart", go: "prac" }]
@@ -13008,6 +13021,29 @@ var PROG = (function () {
     return { sym: sym, dec: I.dec, kind: I.kind };
   }
   function lcostR(r) { var t = r.toFixed(2) + "R"; return r > 0.15 ? '<span class="dn">' + t + '</span>' : r > 0.1 ? '<span class="am">' + t + '</span>' : t; }
+  /** $100 at risk on EURUSD: the lots each stop buys, and what those lots pay in costs */
+  function lcostLots() {
+    var ch = lcostCh("EURUSD"), c = COSTS.perTrade(ch, "raw"), cPips = c / 0.0001, perPipLot = 10, risk = 100;
+    return ltable(["Stop", "Lots for $100 at risk", "Costs on those lots", "Costs as part of the $100"],
+      [5, 10, 15, 20, 30].map(function (st) {
+        var lots = risk / (st * perPipLot), cost = lots * cPips * perPipLot, part = cost / risk;
+        var p = Math.round(part * 1000) / 10 + "%";
+        return ["<b>" + st + " pips</b>", (+lots.toFixed(2)) + " lot" + (lots === 1 ? "" : "s"), "$" + cost.toFixed(2), part > 0.15 ? '<span class="dn">' + p + '</span>' : part > 0.1 ? '<span class="am">' + p + '</span>' : p];
+      }));
+  }
+  /** one 1:2 plan ($100 risked for $200) at a small and a wide stop: the same trade, different costs */
+  function lcostSameTrade() {
+    var ch = lcostCh("EURUSD"), cPips = COSTS.perTrade(ch, "raw") / 0.0001;
+    var cols = [5, 20].map(function (st) { var lots = 100 / (st * 10), cost = lots * cPips * 10; return { st: st, lots: lots, cost: cost }; });
+    var m = function (v) { return (v < 0 ? "−$" : "+$") + Math.abs(v).toFixed(2); };
+    return ltable(["", cols[0].st + "-pip stop, " + 2 * cols[0].st + "-pip target", cols[1].st + "-pip stop, " + 2 * cols[1].st + "-pip target"], [
+      ["Size", (+cols[0].lots.toFixed(2)) + " lots", (+cols[1].lots.toFixed(2)) + " lot"],
+      ["Costs", "$" + cols[0].cost.toFixed(2), "$" + cols[1].cost.toFixed(2)],
+      ["A win", "$200 − $" + cols[0].cost.toFixed(2) + " = <b>" + m(200 - cols[0].cost) + "</b>", "$200 − $" + cols[1].cost.toFixed(2) + " = <b>" + m(200 - cols[1].cost) + "</b>"],
+      ["A loss", "−$100 − $" + cols[0].cost.toFixed(2) + " = <b>" + m(-100 - cols[0].cost) + "</b>", "−$100 − $" + cols[1].cost.toFixed(2) + " = <b>" + m(-100 - cols[1].cost) + "</b>"],
+      ["Costs in R", '<span class="dn">' + (cols[0].cost / 100).toFixed(2) + "R</span>", (cols[1].cost / 100).toFixed(2) + "R"]
+    ]);
+  }
   /** one market across the timeframes: the average bar in its own unit, and what the same costs are as R */
   var LCOST_TF = {};
   function lcostTF(sym) {
