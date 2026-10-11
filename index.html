@@ -672,7 +672,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.79.1", build: "2026-10-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.80.0", build: "2026-10-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -12712,7 +12712,7 @@ var PROG = (function () {
           "<b>What you actually paid</b>: the History tab has the commission and swap of each closed trade. Add them up for a month and compare them with your net result: many traders find the costs are bigger than their profit.",
           "<b>Raw or standard</b>: compare your broker's two account types in R for your own markets with the calculator in " + lgo("cminimum", "The smallest stop and the smallest target") + "."]) +
         lh("Costs in this app") +
-        lul(["<b>Desk</b>: the <b>Trading costs</b> card (below the account) sets the account: <b>Raw + commission</b> (the default), <b>Standard</b>, <b>My broker</b> (type your own spread and commission per market) or <b>Off</b>. The chart shows the Ask as a blue line.",
+        lul(["<b>Desk</b>: the <b>Trading costs</b> card (below the account) sets the account: <b>Raw + commission</b> (the default), <b>Standard</b>, your broker account (<b>FxPro</b>, from your own symbol information), <b>My broker</b> (type your own spread and commission per market) or <b>Off</b>. The chart shows the Ask as a blue line.",
           "Desk fills: buys fill at the Ask; sells, and the stop and target of a long, at the Bid; the stop and target of a short at the Ask. The commission is charged per lot when a position closes.",
           "The Desk <b>ticket</b> shows what the trade costs in money and in R, a win and a loss after costs, and the win rate it needs, with and without costs. It warns when the costs are over a tenth or a fifth of the risk.",
           "The Desk <b>results</b> are after costs, and show the costs paid and what the result would have been without them. The automatic backtest pays the costs too.",
@@ -13128,7 +13128,8 @@ var PROG = (function () {
       '<div class="lcgrid">' +
       '<div class="lcbox"><h5>What a trade costs</h5>' +
       '<label>Market<select class="btin" id="ccMk">' + COST_MK.slice(0, 8).map(function (m) { return '<option value="' + m[0] + '">' + m[1] + '</option>'; }).join("") + '</select></label>' +
-      '<label>Account<select class="btin" id="ccAcc"><option value="raw">Raw + commission</option><option value="std">Standard</option><option value="own">My broker (set on the Desk)</option></select></label>' +
+      '<label>Account<select class="btin" id="ccAcc">' + Object.keys(COST_PRE).filter(function (k) { return k !== "off"; }).map(function (k) {
+        return '<option value="' + k + '">' + COST_PRE[k].n + (k === "own" ? ' (set on the Desk)' : COST_PRE[k].broker ? ' (my account)' : '') + '</option>'; }).join("") + '</select></label>' +
       '<label><span id="ccStopL">Stop distance</span><input class="btin" id="ccStop" inputmode="decimal"></label>' +
       '<div class="hint" id="ccHint"></div>' +
       '<div class="lcout" id="ccOut"></div></div>' +
@@ -14431,6 +14432,19 @@ var PROG = (function () {
     std: { n: "Standard", d: "No commission: the broker's fee is a wider spread.",
       v: { XAUUSD: [0.3, 0], NQ: [1.8, 0], ES: [0.6, 0], GER40: [1.5, 0], EURUSD: [1.0, 0],
         USDJPY: [1.2, 0], CL: [0.04, 0], BTCUSD: [35, 0], GBPUSD: [1.3, 0], GBPJPY: [2.2, 0] } },
+    /* A real account, from its symbol information in cTrader. broker: true puts it
+       in the row of broker accounts; est names the figures that are not from the
+       broker's own screen yet ("spread", or "both"). Another broker (FTMO...) is
+       one more entry like this. */
+    fxpro: { n: "FxPro", broker: true, src: "FxPro cTrader, symbol information, 11 Oct 2026",
+      d: "Your FxPro cTrader account: commission $35 per million traded on FX and gold, none on indices and oil. The spreads marked as estimates still need to be checked in cTrader when the market is open.",
+      v: { EURUSD: [0.3, 7.84], USDJPY: [0.3, 7], XAUUSD: [0.15, 28], NQ: [1.5, 0], ES: [0.5, 0], GER40: [1.2, 0],
+        CL: [0.03, 0], BTCUSD: [25, 0], GBPUSD: [0.4, 9.31], GBPJPY: [0.9, 9.31] },
+      est: { EURUSD: "spread", USDJPY: "spread", XAUUSD: "spread", NQ: "spread", ES: "spread", GER40: "spread", BTCUSD: "both", GBPUSD: "both", GBPJPY: "both" },
+      notes: { XAUUSD: "The commission is $35 per million of the dollar value: 100 oz × about $4,000 = $400,000, so about $14 a side, $28 round trip. It moves with the gold price.",
+        EURUSD: "$35 per million: 1 lot (€100,000 ≈ $112,000) is about $3.92 a side, $7.84 round trip.",
+        USDJPY: "$35 per million: 1 lot ($100,000) is $3.50 a side, $7 round trip.",
+        CL: "Brent: no commission; the spread of about 0.03 was read off your screen." } },
     own: { n: "My broker", d: "Your own figures, typed in per market." },
     off: { n: "Off", d: "No costs at all: how the app traded before. Flattering." }
   };
@@ -14461,7 +14475,7 @@ var PROG = (function () {
     /** everything one round trip costs, as a price distance */
     function perTrade(ch, preset) { return spread(ch, preset) + commPx(ch, preset); }
     function seedOwn() {
-      var src = COST_PRE[st.preset === "std" ? "std" : "raw"].v;
+      var src = (COST_PRE[st.preset] && COST_PRE[st.preset].v ? COST_PRE[st.preset] : COST_PRE.raw).v;
       COST_MK.forEach(function (m) { if (!st.own[m[0]]) st.own[m[0]] = (st.preset === "own" ? COST_PRE.raw.v : src)[m[0]].slice(); });
     }
     return {
@@ -14477,6 +14491,8 @@ var PROG = (function () {
       /** the win rate a reward of rr R needs to break even, with costs of cR (in R) on every trade */
       be: function (rr, cR) { return rr > 0 ? (1 + (cR || 0)) / (1 + rr) : 1; },
       setPreset: function (p) { if (!COST_PRE[p]) return; if (p === "own") seedOwn(); st.preset = p; save(); },
+      /** which of this market's figures in a preset are still estimates: "", "spread" or "both" */
+      est: function (sym, preset) { var P = COST_PRE[preset || st.preset]; return (P && P.est && P.est[sym]) || ""; },
       setOwn: function (sym, i, v) {
         seedOwn();
         var cur = (st.own[sym] || get(sym)).slice();
@@ -16746,7 +16762,16 @@ var PROG = (function () {
       '<div class="btseg" style="margin-bottom:6px">' + ["raw", "std", "own", "off"].map(function (k) {
         return '<button class="' + (pre === k ? 'on' : '') + '" data-bt="cpre" data-v="' + k + '" title="' + esc(COST_PRE[k].d) + '">' + COST_PRE[k].n + '</button>';
       }).join('') + '</div>' +
+      '<div class="btkv" style="margin-bottom:6px;align-items:center"><span>Broker account</span><span class="btseg" style="flex:0 1 auto;margin:0">' +
+      Object.keys(COST_PRE).filter(function (k) { return COST_PRE[k].broker; }).map(function (k) {
+        return '<button style="padding:4px 12px" class="' + (pre === k ? 'on' : '') + '" data-bt="cpre" data-v="' + k + '" title="' + esc(COST_PRE[k].d) + '">' + COST_PRE[k].n + '</button>';
+      }).join('') + '</span></div>' +
       '<div class="hint" style="margin-bottom:6px">' + esc(COST_PRE[pre].d) + '</div>' +
+      (COST_PRE[pre].broker ? '<div class="hint" style="margin-bottom:6px">' +
+        (COSTS.est(sym) === "both" ? '<b style="color:var(--amber)">' + esc(COSTS.name(sym)) + ': not on your broker screens yet, both figures are estimates.</b> '
+          : COSTS.est(sym) === "spread" ? '<b style="color:var(--amber)">' + esc(COSTS.name(sym)) + ': the commission is your broker\'s; the spread is an estimate.</b> Check it in cTrader when the market is open and type it in below. '
+          : '<b style="color:var(--up)">' + esc(COSTS.name(sym)) + ': both figures are from your broker.</b> ') +
+        (COST_PRE[pre].notes && COST_PRE[pre].notes[sym] ? esc(COST_PRE[pre].notes[sym]) : '') + '</div>' : '') +
       (pre === "off" ? '' :
       '<div class="btgrid">' +
       '<div><label class="btlab">Spread (' + (fx ? 'pips' : 'price') + ')</label><input class="btin" id="btCSp" type="number" step="any" min="0" value="' + v[0] + '"></div>' +
