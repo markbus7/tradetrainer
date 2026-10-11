@@ -672,7 +672,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.77.5", build: "2026-10-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.78.0", build: "2026-10-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -6515,13 +6515,13 @@ var PROG = (function () {
 
   /* ---------------- preferences ---------------- */
   var PREF = (function () {
-    var KEY = "tt.prefs.v1", p = { autoRead: false, rate: 1, voice: "" };
+    var KEY = "tt.prefs.v1", p = { autoRead: false, rate: 1, voice: "", rec: true };
     try {
       var raw = localStorage.getItem(KEY);
-      if (raw) { var o = JSON.parse(raw) || {}; p.autoRead = !!o.autoRead; p.rate = +o.rate || 1; p.voice = typeof o.voice === "string" ? o.voice : ""; }
+      if (raw) { var o = JSON.parse(raw) || {}; p.autoRead = !!o.autoRead; p.rate = +o.rate || 1; p.voice = typeof o.voice === "string" ? o.voice : ""; p.rec = o.rec !== false; }
     } catch (e) { }
     p.save = function () {
-      try { localStorage.setItem(KEY, JSON.stringify({ autoRead: p.autoRead, rate: p.rate, voice: p.voice })); } catch (e) { }
+      try { localStorage.setItem(KEY, JSON.stringify({ autoRead: p.autoRead, rate: p.rate, voice: p.voice, rec: p.rec })); } catch (e) { }
     };
     return p;
   })();
@@ -6532,10 +6532,30 @@ var PROG = (function () {
      browsers silently cut off a single long one. */
   var Speech = (function () {
     var synth = window.speechSynthesis;
-    var supported = !!synth && typeof window.SpeechSynthesisUtterance === "function";
+    var synthOK = !!synth && typeof window.SpeechSynthesisUtterance === "function";
+    var audioOK = typeof window.Audio === "function";
+    var supported = synthOK || audioOK;
     var voice = null, cancelled = false;
+    /* Recorded narration. The lessons were recorded once with a natural neural
+       voice and ship with the app (audio/<key>.mp3), so they sound the same on
+       every device: the voices a browser offers are whatever the device has,
+       and an iPad hands web pages only its basic ones. The key is a hash of
+       the exact text; a text that was not recorded (a chapter read aloud, a
+       drill) is spoken by the device voice as before. */
+    var have = null, AUD = null, aTok = 0, haveN = 0;
+    function aKey(t) {
+      var h1 = 0x811c9dc5, h2 = 0x9e3779b9;
+      for (var i = 0; i < t.length; i++) { var c = t.charCodeAt(i); h1 ^= c; h1 = Math.imul(h1, 16777619); h2 = Math.imul(h2 ^ c, 2246822519); h2 ^= h2 >>> 13; }
+      var x = (h1 >>> 0).toString(16), y = (h2 >>> 0).toString(16);
+      return "00000000".slice(x.length) + x + "00000000".slice(y.length) + y;
+    }
+    try {
+      if (location.protocol !== "file:") fetch("audio/index.json").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+        if (j && j.k && j.k.length) { have = {}; j.k.forEach(function (k) { have[k] = 1; }); haveN = j.k.length; }
+      }).catch(function () { });
+    } catch (e) { }
     function pickVoice() {
-      if (!supported) return;
+      if (!synthOK) return;
       var vs = [];
       try { vs = synth.getVoices() || []; } catch (e) { return; }
       var en = vs.filter(usable);
@@ -6562,7 +6582,7 @@ var PROG = (function () {
     function ranked(list) { return list.slice().sort(function (a, z) { return score(z) - score(a); }); }
     /** every English voice this device has, the most natural first */
     function voices(all) {
-      if (!supported) return [];
+      if (!synthOK) return [];
       var vs = []; try { vs = synth.getVoices() || []; } catch (e) { }
       var seen = {};
       vs = vs.filter(function (v) { var k = vid(v) + "|" + v.name + "|" + v.lang; if (seen[k]) return false; seen[k] = 1; return true; });
@@ -6580,7 +6600,7 @@ var PROG = (function () {
       return v.name + (q && v.name.indexOf(q) < 0 ? " · " + q : "") + " · " + v.lang + (list.showId ? " · " + String(vid(v)).replace(/^com\.apple\.(eloquence|ttsbundle|voice)\./, "").slice(0, 40) : "");
     }
     function setVoice(id) { PREF.voice = id || ""; PREF.save(); pickVoice(); }
-    if (supported) {
+    if (synthOK) {
       pickVoice();
       try { synth.addEventListener("voiceschanged", pickVoice); } catch (e) { synth.onvoiceschanged = pickVoice; }
     }
@@ -6601,14 +6621,34 @@ var PROG = (function () {
       return out.filter(Boolean);
     }
     function stop() {
-      if (!supported) return;
+      aTok++;
+      if (AUD) { AUD.onended = AUD.onerror = null; try { AUD.pause(); } catch (e) { } }
+      if (!synthOK) return;
       cancelled = true;
       try { synth.cancel(); } catch (e) { }
     }
-    function speaking() { return supported && (synth.speaking || synth.pending); }
+    function speaking() { return !!((AUD && !AUD.paused && !AUD.ended) || (synthOK && (synth.speaking || synth.pending))); }
+    /** is there a recording of exactly this text? */
+    function recorded(text) { return !!(have && PREF.rec && have[aKey(strip(text))]); }
+    function playClip(text, done) {
+      /* one audio element, reused: once a tap has started it, the browser lets it play the next clip on its own */
+      if (!AUD) { AUD = new Audio(); AUD.preload = "auto"; }
+      var tok = ++aTok, fell = false;
+      function fallback() { if (fell || tok !== aTok) return; fell = true; AUD.onended = AUD.onerror = null; speakSynth(text, done); }
+      AUD.onended = function () { if (tok === aTok) { AUD.onended = AUD.onerror = null; if (done) done(); } };
+      AUD.onerror = fallback;
+      AUD.src = "audio/" + aKey(strip(text)) + ".mp3";
+      AUD.defaultPlaybackRate = PREF.rate; AUD.playbackRate = PREF.rate;
+      try { var p = AUD.play(); if (p && p.catch) p.catch(fallback); } catch (e) { fallback(); }
+    }
     function speak(text, done) {
       if (!supported) { if (done) done(); return false; }
       stop();
+      if (audioOK && recorded(text)) { playClip(text, done); return true; }
+      return speakSynth(text, done);
+    }
+    function speakSynth(text, done) {
+      if (!synthOK) { if (done) done(); return false; }
       cancelled = false;
       var parts = chunks(strip(text));
       if (!parts.length) { if (done) done(); return false; }
@@ -6626,18 +6666,24 @@ var PROG = (function () {
       next();
       return true;
     }
-    return { supported: supported, speak: speak, stop: stop, speaking: speaking, strip: strip,
+    return { supported: supported, speak: speak, stop: stop, speaking: speaking, strip: strip, recorded: recorded, aKey: aKey,
+      get hasRecordings() { return haveN > 0; }, get synthOK() { return synthOK; },
       voices: voices, total: total, setVoice: setVoice, vid: vid, label: label, get current() { return voice; } };
   })();
 
+  var VOICE_TEST = "This is how the lessons will sound. A buy stop one tick above the signal bar, and the protective stop below it.";
   /** the voice picker: every English voice on this device, with a test button */
   function voiceDialog(back, all) {
     var vs = Speech.voices(all), cur = Speech.current, best = Speech.voices()[0];
     vs.showId = !!all;
     var natural = Speech.voices().some(function (v) { return /natural|neural|premium|enhanced|google|siri/i.test(v.name + " " + Speech.vid(v)); });
     modal('<h2>Voice</h2>' +
-      '<p>The voice comes from your browser or your device, not from this app, so which voices exist depends on where you open it. ' +
-      'Pick one, press <b>Test</b>, and it is remembered.</p>' +
+      (Speech.hasRecordings ? '<p>The lessons are <b>recorded with a natural voice</b> that comes with the app, so they sound the same on every device.</p>' +
+        '<div class="prefrow"><label><input type="checkbox" id="voiceRec"' + (PREF.rec ? ' checked' : '') + '> Use the recorded voice in the lessons</label></div>' +
+        '<button class="btn" id="voiceTestRec" style="margin:4px 0 12px">&#128266; Test the lesson voice</button>' : '') +
+      '<p>' + (Speech.hasRecordings ? 'Everything that is not recorded (a chapter read aloud, the drills) and the lessons with the recorded voice off use the <b>voice of your device</b>.' :
+        'The voice comes from your browser or your device, not from this app, so which voices exist depends on where you open it.') +
+      ' Pick one, press <b>Test</b>, and it is remembered.</p>' +
       (vs.length ? '<div class="prefrow"><label for="voiceSel">Voice</label><select id="voiceSel" style="max-width:100%">' +
         '<option value="">Automatic (' + esc(best ? best.name : "none") + ')</option>' +
         vs.map(function (v) { return '<option value="' + esc(Speech.vid(v)) + '"' + (PREF.voice && Speech.current === v ? ' selected' : '') + '>' + esc(Speech.label(v, vs)) + '</option>'; }).join("") +
@@ -6646,7 +6692,7 @@ var PROG = (function () {
         '<label><input type="checkbox" id="voiceAll"' + (all ? ' checked' : '') + '> Show every voice, in every language</label></div>' +
         '<button class="btn" id="voiceTest" style="margin-top:8px">&#128266; Test</button> ' : '<p class="dn">This browser has no English voices installed.</p>') +
       '<div class="hint" style="margin-top:8px">Just downloaded a voice? Close this page completely (swipe it away in the app switcher), open it again, and look here. Some browsers only see new voices after a restart.</div>' +
-      (natural ? '' : '<div class="lwarn" style="margin-top:10px"><b>This browser only offers the basic voices.</b> On iPhone and iPad that can mean the browser does not pass on the Enhanced or Premium voices you downloaded: try <b>Safari</b>, the one browser Apple always gives them to. On other devices: The natural ones are free:<ul>' +
+      (natural || Speech.hasRecordings ? '' : '<div class="lwarn" style="margin-top:10px"><b>This browser only offers the basic voices.</b> On iPhone and iPad that can mean the browser does not pass on the Enhanced or Premium voices you downloaded: try <b>Safari</b>, the one browser Apple always gives them to. On other devices: The natural ones are free:<ul>' +
         '<li><b>Microsoft Edge</b> (Windows, Mac, Android): open this page in Edge. Its <i>Natural</i> voices (Aria, Jenny, Guy, Sonia) are built in and sound like a person.</li>' +
         '<li><b>Chrome</b>: it lists <i>Google</i> voices; they are better than the system ones.</li>' +
         '<li><b>iPhone / iPad</b>: Settings, Accessibility, Spoken Content, Voices, English: download a voice marked <i>Enhanced</i> or <i>Premium</i>.</li>' +
@@ -6655,11 +6701,13 @@ var PROG = (function () {
         'Then reopen this page and choose the new voice here.</div>') +
       '<div style="margin-top:12px"><button class="btn primary" id="voiceOk">Done</button></div>');
     var sel = $("voiceSel");
+    if ($("voiceRec")) $("voiceRec").onchange = function () { PREF.rec = this.checked; PREF.save(); Speech.stop(); };
+    if ($("voiceTestRec")) $("voiceTestRec").onclick = function () { var keep = PREF.rec; PREF.rec = true; Speech.speak(VOICE_TEST); PREF.rec = keep; };
     if ($("voiceAll")) $("voiceAll").onchange = function () { Speech.stop(); voiceDialog(back, this.checked); };
     if (sel) {
       sel.onchange = function () { Speech.setVoice(sel.value); };
       $("voiceTest").onclick = function () {
-        Speech.speak("This is how the lessons will sound. A buy stop one tick above the signal bar, and the protective stop below it.");
+        var keep = PREF.rec; PREF.rec = false; Speech.speak(VOICE_TEST); PREF.rec = keep;
       };
     }
     $("voiceOk").onclick = function () { Speech.stop(); closeModal(); if (back) back(); };
@@ -14078,7 +14126,7 @@ var PROG = (function () {
 
 
   window.TT = {
-    chD: chD, chP: chP, IND: IND, get COSTS() { return COSTS; }, mountCostCalc: mountCostCalc, lcostBars: lcostBars, CLR: CLR, DRAWSET: DRAWSET, MAGNET: MAGNET, FIBTPL: FIBTPL, DRAWTPL: DRAWTPL, startNode: startNode, nodeById: nodeById,
+    chD: chD, chP: chP, IND: IND, Speech: Speech, PREF: PREF, get COSTS() { return COSTS; }, mountCostCalc: mountCostCalc, lcostBars: lcostBars, CLR: CLR, DRAWSET: DRAWSET, MAGNET: MAGNET, FIBTPL: FIBTPL, DRAWTPL: DRAWTPL, startNode: startNode, nodeById: nodeById,
     PROG: PROG, Mkt: Mkt, setView: setView, APP: APP,
     chB: chB, get BT() { return BT; }, btNew: btNew, btStep: btStep, btOpen: btOpen, btClose: btClose,
     btFills: btFills, btSeries: btSeries, equity: equity, openPL: openPL,
