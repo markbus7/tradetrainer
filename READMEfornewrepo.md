@@ -10,6 +10,7 @@ Open `index.html` directly in a browser — no build step, no server required.
 - **Chart tools** — candles, volume, 20-bar EMA, pan/zoom/pinch, a measured-move projector (A → B → C), and a draggable long/short position tool with live reward-to-risk.
 - **Range geometry** — a trading range takes a realistic number of bars to traverse (~22–28 per swing), so ATR lands at a sensible fraction of the range height rather than a fifth of it. That is what makes a fade at the edge actually possible: before this, the signal bar alone was worth a fifth of the range and every fade entered mid-range for under 1R.
 - **Curriculum** — 11 tiers, 17 drill kinds: context naming, always-in direction, cycle phase, signal-bar quality, Brooks bar counting (High/Low 1–4), entry placement, stop placement, targets, measured moves, take-or-pass discipline, scalp-vs-swing, trade management, sizing and expectancy maths, full trade plans, and live execution against a fill simulator.
+- **Today** — the whole method as one daily trade plan: before the session, the three-question chart read, an entry menu with every entry (starter, next and advanced, advanced at half risk until twenty are logged), a size and cost check that marks each broker figure as from your screen or an estimate, and the review. Daily ticks reset each day.
 - **Progress** — a placement test sets your starting tier; progress, skill mastery, and a simulated trade log persist to `localStorage`.
 
 Everything runs client-side in a single HTML file.
