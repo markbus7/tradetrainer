@@ -371,6 +371,11 @@
   .lsheet{border:1px solid var(--line);border-radius:11px;padding:12px 14px 6px;margin:14px 0 18px;background:linear-gradient(180deg,#161a22,#12151c)}
   .lshead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;font-family:Archivo,sans-serif;font-size:15px;flex-wrap:wrap}
   .lsheet .ltw{background:transparent}
+  .lticks{display:flex;flex-direction:column;gap:6px;margin:8px 0 12px}
+  .ltick{display:flex;gap:9px;align-items:flex-start;font-size:14px;line-height:1.5;cursor:pointer}
+  .ltick input{margin-top:4px;accent-color:var(--amber);flex:none}
+  .ltgrp{border:1px solid var(--line);border-radius:10px;padding:10px 12px 4px;margin:10px 0 14px;background:var(--bg2)}
+  .ltgh{font-size:14px;line-height:1.45}
   .lgloss dt{font-family:Archivo,sans-serif;font-weight:700;font-size:14px;color:var(--paper);margin-top:12px}
   .lgloss dd{font-size:14px;line-height:1.6;color:#cfd4dd;margin:2px 0 0}
   /* still figures */
@@ -586,6 +591,7 @@
   <div class="clk" id="ttClock" title="Amsterdam time"></div>
   <nav>
     <button data-view="path" data-ico="▤" class="on">Path</button>
+    <button data-view="today" data-ico="☑">Today</button>
     <button data-view="learn" data-ico="✦">Learn</button>
     <button data-view="practice" data-ico="▶">Practice</button>
     <button data-view="desk" data-ico="▦">Desk</button>
@@ -672,7 +678,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.80.0", build: "2026-10-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.81.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -6888,6 +6894,8 @@ var PROG = (function () {
   $("modal").addEventListener("click", function (e) { if (e.target === $("modal")) closeModal(); });
 
   function setView(v) {
+    /* Today is the first Learn chapter, with its own button */
+    if (v === "today") { setView("learn"); paintLearn("today"); markToday(); return; }
     Speech.stop();
     (learnPlayers || []).forEach(function (p) { p.pause(); });
     ["path", "drill", "practice", "desk", "history", "stats", "learn"].forEach(function (k) { $("view-" + k).classList.toggle("on", k === v); });
@@ -6897,11 +6905,20 @@ var PROG = (function () {
     if (v === "path") paintPath();
     if (v === "stats") paintStats();
     if (v === "learn" && !learnPainted) paintLearn();
+    if (v === "learn") markToday();
     if (v === "history") paintHist();
     if (v === "practice") { if (!prac.ch) newPractice(); else setTimeout(function () { chP.render(); }, 30); }
     if (v === "drill") setTimeout(function () { chD.fit(); }, 30);
     if (v === "desk") { if (!BT.ch) btNew(); else setTimeout(function () { chB.render(); }, 30); }
     IND.sync();
+  }
+  /** the Today button lights up instead of Learn while the plan is open */
+  function markToday() {
+    var on = LSt.last === "today" && $("view-learn").classList.contains("on");
+    [].forEach.call(document.querySelectorAll("nav button[data-view]"), function (b) {
+      if (b.dataset.view === "today") b.classList.toggle("on", on);
+      if (b.dataset.view === "learn") b.classList.toggle("on", !on && $("view-learn").classList.contains("on"));
+    });
   }
   [].forEach.call(document.querySelectorAll("nav button[data-view]"), function (b) {
     b.addEventListener("click", function () { setView(b.dataset.view); });
@@ -8819,7 +8836,7 @@ var PROG = (function () {
      ===================================================================== */
   var LEARN_KEY = "tt_learn_v1";
   var LSt = (function () {
-    var d = { seen: {}, done: {}, last: null, calc: {}, quiz: {} };
+    var d = { seen: {}, done: {}, last: null, calc: {}, quiz: {}, ccalc: {}, tcalc: {}, ticks: {} };
     try {
       var v = JSON.parse(localStorage.getItem(LEARN_KEY) || "null");
       if (v && typeof v === "object") Object.keys(d).forEach(function (k) { if (v[k] != null) d[k] = v[k]; });
@@ -11376,6 +11393,130 @@ var PROG = (function () {
   };
 
   /* ================= PART 1: FOUNDATIONS ================= */
+  /* ================= TODAY: the whole method as one daily plan =================
+     One page to follow from the start of the session to the review. Five
+     blocks in the order you use them; every line links to the chapter that
+     explains it, so the other chapters are the reference behind this page.
+     Every entry is on it; the ones that need more reading are labelled. */
+  var TLVL = {
+    s: '<span class="pill ok" title="One of the starter setups">Starter</span>',
+    n: '<span class="pill" title="Add it after about fifty starter trades">Next</span>',
+    a: '<span class="pill am" title="Allowed, at half risk, until you have logged twenty of this entry">Advanced</span>'
+  };
+  /** a tick box for the daily checklist; ticks are kept for today only */
+  function ltick(k, html) { return '<label class="ltick"><input type="checkbox" data-tick="' + k + '"> <span>' + html + '</span></label>'; }
+  /** the entry menu: [entry, level, order and stop, reward needed, odds key, chapter, chapter title] */
+  var TENTRY = [
+    { g: "Always-in long or short, and the trend is strong (a spike, a tight channel, few pullbacks)", go: "With the trend only. Most bars are a reasonable entry here, as long as the stop is where the trend would be wrong.",
+      rows: [
+        ["The first pullback: H1 / L1", "a", "Stop order beyond the first small pause's signal bar; stop beyond the pullback", "1.5R", "spikeChannel", "spike", "Spike and channel"],
+        ["The close of a strong trend bar", "a", "At market on the close; the stop wide, beyond the spike or the last swing. Small size, from that stop", "1.5R", "", "late", "Late entries"],
+        ["The pullback in a tight channel", "a", "Stop order beyond the signal bar of any one- or two-bar pullback; stop beyond the pullback", "1.5R", "tightChannel", "tight", "Tight channel"],
+        ["The breakout and its first pullback", "a", "Stop order beyond the signal bar of the first pullback after the breakout; stop beyond the pullback", "1.5R", "successBo", "breakout", "Breakouts"]
+      ] },
+    { g: "Always-in long or short, a normal trend (clear pullbacks to the EMA)", go: "With the trend, at the end of each pullback.",
+      rows: [
+        ["The two-legged pullback: H2 / L2 at the EMA", "s", "Stop order one tick beyond the signal bar; stop beyond the signal bar or the pullback", "1.5R", "twoLegPullback", "count", "Pullbacks: H1, H2, L1, L2"],
+        ["The bottom of a broad channel (top, in a bear)", "a", "Stop order beyond a signal bar near the channel line; stop beyond the swing", "1R, to the prior high", "broadChannel", "broad", "Broad channel"],
+        ["A scalp against the trend", "a", "Only at a strong signal at a magnet; small target, at the EMA or the last swing", "1R", "", "counter", "Trading against the trend"]
+      ] },
+    { g: "Sideways: a trading range (a flat EMA, overlapping bars, a clear top and bottom)", go: "Only at the edges. The middle of a range is a wait, whatever the bar looks like.",
+      rows: [
+        ["A second entry at the edge", "s", "Stop order beyond the second signal bar in the top (sell) or bottom (buy) third; stop beyond the edge", "1R, the other side", "rangeLow", "range", "Trading ranges"],
+        ["A failed breakout back into the range", "s", "Stop order beyond the signal bar that comes back in; stop beyond the breakout's extreme", "1R, the other side", "failedBo", "fbo", "Failed breakouts"],
+        ["A limit order at the edge, scaling in", "a", "Limit at the edge, wide stop, the size split over two or three orders", "1R", "", "limits", "Limit orders, wide stops and scaling in"]
+      ] },
+    { g: "Turning: the trend line is broken and the extreme is being tested", go: "A reversal wins about four times in ten, so it needs twice the risk as a reward.",
+      rows: [
+        ["Major trend reversal", "n", "Stop order beyond the second-entry signal bar at the test; stop beyond the test's extreme", "2R", "mtr", "mtr", "Major trend reversal"],
+        ["Wedge (three pushes)", "a", "Stop order beyond the signal bar after the third push; stop beyond it", "2R", "wedgeBottom", "wedge", "Wedges"],
+        ["Final flag", "a", "Stop order beyond the signal bar where the breakout of the late flag fails; stop beyond the flag's extreme", "2R", "finalFlag", "flag", "Final flag"],
+        ["Climax", "a", "Only after the climax has paused and a second signal forms; stop beyond the climax", "2R", "climax", "climax", "Climaxes"]
+      ] },
+    { g: "Unclear: always-in is not clear, barbwire, the middle of a range, or news in the next few minutes", go: "Wait. This is not sitting out a trend: there is no edge here to trade.",
+      rows: [] }
+  ];
+  function ltodayMenu() {
+    var o = [];
+    TENTRY.forEach(function (G, gi) {
+      o.push('<div class="ltgrp"><div class="ltgh"><b>' + String.fromCharCode(65 + gi) + '.</b> ' + G.g + '</div><p class="mu" style="margin:4px 0 8px">' + G.go + '</p>');
+      if (G.rows.length) o.push(ltable(["Entry", "Order and stop", "Reward at least", "Wins"], G.rows.map(function (r) {
+        return [lgo(r[5], r[0]) + '<div style="margin-top:4px">' + TLVL[r[1]] + '</div>', r[2], r[3], r[4] ? lodds(r[4]) : "–"];
+      })));
+      o.push('</div>');
+    });
+    return o.join("");
+  }
+  /** the worked example: the same $50 at risk on EURUSD with a tight and a wide
+      stop, priced with the FxPro account's own figures */
+  function ltodayExample() {
+    var P = COST_PRE.fxpro, v = P.v.EURUSD, est = P.est.EURUSD || "", pip = 10;
+    var row = function (pips) {
+      var lots = Math.floor(50 / (pips * pip) * 100) / 100, comm = lots * v[1], sp = lots * v[0] * pip, c = comm + sp;
+      return ["<b>" + pips + " pips</b>", "$50 ÷ $" + (pips * pip) + " a lot = " + lots.toFixed(2) + " lots",
+        "$" + comm.toFixed(2) + " <span class=\"mu\">(" + (est === "both" ? "estimate" : "from your screen") + ")</span>",
+        "$" + sp.toFixed(2) + " <span class=\"mu\">(" + (est ? "estimate" : "from your screen") + ")</span>",
+        "<b>$" + c.toFixed(2) + " = " + (c / 50).toFixed(3) + "R</b>"];
+    };
+    return ltable(["Stop", "Size", "Commission", "Spread (" + v[0] + " pip)", "Costs"], [row(10), row(30)]);
+  }
+
+  lch({ id: "today", part: "Today", title: "Today's trade plan",
+    sub: "The whole method on one page, in the order you use it: before the session, on every bar, before the order, and after the session.",
+    body: function () {
+      return lp("Follow this page from the top every trading day. You don't need the other chapters to use it: each line links to the one that explains it, for when you want to know why.") +
+        lkey("<b>Every entry Brooks uses is on this page.</b> The ones marked " + TLVL.s + " are where everyone starts. " + TLVL.n + " comes after about fifty starter trades. " + TLVL.a +
+          " entries are allowed, but they need more reading of the chart, so they come with two rules: <b>half your normal risk</b> until you have logged twenty of that entry, and <b>tag every trade</b> with its entry, so your own results decide when it stops being advanced.") +
+
+        lh("1. Before the session") +
+        '<div class="lticks">' +
+        ltick("mk", "<b>One market</b>, in its busy hours (Amsterdam time): EURUSD 09:00–12:00, GER40 09:30–11:30 or US500 16:00–17:30. " + lgo("markets", "Your markets")) +
+        ltick("news", "<b>News times</b> for today written down. Flat a few minutes before and after each.") +
+        ltick("open", "<b>No trade in the first 15–30 minutes</b> after the open. " + lgo("open", "The open")) +
+        ltick("risk", "<b>Risk per trade</b>: 0.5% (1% at most); half of that on an advanced entry. " + lgo("sizing", "Position size")) +
+        ltick("stop", "<b>Daily stop</b>: done for the day after −2% or three losses.") +
+        ltick("night", "<b>Flat before the 23:00 rollover</b>, or check the swap first: holding a CFD overnight costs (or pays) swap every night, and one weekday counts triple for the weekend (on FX, usually Wednesday). " + lgo("ccomm", "Swap")) +
+        '</div>' +
+
+        lh("2. Read the chart, at the close of every bar") +
+        lp("Three questions, always in this order. The answers pick the row of the entry menu below.") +
+        lol(["<b>Always-in: long, short, or unclear?</b> If you had to be in now, which way? " + lgo("alwaysin", "Always-in"),
+          "<b>Trend or range?</b> Strong trend, normal trend, trading range, or turning. " + lgo("cycle", "The market cycle"),
+          "<b>Where are we?</b> At the EMA, in the top, middle or bottom third, near a prior high or low. " + lgo("where", "Where are we?")]) +
+        lp("Then say in one sentence what you are waiting for (\"a bull signal bar at the EMA after two legs down\"). If you can't, the answer is <b>wait</b>. " + lgo("routine", "The every-bar routine")) +
+
+        lh("3. The entry menu") +
+        lp("Find your row from the answers above. Every row is a reasonable entry in that market; the label only says how much reading it asks. The win rates are the ones this app teaches and tests with.") +
+        ltodayMenu() +
+        lh("Missed it? A late entry") +
+        lp("Not \"never chase\" and not \"get in anyhow\". " + TLVL.s + " The stop stays where the setup is wrong, so check from <i>your</i> price: is the reward to the target still at least 1.5× the risk to the same stop (2× for a reversal)? Yes: enter, smaller. No: a limit at your planned price, or the next pullback's signal bar, which is often the best late entry of all. Never late in a range or a reversal. " + lgo("late", "Late entries")) +
+        lh("Once you are in") +
+        lp("Hold. Get out only for a reason on the chart: the stop or target, a strong bar that breaks the structure, or a strong signal the other way. Half off only on a rejection at a magnet. " + lgo("manage", "Managing a trade") + ", " + lgo("early", "Getting out early")) +
+
+        lh("4. Size and cost check, before every order") +
+        lp("The stop comes from the chart. The size comes from the stop. <b>The wider the stop, the smaller the position</b>, because the same money at risk is spread over more pips. And since you pay spread and commission per lot, a smaller position pays less: a wide stop makes the costs a <i>smaller</i> share of the trade, not a bigger one.") +
+        lp("The same $50 at risk on EURUSD, with your FxPro figures:") +
+        ltodayExample() +
+        lp("Two things to notice. The lots are <b>rounded down</b> to 0.01, so the money at risk ends a little under $50: at 30 pips, 0.16 lots risks $48, not $50. And at 10 pips the costs eat about a tenth of every trade; at 30 pips about a thirtieth. What the wide stop costs you is not fees but distance: the target is also three times further away. " + lgo("cminimum", "The smallest stop and the smallest target")) +
+        lp("Fill in your trade below. It gives the size, the costs in money and in R, and says which figures come from your own broker screen and which are still estimates.") +
+        '<div class="lcalc" data-calc="today"></div>' +
+
+        lh("5. After the session") +
+        '<div class="lticks">' +
+        ltick("log", "<b>Three lines per trade</b>: the entry (its name from the menu), did I follow the plan (yes / which rule I broke), the result in R after costs.") +
+        ltick("hist", "Every trade looked at again in " + "<b>History</b>: was the read in step 2 right?") +
+        ltick("twenty", "<b>Every twenty trades</b>: the result per entry. An advanced entry with twenty trades and a positive total goes to full risk.") +
+        '</div>' +
+        '<p class="mu" style="font-size:12px">The ticks reset every day.</p>';
+    },
+    quiz: [
+      { q: "The market is in a strong bull spike. You missed the H1. Is buying the close of the next strong bull bar allowed?", o: ["Yes, as an advanced entry: wide stop beyond the spike, half risk", "No, only the H2 is allowed", "Yes, with a tight stop under that bar"], a: 0, why: "When always-in is clearly long, most bars are a reasonable buy. The stop goes where the trend is wrong, so it is wide, the size small, and the risk half while it is still advanced." },
+      { q: "Price is in the middle of a trading range and a big bull bar closes. Which row of the menu?", o: ["The strong trend row: buy the close", "Unclear: wait", "Range: buy the edge"], a: 1, why: "The middle of a range has no edge. Most bars in a trend are tradable; most bars in the middle of a range are not." },
+      { q: "You widen your stop from 10 to 30 pips with the same money at risk. What happens to the costs in R?", o: ["They go up", "They go down", "They stay the same"], a: 1, why: "A wider stop means fewer lots, and spread and commission are paid per lot, so the same costs are a smaller part of the risk." }
+    ],
+    practise: [{ label: "Desk with the Coach", go: "desk-coach" }, { label: "Path: the first three setups", go: "node", node: "t0a" }]
+  });
+
   lch({ id: "start", part: "Foundations", title: "Start here",
     sub: "How this tab works, and the one idea behind everything in it.",
     body: function () {
@@ -11386,6 +11527,7 @@ var PROG = (function () {
           "<b>Manage</b> — you are in a trade: hold, move the stop, or take half at a magnet that rejects price.",
           "<b>Exit</b> — the target or stop is hit, or the reason for the trade is gone."]) +
         lh("How to use this tab") +
+        lp("Just want the plan for the day? " + lgo("today", "Today's trade plan") + " has the whole method on one page, with every entry on it.") +
         lp("New to this? Read the next chapter first: " + lgo("starter", "What to start with") + ". It picks your first two setups and gives you the whole plan. Then the parts in order:") +
         lol(["<b>Reading the chart</b>: a bar, the EMA, the market cycle, always-in, and where we are.",
           "<b>The routine</b>: what to ask on every bar, and the decision tree to keep open while you practise.",
@@ -13180,6 +13322,80 @@ var PROG = (function () {
     $$("ccMk").onchange = function () { C.mk = $$("ccMk").value; load(); calc(); };
     $$("ccAcc").onchange = function () { C.acc = $$("ccAcc").value; calc(); };
   }
+  /** Today's size and cost check: the stop in pips or price, the risk in
+      percent (halved for an advanced entry), the lots rounded down to 0.01 as
+      cTrader does, and the costs of that size in money and in R. Each figure
+      says whether it is from the broker's own screen or still an estimate. */
+  function mountTodayCalc(el) {
+    var C = LSt.tcalc || (LSt.tcalc = {});
+    C.bal = C.bal || 10000; C.risk = C.risk || 0.5; C.mk = C.mk || "EURUSD"; C.stopU = C.stopU || {}; C.rr = C.rr || 1.5;
+    C.acc = C.acc && COST_PRE[C.acc] && C.acc !== "off" ? C.acc : (COST_PRE.fxpro ? "fxpro" : "raw"); C.adv = !!C.adv;
+    var unitOf = function (sym) { return COSTS.isFx(sym) ? COSTS.unit(sym) : 1; };
+    el.innerHTML =
+      '<div class="lcgrid">' +
+      '<div class="lcbox"><h5>Your trade</h5>' +
+      '<label>Account balance ($)<input class="btin" id="tcBal" inputmode="decimal"></label>' +
+      '<label>Risk per trade (%)<input class="btin" id="tcRisk" inputmode="decimal"></label>' +
+      '<label class="ltick"><input type="checkbox" id="tcAdv"> <span>Advanced entry: half risk</span></label>' +
+      '<label>Market<select class="btin" id="tcMk">' + COST_MK.map(function (m) { return '<option value="' + m[0] + '">' + m[1] + '</option>'; }).join("") + '</select></label>' +
+      '<label>Account<select class="btin" id="tcAcc">' + Object.keys(COST_PRE).filter(function (k) { return k !== "off"; }).map(function (k) {
+        return '<option value="' + k + '">' + COST_PRE[k].n + (k === "own" ? ' (set on the Desk)' : COST_PRE[k].broker ? ' (my account)' : '') + '</option>'; }).join("") + '</select></label>' +
+      '<label><span id="tcStopL">Stop distance</span><input class="btin" id="tcStop" inputmode="decimal"></label>' +
+      '<label>Target (in R)<input class="btin" id="tcRR" inputmode="decimal"></label>' +
+      '</div>' +
+      '<div class="lcbox"><h5>Size and costs</h5><div class="lcout" id="tcOut"></div></div>' +
+      '</div>';
+    var $$ = function (id) { return el.querySelector("#" + id); };
+    function num(id) { var v = parseFloat(String($$(id).value).replace(",", ".")); return isFinite(v) ? v : NaN; }
+    /* where a figure comes from: the broker's own screen, or an estimate */
+    function src(kind) {
+      var P = COST_PRE[C.acc];
+      if (!P || !P.broker) return C.acc === "own" ? "your own figure" : "typical, not your broker";
+      var e = COSTS.est(C.mk, C.acc);
+      return (e === "both" || (e === "spread" && kind === "sp")) ? '<span class="am">estimate</span>' : '<span class="up">from your screen</span>';
+    }
+    function load() {
+      var ch = lcostCh(C.mk), u = unitOf(C.mk);
+      $$("tcBal").value = C.bal; $$("tcRisk").value = C.risk; $$("tcAdv").checked = C.adv;
+      $$("tcMk").value = C.mk; $$("tcAcc").value = C.acc; $$("tcRR").value = C.rr;
+      $$("tcStopL").textContent = COSTS.isFx(C.mk) ? "Stop distance (pips)" : "Stop distance (in price, e.g. 3.00)";
+      $$("tcStop").value = C.stopU[C.mk] != null ? C.stopU[C.mk] : (+(lcostBars()[C.mk + "5m"] * 2 / u).toFixed(u === 1 ? ch.dec : 1)).toString();
+    }
+    function calc() {
+      var bal = num("tcBal"), risk = num("tcRisk"), stopU = num("tcStop"), rr = num("tcRR"), o = $$("tcOut");
+      if (isFinite(bal)) C.bal = bal; if (isFinite(risk)) C.risk = risk; if (isFinite(rr)) C.rr = rr;
+      C.adv = $$("tcAdv").checked;
+      if ($$("tcStop").value !== "") C.stopU[C.mk] = $$("tcStop").value;
+      var ch = lcostCh(C.mk), stop = stopU * unitOf(C.mk), perMove = lotUnits(ch) * qRate(ch);
+      if (!(bal > 0 && risk > 0 && stop > 0)) { o.innerHTML = '<span class="mu">Fill in the balance, the risk and the stop.</span>'; learnSave(); return; }
+      var useRisk = C.adv ? risk / 2 : risk, money = bal * useRisk / 100, perLot = stop * perMove,
+        lots = Math.floor(money / perLot * 100 + 1e-9) / 100, v = COSTS.get(C.mk, C.acc);
+      if (!(lots > 0)) {
+        o.innerHTML = '<div class="btkv"><span>Money at risk</span><b>$' + money.toFixed(2) + '</b></div>' +
+          '<div class="hint dn">Below 0.01 lots: this stop is too wide for this account and risk. Skip the trade, or find a setup whose stop is closer and still sits where the setup is wrong.</div>';
+        learnSave(); return;
+      }
+      var risked = lots * perLot, spM = lots * COSTS.spread(ch, C.acc) * perMove, cmM = lots * v[1], cM = spM + cmM, cR = cM / risked;
+      var html = '<div class="btkv"><span>Money at risk' + (C.adv ? ' (half: advanced)' : '') + '</span><b>$' + money.toFixed(2) + '</b></div>' +
+        '<div class="btkv"><span>1 lot at this stop risks</span><b>$' + perLot.toFixed(2) + '</b></div>' +
+        '<div class="btkv"><span>Position size (rounded down)</span><b class="am">' + lots.toFixed(2) + ' lots</b></div>' +
+        '<div class="btkv"><span>Actual risk at that size</span><b>$' + risked.toFixed(2) + ' (' + (risked / bal * 100).toFixed(2) + '%)</b></div>' +
+        '<div class="btkv"><span>Spread ' + v[0] + (COSTS.isFx(C.mk) ? ' pip' : '') + ' · ' + src("sp") + '</span><b>$' + spM.toFixed(2) + '</b></div>' +
+        '<div class="btkv"><span>Commission $' + v[1] + ' a lot · ' + src("cm") + '</span><b>$' + cmM.toFixed(2) + '</b></div>' +
+        '<div class="btkv"><span>Costs of this trade</span><b>$' + cM.toFixed(2) + ' = ' + lcostR(cR) + '</b></div>';
+      if (rr > 0) html += '<div class="btkv"><span>A win / a loss, after costs</span><b>+$' + (rr * risked - cM).toFixed(2) + ' / −$' + (risked + cM).toFixed(2) + '</b></div>' +
+        '<div class="btkv"><span>Break-even win rate</span><b>' + Math.round(COSTS.be(rr, cR) * 100) + '% (' + Math.round(COSTS.be(rr, 0) * 100) + '% without costs)</b></div>';
+      html += '<div class="hint' + (cR > 0.2 ? ' dn' : '') + '">' + (cR > 0.2 ? 'More than a fifth of the risk goes to costs: the stop is too small for this market.'
+        : cR > 0.1 ? 'Over a tenth of the risk goes to costs: only with a bigger target.' : 'The costs are a small part of the risk.') + '</div>';
+      o.innerHTML = html;
+      learnSave();
+    }
+    load(); calc();
+    ["tcBal", "tcRisk", "tcStop", "tcRR"].forEach(function (id) { $$(id).oninput = calc; });
+    $$("tcAdv").onchange = calc;
+    $$("tcMk").onchange = function () { C.mk = $$("tcMk").value; load(); calc(); };
+    $$("tcAcc").onchange = function () { C.acc = $$("tcAcc").value; calc(); };
+  }
   function mountCalc(el) {
     var C = LSt.calc || (LSt.calc = {});
     C.bal = C.bal || 10000; C.risk = C.risk || 1; C.mk = C.mk || "XAUUSD"; C.vals = C.vals || {}; C.stops = C.stops || {};
@@ -14012,6 +14228,7 @@ var PROG = (function () {
      sidebar shows. */
   (function () {
     var ORDER = [
+      ["Today", ["today"]],
       ["Getting started", ["start", "starter"]],
       ["Reading the chart", ["bars", "ema", "cycle", "alwaysin", "where", "lines"]],
       ["The routine", ["routine", "tree"]],
@@ -14086,6 +14303,7 @@ var PROG = (function () {
     body.innerHTML = out.join("");
     body.scrollTop = 0;
     wireLearn(cur);
+    markToday();
   }
   /** the page as sentences, for the read-aloud button: prose, list items and
       table rows in order, leaving out the lesson player, the tree and the
@@ -14161,9 +14379,16 @@ var PROG = (function () {
     [].forEach.call(root.querySelectorAll("[data-tree]"), function (el) { mountTree(el); });
     [].forEach.call(root.querySelectorAll("[data-now]"), function (el) { learnPlayers.push(mountNow(el)); });
     [].forEach.call(root.querySelectorAll("[data-equity]"), function (el) { mountEquity(el); });
-    [].forEach.call(root.querySelectorAll("[data-calc]"), function (el) { if (el.dataset.calc === "costs") mountCostCalc(el); else mountCalc(el); });
+    [].forEach.call(root.querySelectorAll("[data-calc]"), function (el) { if (el.dataset.calc === "costs") mountCostCalc(el); else if (el.dataset.calc === "today") mountTodayCalc(el); else mountCalc(el); });
     [].forEach.call(root.querySelectorAll("[data-board]"), function (el) {
       try { mountBoard(el); } catch (e) { el.innerHTML = '<div class="hint">The drawing board could not start (' + esc(e.message) + ').</div>'; }
+    });
+    /* today's ticks: kept for the day, cleared the next */
+    var day = new Date().toDateString();
+    if (!LSt.ticks || LSt.ticks.day !== day) LSt.ticks = { day: day, k: {} };
+    [].forEach.call(root.querySelectorAll("[data-tick]"), function (b) {
+      b.checked = !!LSt.ticks.k[b.dataset.tick];
+      b.onchange = function () { LSt.ticks.k[b.dataset.tick] = b.checked; learnSave(); };
     });
     [].forEach.call(root.querySelectorAll("[data-print]"), function (b) {
       b.onclick = function () { printSheet(b.dataset.print); };
