@@ -680,7 +680,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.84.1", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.84.2", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11605,7 +11605,8 @@ var PROG = (function () {
         ltodayMenu() +
         lh("Scaling in at a range, as it looks in practice") +
         lp(TLVL.a + " Brooks' way to trade a range: buy low, sell high, scalp, trade small and scale in. You don't wait for a signal bar; you buy with limit orders while price is still falling to the edge. That only works when the whole plan is made <b>before the first order</b>: every order, one wide stop for all of them, and a total risk equal to one normal trade. " + lgo("limits", "Limit orders, wide stops and scaling in") + " has the narrated lesson.") +
-        lkey("<b>Where the one stop goes.</b> Not near the entries: where the <i>idea</i> is wrong. The idea is \"this is still a range\", so the stop goes far enough beyond the edge that an ordinary poke through it, a failed breakout, does not reach it. The measure used here: <b>half the height of the range, beyond the edge</b>. A range 50 pips high: the stop is 25 pips below the range low for buys (25 above the range top for sells). In the picture the range is a little over 30 pips high, so the stop is about 16 pips below its low. In a trend, the one stop goes beyond the last higher low (lower high). Every entry uses that same stop, and it never moves once the first order is in.") +
+        lkey("<b>Where the one stop goes.</b> There is no price at which a range is proven over. Half the height of the range beyond the edge, the distance used in these pictures, is a <b>working distance</b>, not a level where the idea is wrong: it is far enough that most pokes through the edge don't reach it, and price can still turn back from there. A wider stop (the full height of the range beyond the edge) is hit less often, but every piece must be smaller. Pick one distance, size all the entries to it, and never move it.") +
+        lkey("<b>What really says the idea is wrong is the bars, not a price.</b> Two or more big trend bars closing beyond the edge, with follow-through and no tails, is a breakout that is working. Get out then, even if the stop is not hit yet. A single poke beyond the edge that closes back inside is a failed breakout: the idea still holds. So the stop is the limit on the damage; the bars are the exit signal. " + lgo("breakout", "Breakouts") + ", " + lgo("fbo", "Failed breakouts")) +
         lfigs([lfig("limitRange", "The plan", "<b>1. The plan, all at once.</b> Price reaches the bottom third. Two buy limits go in together, with one stop for both, half the height of the range below its low. The same size on both, and both together risk one normal trade."),
           lfig("limitRange", "Entry one", "<b>2. The first limit fills.</b> You bought while the market was still falling. That is normal for a limit order, and it is why the stop is wide and the piece is small."),
           lfig("limitRange", "Entry two", "<b>3. The second limit fills</b> at the range low. The plan is complete: the average price is better than entry one, the risk to the stop is what you planned. No more orders, and the stop stays."),
