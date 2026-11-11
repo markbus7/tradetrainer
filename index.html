@@ -680,7 +680,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.84.2", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.85.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11552,6 +11552,20 @@ var PROG = (function () {
     return ltable(["Stop", "Size", "Commission", "Spread (" + v[0] + " pip)", "Costs"], [row(10), row(30)]);
   }
 
+  /** the scale-in lesson's own plan, priced at each of the three exits */
+  function ltodayExits() {
+    var ex = LVID.limitRange.example(), P = lscale(ex), M = lplan(P), pip = 1e-4;
+    var top = M.lots * ((P.T - P.L1) + (P.T - P.L2)) / pip * 10, rTop = ((P.T - P.L1) + (P.T - P.L2)) / ((P.L1 - P.S) + (P.L2 - P.S));
+    var row = function (name, pips, usd, r, note) {
+      return ["<b>" + name + "</b>", pips.toFixed(1) + " pips from the average", lusd(usd) + " = " + r.toFixed(2) + "R", (1 / r).toFixed(1) + " wins", note];
+    };
+    return ltable(["Exit", "How far", "Result of the plan", "One full loss costs", "What it asks"], [
+      row("Back at entry one", (P.L1 - P.avg) / pip, M.atE1, P.rFirst, "Reached most often. A scalp: out as soon as it is safe"),
+      row("The middle of the range", (P.mid - P.avg) / pip, M.atMid, P.rMid, "The lesson's target. Range legs often stall here"),
+      row("The other side", (P.T - P.avg) / pip, top, rTop, "Reached least often: the leg has to cross the whole range")
+    ]);
+  }
+
   lch({ id: "today", part: "Today", title: "Today's trade plan",
     sub: "The whole method on one page, in the order you use it: before the session, on every bar, before the order, and after the session.",
     body: function () {
@@ -11613,6 +11627,27 @@ var PROG = (function () {
           lfig("limitRange", "Back to entry one", "<b>4. The scalp exit.</b> Price comes back to the first entry: breakeven on the first order, a profit on the second. Many scalpers take everything off here."),
           lfig("limitRange", "The middle", "<b>5. Or the plan's target:</b> the middle of the range, with both pieces in profit."),
           lfig("limitRangeFail", "Example", "<b>When the range breaks.</b> About one time in five the breakout is real. Both limits fill, price keeps going, and the stop takes the planned loss: one normal loss, because the total was fixed in advance. Never a third order, never a moved stop.")]) +
+        lh("After a stop-out: when can you scale in again?") +
+        lp("The scale-in was built on a <b>known edge</b>: a price where the market had turned before. After the stop is hit, price is beyond that edge and nothing says where a new limit or a new stop would go. So the question before any scale-in, the first one or the next one, is always the same: <b>am I at a level where price has clearly turned at least twice?</b> Your last result is not part of the question.") +
+        ltable(["What the chart shows after the stop-out", "Scale in again?", "What you can do"], [
+          ["Price is beyond the edge and still pushing; no turn yet", "<b class=\"dn\">No</b>", "Wait. No limits into a market that is moving against the idea"],
+          ["A signal bar closes back toward the range: the breakout is failing", "<b class=\"dn\">Not with limits</b>", "A <b>stop-order</b> entry beyond that signal bar: the " + lgo("fbo", "failed breakout") + ". The market has to turn first"],
+          ["Two or more big trend bars close beyond the edge, with follow-through", "<b class=\"dn\">No</b>", "The range is over. The read is a new trend: the " + lgo("breakout", "breakout pullback") + ", in the new direction"],
+          ["Price is back inside and the old edge turns it again", "<b class=\"up\">Yes</b>, at the edges", "The range still holds: the edges are known levels again"],
+          ["A new range has formed beyond the old one, with two clear turns at its new edges", "<b class=\"up\">Yes</b>, at the new edges", "A new plan from the new range: new entries, new stop, new size"]
+        ]) +
+        lfigs([lfig("fbo", "The orders", "<b>The breakout is failing: a stop entry, not a limit.</b> Price poked above the range and a bear bar closes back down. Sell stop below it, stop above the breakout's high. This is the trade you can take right after a stopped-out scale-in at the top."),
+          lfig("fbo", "Target", "<b>The edge held: limits are allowed again.</b> Price came all the way back to the other side. The range top has now turned price once more, so it is a known edge again."),
+          lfig("bo", "The breakout", "<b>The range is over: no fading.</b> Big bull bars close above the range with follow-through. Selling here, with limits or with stops, is trading against a new trend. The next trade is a buy on the first pullback."),
+          lfig("cycle", "Edges hold", "<b>A new range: new known edges.</b> After the trend the market goes sideways again. Once its top and its bottom have each turned price twice, they are edges you can plan a scale-in from.")]) +
+        lh("The target: the middle or the other side?") +
+        lp("Both are right, for different trades. It depends on how wide the stop is.") +
+        lul(["<b>A stop-order entry at the edge</b> (the two Starter range entries) has a close stop, beyond the signal bar or the edge. Its target is <b>the other side of the range</b>, and the middle is a magnet on the way. That is Brooks' buy low, sell high.",
+          "<b>A scale-in with limits</b> has a wide stop, so the same move pays much less in R. The lesson takes <b>the middle</b>, because range legs often stall there and the plan needs to win often."]) +
+        lp("The same scale-in plan from the pictures above, at each exit:") +
+        ltodayExits() +
+        lp("<b>How to read it:</b> the further target pays more, and is reached less often. Out at entry one, one stopped-out plan costs more than four winners, so nearly every plan has to work. At the other side, one loss costs less than one winner, but the market must cross the whole range without turning. How often each exit is reached on your market is not known in advance: that is one more thing your log has to show.") +
+        lkey("<b>A way to take both:</b> half off at the middle, the stop on the rest to your average entry, and the rest to just before the other side. The middle pays for the trade; the rest costs nothing more if it fails. Decide this before the first order, like everything else in the plan.") +
         lh("Missed it? A late entry") +
         lp("Not \"never chase\" and not \"get in anyhow\". " + TLVL.s + " The stop stays where the setup is wrong, so check from <i>your</i> price: is the reward to the target still at least 1.5× the risk to the same stop (2× for a reversal)? Yes: enter, smaller. No: a limit at your planned price, or the next pullback's signal bar, which is often the best late entry of all. Never late in a range or a reversal. " + lgo("late", "Late entries")) +
         lfigs([lfigx("late", "A one-bar pause", "<b>A late entry that works.</b> One small bar against a strong move, then a buy above it. The stop is still below the original signal bar, and the reward is still big enough."),
