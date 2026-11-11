@@ -380,7 +380,21 @@
   .lguide{border:1px solid var(--amber-dim);border-radius:12px;background:var(--bg2);padding:12px;margin:12px 0 20px}
   .lgh{font:600 15px Inter,sans-serif;color:#e6e8ec;margin:0 0 10px}
   .lgh span{display:inline-block;font:700 11px Archivo,sans-serif;color:#0b0e13;background:var(--amber);border-radius:5px;padding:2px 7px;margin-right:6px;vertical-align:1px}
-  .lgnow{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+  .lgnow{margin-bottom:8px}
+  .lgmy{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line);font-size:13px}
+  .lgmy summary{cursor:pointer;color:var(--muted)}
+  .lgmyf{margin:8px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .lgmyf input,.lgmyf select{background:var(--bg3);color:var(--paper);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px}
+  .lgmyr{display:flex;gap:10px;align-items:center;margin-top:4px}
+  .lgnews{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+  .lgnh{font-size:13.5px;font-weight:600;color:#e6e8ec;margin-bottom:6px}.lgnh .mu{font-weight:400;font-size:12px}
+  .lgnr{display:grid;grid-template-columns:48px 1fr auto;gap:8px;font-size:12.5px;padding:5px 0;border-top:1px solid var(--line);align-items:baseline}
+  .lgnr:first-of-type{border-top:0}
+  .lgnr>b{color:var(--paper)}.lgnr i{font-style:normal;color:var(--muted);font-size:11.5px;margin-left:4px}
+  .lgnr em{font-style:normal;color:#ffe2a8;text-align:right}.lgnr em b{color:#fff}
+  .lgnr.done{opacity:.5}.lgnr.done em{color:var(--muted)}.lgnr.now em{color:var(--dn)}
+  .lgnone{font-size:13px;color:#b9f0cf}.lgnsrc{font-size:12px;margin-top:8px}
+  @media(max-width:560px){.lgnr{grid-template-columns:48px 1fr}.lgnr em{grid-column:2;text-align:left}}
   .lgvhead{font-size:14px;line-height:1.45;padding:8px 10px;border-radius:8px;margin-bottom:10px;border:1px solid var(--line);background:var(--bg3)}
   .lgvhead.go{border-color:#2a5a3c;background:#11241a}
   .lnowr.lgvr{align-items:start;grid-template-columns:104px 66px 1fr}
@@ -698,7 +712,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.89.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.90.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11732,15 +11746,83 @@ var PROG = (function () {
     15.5: ["the US open", 30, 1, 0, 0], 16.5: ["the EIA oil report", 15, 1, 3, 0], 17.5: ["the European close", 15, 0, 0, 0],
     20: ["a FOMC decision", 15, 1, 0, 1], 22: ["the US close", 15, 1, 0, 0]
   };
+  /* This week's scheduled news. It is read in the browser from the public weekly
+     calendar feed of ForexFactory; when that fails, the user adds today's times by hand. */
+  var LNEWS_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
+  var LNEWS = { items: null, at: 0, err: "", busy: false, tried: 0, cbs: [] };   /* a failed read is tried again after five minutes */
+  function lnewsParse(j) {
+    if (!Array.isArray(j)) throw new Error("not a list");
+    var out = [];
+    j.forEach(function (x) {
+      var ms = x && Date.parse(x.date);
+      if (!ms || !x.title) return;
+      out.push({ t: ms, c: String(x.country || "").toUpperCase(), n: String(x.title).slice(0, 80), i: String(x.impact || "") });
+    });
+    if (!out.length) throw new Error("empty");
+    return out;
+  }
+  function lnewsLoad(done) {
+    var now = Date.now();
+    if (!LNEWS.items) {
+      try { var c = JSON.parse(localStorage.getItem("tt_news") || "null"); if (c && c.items && now - c.at < 6 * 864e5) { LNEWS.items = c.items; LNEWS.at = c.at; } } catch (e) { }
+    }
+    if (LNEWS.busy) { LNEWS.cbs.push(done); return; }
+    if ((LNEWS.items && now - LNEWS.at < 3 * 36e5) || now - LNEWS.tried < 5 * 6e4 || typeof fetch !== "function") { done(); return; }
+    LNEWS.busy = true; LNEWS.tried = now; LNEWS.cbs = [done];
+    fetch(LNEWS_URL, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("answer " + r.status); return r.json(); }).then(function (j) {
+      LNEWS.items = lnewsParse(j); LNEWS.at = Date.now(); LNEWS.err = "";
+      try { localStorage.setItem("tt_news", JSON.stringify({ at: LNEWS.at, items: LNEWS.items })); } catch (e) { }
+    }).catch(function (e) { LNEWS.err = String(e && e.message || e).slice(0, 60) || "failed"; }).then(function () { LNEWS.busy = false; LNEWS.cbs.splice(0).forEach(function (f) { f(); }); });
+  }
+  function lnewsDay(t) { return t.year + "-" + t.month + "-" + t.day; }
+  function lnewsMine(t) {
+    try { var m = JSON.parse(localStorage.getItem("tt_news_my") || "null"); return m && m.day === lnewsDay(t) ? m.list : []; } catch (e) { return []; }
+  }
+  function lnewsMineSave(t, list) { try { localStorage.setItem("tt_news_my", JSON.stringify({ day: lnewsDay(t), list: list })); } catch (e) { } }
+  /** which markets a release moves */
+  function lnewsHits(row, n) {
+    if (n.c === "ALL") return true;
+    if (/crude oil/i.test(n.n)) return row === "UKOIL";
+    if (n.c === "USD") return true;
+    if (n.c === "EUR") return row === "GER40" || row === "EURUSD";
+    if (n.c === "JPY") return row === "USDJPY";
+    return false;
+  }
+  /** today's high-impact releases for the user's markets: {known, list: [{H, c, n, mine}]} */
+  function lnewsToday(t) {
+    var list = [], known = false;
+    if (LNEWS.items) {
+      /* the feed only counts when it holds this week: something within three days of now */
+      var now = Date.now();
+      known = LNEWS.items.some(function (x) { return Math.abs(x.t - now) < 3.5 * 864e5; });
+      if (known) LNEWS.items.forEach(function (x) {
+        if (x.i !== "High" || !/^(USD|EUR|JPY)$/.test(x.c)) return;
+        var a = lNow(new Date(x.t));
+        if (a.day === t.day && a.month === t.month) list.push({ H: a.H, c: x.c, n: x.n });
+      });
+    }
+    lnewsMine(t).forEach(function (m) { list.push({ H: m.h, c: m.c, n: "added by you", mine: true }); });
+    list.sort(function (a, b) { return a.H - b.H; });
+    return { known: known, list: list };
+  }
+
   /** what the clock allows for one market: {k: go | wait | no, t: text} */
-  function lguideRow(r, t) {
+  function lguideRow(r, t, news) {
     var s = lStatus(r, t), sh = t.nyDiff - 6, wait = null, soon = null;
     var until = s.at != null && s.inMin <= 12 * 60 ? lhm(s.at) : "";
     if (s.lv === 0) return { k: "no", tag: "Closed", t: "Closed" + (s.at != null ? ". Opens " + (s.wd === t.wd ? "" : LDAYS[s.wd] + " ") + lhm(s.at) : "") };
+    var evs = [];
     (r[2].indexOf(14.5) < 0 ? r[2].concat([14.5]) : r[2]).forEach(function (h0) {
       var e = LG_EV[h0]; if (!e || (e[3] && e[3] !== t.wd) || t.wd > 5) return;
-      var h = h0 + (e[2] ? sh : 0), d = (t.H - h) * 60;
-      if (d >= -5 && d < e[1]) wait = { e: e, to: h + e[1] / 60 };
+      /* with the calendar loaded, the "if there is one today" guesses give way to the real releases */
+      if (e[4] && news.known) return;
+      evs.push({ h: h0 + (e[2] ? sh : 0), e: e });
+    });
+    news.list.forEach(function (n) { if (lnewsHits(r[0], n)) evs.push({ h: n.H, e: ["news at " + lhm(n.H) + " (" + (n.c === "ALL" ? "" : n.c + " ") + esc(n.n) + ")", 15, 0, 0, 0] }); });
+    evs.sort(function (a, b) { return a.h - b.h; });
+    evs.forEach(function (v) {
+      var e = v.e, h = v.h, d = (t.H - h) * 60;
+      if (d >= -5 && d < e[1]) { if (!wait || h + e[1] / 60 > wait.to) wait = { e: e, to: h + e[1] / 60 }; }
       else if (d < -5 && d >= -45 && !soon) soon = { e: e, h: h };
     });
     if (wait) return { k: "wait", tag: "Wait", t: "No new trade until <b>" + lhm(wait.to) + "</b>: " + wait.e[0] + (wait.e[4] ? ", if there is one today" : "") + ". The first bars are too wild to read." };
@@ -11750,7 +11832,8 @@ var PROG = (function () {
   }
   function lguideNow(t) {
     var weekend = t.wd === 6 || (t.wd === 7 && t.H < 23) || (t.wd === 5 && t.H >= 23), roll = !weekend && t.H >= 22.5 && t.H < 23.5;
-    var rows = LTL_ROWS.map(function (r) { var v = lguideRow(r, t); if (roll && v.k === "go") { v.k = "wait"; v.tag = "Wait"; } v.n = r[0]; return v; });
+    var news = lnewsToday(t);
+    var rows = LTL_ROWS.map(function (r) { var v = lguideRow(r, t, news); if (roll && v.k === "go") { v.k = "wait"; v.tag = "Wait"; } v.n = r[0]; return v; });
     var go = rows.filter(function (v) { return v.k === "go"; }).map(function (v) { return v.n; });
     var head = weekend ? "Weekend: nothing to trade. Use Practice or review your week."
       : roll ? "No new trades: the 23:00 rollover. Spreads widen, and a position held through it pays or receives swap."
@@ -11763,7 +11846,21 @@ var PROG = (function () {
         return '<div class="lnowr lgvr"><span>' + v.n + '</span><em class="lgv ' + v.k + '">' + v.tag + '</em><i>' + v.t + '</i></div>';
       }).join("") + '</div>' +
       (Math.abs(t.nyDiff - 6) > 0.01 ? '<div class="lwarn" style="margin:8px 0 0">This week New York is <b>' + t.nyDiff + ' hours</b> behind you instead of 6, so the US busy hours start <b>' + (t.nyDiff < 6 ? 'one hour earlier' : 'one hour later') + '</b> than shown.</div>' : '') +
-      '<div class="mu" style="font-size:12px;margin-top:8px">The hours are the usual busy hours of each market. The app does not know today\'s news calendar: check it yourself for the lines that say "if there is one today".</div>';
+      lguideNews(t, news);
+  }
+  function lguideNews(t, news) {
+    var o = ['<div class="lgnews"><div class="lgnh">News today for your markets <span class="mu">(high impact, USD, EUR and JPY)</span></div>'];
+    if (news.list.length) o.push(news.list.map(function (n) {
+      var d = (t.H - n.H) * 60, st = d >= 15 ? "done" : d >= -5 ? "now" : "soon";
+      var who = n.c === "ALL" || (n.c === "USD" && !/crude oil/i.test(n.n)) ? "all your markets" : LTL_ROWS.map(function (r) { return r[0]; }).filter(function (x) { return lnewsHits(x, n); }).join(", ");
+      return '<div class="lgnr ' + st + '"><b>' + lhm(n.H) + '</b><span>' + (n.c === "ALL" ? "" : n.c + " · ") + esc(n.n) + ' <i>' + who + '</i></span><em>' +
+        (st === "done" ? "over" : st === "now" ? "stay out until <b>" + lhm(n.H + 0.25) + "</b>" : "flat by <b>" + lhm(n.H - 5 / 60) + "</b>, trade again <b>" + lhm(n.H + 0.25) + "</b>") + '</em></div>';
+    }).join(""));
+    else if (news.known) o.push('<div class="lgnone">None today. Nothing scheduled stands in your way.</div>');
+    if (news.known) o.push('<div class="mu lgnsrc">From the ForexFactory weekly calendar, read ' + lhm(lNow(new Date(LNEWS.at)).H) + '. Times are Amsterdam time. Trade again means: 15 minutes after the release, if the bars have calmed down.</div>');
+    else o.push('<div class="lwarn" style="margin:8px 0 0">' + (LNEWS.busy ? "Loading this week's news calendar…" : "The news calendar could not be loaded" + (LNEWS.err ? " (" + esc(LNEWS.err) + ")" : "") + ". Until it is, look up today's high-impact releases yourself and add their times below; the lines that say \"if there is one today\" stay as a warning.") + '</div>');
+    o.push('</div>');
+    return o.join("");
   }
 
   /* the questions. An option is [label, what it looks like, next, picture, direction].
@@ -11774,7 +11871,28 @@ var PROG = (function () {
       ["A normal trend", "Clear swings one way, with pullbacks that reach the EMA.", "ndir"],
       ["A trading range", "A flat EMA, overlapping bars, a top and a bottom.", "redge"],
       ["A trend that is turning", "The trend line is broken and the old extreme is being tested.", "tdir"],
-      ["Unclear", "Barbwire, or you cannot say which of the others it is.", "w:unclear"]] },
+      ["Unclear", "Barbwire: overlapping bars with long tails and no direction.", "w:unclear"],
+      ["Not sure: help me decide", "Four checks on your chart that sort it into one of the others.", "help1"]] },
+    help1: { q: "Check 1. Look at the EMA across the last 20 bars.", o: [
+      ["It slopes up", "From the lower left to the upper right.", "help2", null, 1],
+      ["It slopes down", "From the upper left to the lower right.", "help2", null, -1],
+      ["It is flat, or it keeps changing direction", "", "help3"]] },
+    help2: { q: "Check 2. On which side of the EMA have the last 20 bars closed?", o: [
+      ["Almost all on the trend's side", "Above the EMA when it slopes up, below it when it slopes down.", "help4"],
+      ["On both sides: price keeps crossing the EMA", "", "help3"]] },
+    help3: { q: "Is there a top and a bottom where price has turned?", o: [
+      ["Yes: the bars overlap between a high area and a low area", "That is a trading range.", "redge"],
+      ["It just left a sideways area with one or two big bars", "That is a breakout, or a failed one.", "rplace"],
+      ["No: overlapping bars with long tails, no clear top or bottom", "", "w:unclear"]] },
+    help4: { q: "Check 3. Has anything strong happened against the trend?", o: [
+      ["No: the moves against it are small", "A few small bars, then the trend goes on.", "help5"],
+      ["Yes: a strong move broke the trend line and crossed the EMA, and price is now back near the old extreme", "That is a possible reversal.", "turn", null, "flip"],
+      ["Yes: a strong move broke the trend line, but price has not gone back to the old extreme", "", "w:nottested"],
+      ["Three pushes that get weaker, or very big bars far from the EMA", "A wedge or a climax: a possible reversal.", "turn", null, "flip"]] },
+    help5: { q: "Check 4. How deep are the pullbacks?", o: [
+      ["One to three bars; they do not reach the EMA", "That is a strong trend.", "strong"],
+      ["They reach the EMA, in clear swings", "That is a normal trend.", "normal"],
+      ["Deep: more than half of the last leg, wide swings", "That is a broad channel, a normal trend.", "normal"]] },
     sdir: { q: "Which way is the strong trend?", o: [
       ["Up", "You only buy.", "strong", null, 1], ["Down", "You only sell.", "strong", null, -1]] },
     strong: { q: "What has the trend just done?", o: [
@@ -11824,6 +11942,7 @@ var PROG = (function () {
     noedge: ["Wait: mark the edges first", "Without two turns on each side you do not know where the thirds are, so every entry and stop would be a guess. Mark the highs and lows where price turned, and wait until each side has turned price twice. Until then only a failed breakout or a breakout pullback is a trade.", ["range", "Filled"]],
     middle: ["Wait: the middle of a range is no trade", "In the middle the next move is a coin flip and the stop is far. A strong bar here means nothing. Put an alert at the top third and the bottom third and look again when price gets there.", ["where", "The place beats the bar"]],
     afterstop: ["No limit orders here for now", "After a stopped-out scale-in the edge is no longer known. Use only stop-order entries in this area (the second entry signal, or a failed breakout) until a level has turned price at least twice again. Then limits are allowed again."],
+    nottested: ["Still the old trend, only weaker", "A broken trend line alone is not a reversal. Most of the time the market goes sideways or the old trend resumes. No trade against the trend until price has gone back to test the old extreme and a second signal forms there. With the trend, only a two-legged pullback to the EMA. Look again after the next few bars."],
     noturn: ["Not a reversal yet", "Most reversal attempts fail and become a flag in the old trend. Without one of the four pictures, trade the old trend's next pullback or wait."]
   };
   /* each entry in words you can follow on the chart, written for a buy; a sell is mirrored word by word.
@@ -11857,12 +11976,30 @@ var PROG = (function () {
     return null;
   }
   var LGUIDE_PATH = [];   /* [{id, pick}], kept while the page is open */
+  var LGUIDE_PICS = false;
+  var LG_PIC = [["spike", "A High 1 buy"], ["every", "The orders"], ["range", "Filled"], ["mtr", "The orders"], ["nothing", "Barbwire"]];
   function mountGuide(el) {
     var figs = [], timer = null;
     var nowEl = document.createElement("div"), askEl = document.createElement("div");
     nowEl.className = "lgnow"; askEl.className = "lgask";
     el.innerHTML = '<div class="lgh"><span>1</span> Right now: what the clock allows</div>';
     el.appendChild(nowEl);
+    var myEl = document.createElement("details"); myEl.className = "lgmy"; el.appendChild(myEl);
+    var paintMy = function () {
+      var t = lNow(), list = lnewsMine(t), open = myEl.open;
+      myEl.innerHTML = '<summary>Add a news time yourself' + (list.length ? ' (' + list.length + ' added today)' : '') + '</summary>' +
+        '<div class="lgmyf"><input type="time" id="lgMyT" aria-label="Time of the release, Amsterdam time"> ' +
+        '<select id="lgMyC" aria-label="What it moves"><option value="USD">USD: all your markets</option><option value="EUR">EUR: EURUSD and GER40</option><option value="JPY">JPY: USDJPY</option></select> ' +
+        '<button class="btn sm" id="lgMyAdd">Add</button></div>' +
+        list.map(function (m, i) { return '<div class="lgmyr">' + lhm(m.h) + ' · ' + m.c + ' <button class="btn sm" data-myx="' + i + '">Remove</button></div>'; }).join("") +
+        '<div class="mu" style="font-size:12px;margin-top:6px">Amsterdam time. Kept for today only.</div>';
+      myEl.open = open;
+      $("lgMyAdd").onclick = function () {
+        var v = $("lgMyT").value.split(":"); if (v.length < 2) return;
+        list.push({ h: +v[0] + +v[1] / 60, c: $("lgMyC").value }); lnewsMineSave(t, list); paintMy(); paintNow();
+      };
+      [].forEach.call(myEl.querySelectorAll("[data-myx]"), function (b) { b.onclick = function () { list.splice(+b.dataset.myx, 1); lnewsMineSave(t, list); paintMy(); paintNow(); }; });
+    };
     var h2 = document.createElement("div"); h2.className = "lgh"; h2.innerHTML = '<span>2</span> What do you see? Press it, after every bar close';
     el.appendChild(h2); el.appendChild(askEl);
     var paintNow = function () { nowEl.innerHTML = lguideNow(lNow()); };
@@ -11871,7 +12008,7 @@ var PROG = (function () {
     }
     function where() {
       var cur = "start", dir = 0;
-      LGUIDE_PATH.forEach(function (s) { var o = LGT[s.id].o[s.pick]; if (o[4]) dir = o[4]; cur = o[2]; });
+      LGUIDE_PATH.forEach(function (s) { var o = LGT[s.id].o[s.pick]; if (o[4] === "flip") dir = -dir; else if (o[4]) dir = o[4]; cur = o[2]; });
       return { cur: cur, dir: dir };
     }
     function card(ch, dir) {
@@ -11901,11 +12038,12 @@ var PROG = (function () {
         return '<button class="ltcrumb" data-back="' + i + '" title="Go back to this question">' + esc(LGT[s.id].o[s.pick][0]) + '</button>';
       }).join('<span class="mu">›</span>') : '<span class="mu">Start here after every bar close.</span>') + '</div>');
       if (n) {
-        var pics = n.o.some(function (o) { return o[3]; });
+        var pics = W.cur === "start" && LGUIDE_PICS;
         out.push('<div class="ltq">' + n.q + '</div><div class="lta' + (pics ? ' ltopts' : ' lgopts') + '">' + n.o.map(function (o, i) {
           var b = '<button data-pick="' + i + '"><b>' + o[0] + '</b>' + (o[1] ? '<small>' + o[1] + '</small>' : '') + '</button>';
-          return pics ? '<div class="ltopt">' + (o[3] ? fig(o[3]) : '') + b + '</div>' : b;
+          return pics ? '<div class="ltopt">' + (LG_PIC[i] ? fig(LG_PIC[i]) : '<div class="ltnofig mu">no picture: the checks sort it out</div>') + b + '</div>' : b;
         }).join("") + '</div>');
+        if (W.cur === "start") out.push('<div class="ltbar"><button class="btn sm" data-a="pics">' + (pics ? "Hide the pictures" : "Show a picture of each") + '</button></div>');
       } else if (W.cur.charAt(0) === "e") {
         out.push(card(W.cur.slice(2), W.dir || 1));
       } else {
@@ -11926,6 +12064,7 @@ var PROG = (function () {
       });
       var bk = askEl.querySelector('[data-a="back"]'); if (bk) bk.onclick = function () { LGUIDE_PATH.pop(); render(); };
       var rs = askEl.querySelector('[data-a="reset"]'); if (rs) rs.onclick = function () { LGUIDE_PATH = []; render(); };
+      var pc = askEl.querySelector('[data-a="pics"]'); if (pc) pc.onclick = function () { LGUIDE_PICS = !LGUIDE_PICS; render(); };
       var gg = askEl.querySelector("[data-ggo]"); if (gg) gg.onclick = function () { paintLearn(gg.dataset.ggo); };
       var cb = askEl.querySelector('[data-a="calc"]'); if (cb) cb.onclick = function () {
         var c = document.querySelector('[data-calc="today"]'), a = $("tcAdv");
@@ -11933,8 +12072,9 @@ var PROG = (function () {
         if (c) c.scrollIntoView({ behavior: "smooth", block: "start" });
       };
     }
-    paintNow(); render();
-    timer = setInterval(paintNow, 30000);
+    paintNow(); paintMy(); render();
+    lnewsLoad(paintNow);
+    timer = setInterval(function () { lnewsLoad(paintNow); }, 30000);
     return { pause: function () { }, dispose: function () { clearInterval(timer); figs.forEach(function (f) { f.dispose(); }); figs = []; } };
   }
 
