@@ -11801,7 +11801,7 @@ var PROG = (function () {
       var now = Date.now();
       known = LNEWS.items.some(function (x) { return Math.abs(x.t - now) < 3.5 * 864e5; });
       if (known) LNEWS.items.forEach(function (x) {
-        if (x.i !== "High" || !/^(USD|EUR|JPY)$/.test(x.c)) return;
+        if (x.i !== "High" || !/^(USD|EUR|JPY|ALL)$/.test(x.c)) return;
         var a = lNow(new Date(x.t));
         if (a.day === t.day && a.month === t.month) list.push({ H: a.H, c: x.c, n: x.n });
       });
