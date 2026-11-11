@@ -680,7 +680,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.85.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.86.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11046,6 +11046,91 @@ var PROG = (function () {
     }
   };
 
+  /* ---------- the wide scale-in: Brooks' version ----------
+     The same range fade with the stop a measured move (the range's height)
+     beyond the edge, and the second entry halfway there: at half the range's
+     height beyond the edge, which is where the tighter plan above has its
+     stop. Both branches are decided before the first order: only entry one
+     fills, the target is the middle; both fill, out at entry one's price. */
+  function lwide(ex) {
+    var g = ex.gt, B = ex.bars, t = Math.pow(10, -ex.dec), T = g.rangeTop, j = -1, i, q;
+    var prior = function (k) { var p = Infinity; for (q = Math.max(0, k - 100); q < k - 3; q++) p = Math.min(p, B[q].l); return p; };
+    for (i = g.sigIdx - 30; i < g.sigIdx && j < 0; i++) {
+      var pl = prior(i), th = pl + (T - pl) / 3;
+      if (i > 0 && B[i].c < th && B[i].c < B[i].o && B[i - 1].c >= th && B[i].l > pl) j = i;
+    }
+    if (j < 0) return null;
+    var PL = prior(j), H = T - PL, mid = (T + PL) / 2, L1 = B[j].l - t, L2 = PL - H / 2, S = PL - H;
+    var f1 = -1, f2 = -1, st = -1, e1 = -1, hm = -1;
+    for (i = j + 1; i < B.length; i++) {
+      if (f1 < 0) { if (B[i].l <= L1) f1 = i; else if (i - j > 5) break; else continue; }
+      if (B[i].l <= S) { st = i; break; }
+      if (f2 < 0 && B[i].l <= L2) f2 = i;
+      if (f2 < 0 && i > f1 && B[i].h >= mid) { hm = i; break; }      /* entry one only: out at the middle */
+      if (f2 >= 0 && i > f2 && B[i].h >= L1) { e1 = i; break; }       /* both filled: out at entry one */
+    }
+    var pip = 1e-4, d1 = (L1 - S) / pip, d2 = (L2 - S) / pip, lots = Math.floor(100 / ((d1 + d2) * 10) * 100) / 100;
+    return { j: j, T: T, PL: PL, H: H, mid: mid, L1: L1, L2: L2, S: S, f1: f1, f2: f2, st: st, e1: e1, hm: hm, avg: (L1 + L2) / 2,
+      lots: lots, d1: d1, d2: d2, tot: lots * (d1 + d2) * 10, one: lots * d1 * 10,
+      atMid1: lots * (mid - L1) / pip * 10, atE1: lots * (L1 - L2) / pip * 10 };
+  }
+  function lwideLines(ex, P, lx) {
+    var fp = lfp(ex), a = P.j - 60;
+    return [N.hl(P.T, a, "range top", COL.txt, true, lx), N.hl(P.mid, a, "middle", COL.up, true, lx), N.hl(P.PL, a, "range low", COL.blue, true, lx),
+      N.hl(P.L1, P.j, "buy limit 1 " + fp(P.L1), COL.blue, false, P.j + 2),
+      N.hl(P.L2, a, "buy limit 2 " + fp(P.L2) + ": half the range below the low", COL.blue, true, lx),
+      N.hl(P.S, a, "one stop " + fp(P.S) + ": the range's height below the low", COL.dn, true, lx)];
+  }
+  function lwideLesson(seed, title, room) {
+    return {
+      title: title, ex: true,
+      example: seed ? function () { return lessonChart("rangeLow", seed, "EURUSD", "5m"); } : LVID.limitRange.example,
+      extraPrices: function (ex) { var P = lwide(ex); return [P.S - P.H * (room || 0.12), P.T]; }
+    };
+  }
+  LVID.wideA = lwideLesson(0, "The wide scale-in: only entry one fills", 1.05);
+  LVID.wideA.check = function (ex) { var P = lwide(ex); return !!P && P.f1 > 0 && P.hm > P.f1 && P.f2 < 0 && P.st < 0 && P.atMid1 > 0; };
+  LVID.wideA.scenes = function (ex) {
+    var P = lwide(ex), fp = lfp(ex), lx = P.j - 48, lot = P.lots.toFixed(2);
+    return [
+      { title: "The wide plan", vis: P.j, view: [P.j - 50, P.j + 26], add: lwideLines(ex, P, lx).concat([N.bar(P.j, "", COL.dn), N.card([
+          ["THE WIDE PLAN · all of it before the first order", COL.amber],
+          ["Account 10,000 · 1% = $100 for the whole plan", COL.paper],
+          ["Buy limit 1  " + fp(P.L1) + "  " + lot + " lot  " + lusd(P.one) + " to the stop", COL.blue],
+          ["Buy limit 2  " + fp(P.L2) + "  " + lot + " lot  " + lusd(P.tot - P.one) + " to the stop", COL.blue],
+          ["One stop  " + fp(P.S) + "  both together: " + lusd(P.tot), COL.dn],
+          ["Only 1 fills: out at the middle · both fill: out at limit 1's price", COL.up]
+        ], { i: P.j - 49, p: P.S - P.H * 0.08 })]),
+        say: "The wide plan on the same range. The first limit goes in the bottom third, as before. The stop is the full height of the range below its low: a measured move. The second limit is halfway there, at half the range's height below the low. That is the price where the tighter plan had its stop. Because the stop is so far away, every piece is small. And both endings are decided now: if only the first limit fills, the target is the middle. If both fill, you get out at the first limit's price." },
+      { title: "Only entry one fills", vis: P.hm, clear: true,
+        add: lwideLines(ex, P, lx).concat([N.pt(P.f1, P.L1, "1 filled", COL.blue, false, "right"), N.pt(P.hm, P.mid, "out", COL.up, true, "left"), N.note("Limit 2 never filled. Out at the middle: +" + lusd(P.atMid1) + ", " + (P.atMid1 / P.tot).toFixed(2) + "R", 0, COL.up)]),
+        say: "The first limit fills, the market dips to the range low and turns. The second limit is never reached. That is the first ending: you are in with one small piece, and you take it off at the middle of the range. A small win, because the piece is small." }
+    ];
+  };
+  LVID.wideB = lwideLesson(3074, "The wide scale-in: both fill, out at entry one");
+  LVID.wideB.check = function (ex) { var P = lwide(ex); return !!P && P.f1 > 0 && P.f2 > P.f1 && P.e1 > P.f2 && P.st < 0 && P.hm < 0 && Math.abs(P.L2 - (P.PL - P.H / 2)) < 1e-9; };
+  LVID.wideB.scenes = function (ex) {
+    var P = lwide(ex), lx = P.j - 48, lot = P.lots.toFixed(2);
+    return [
+      { title: "Through the low", vis: P.f2, view: [P.j - 50, Math.min(ex.bars.length - 1, P.e1 + 8)],
+        add: lwideLines(ex, P, lx).concat([N.pt(P.f1, P.L1, "1 filled", COL.blue, false, "right"), N.pt(P.f2, P.L2, "2 filled", COL.blue, false, "right"), N.note("Limit 2 fills where the tighter plan is stopped out", 0, COL.blue)]),
+        say: "A different day. The first limit fills, and this time the market goes straight through the range low, half the range's height below it. The tighter plan has its stop exactly here and takes its full loss. The wide plan buys its second piece here instead. You now hold two pieces, the average is well below the first entry, and the stop is still half a range away. Nothing is added and nothing is moved." },
+      { title: "Out at entry one", vis: P.e1, clear: true,
+        add: lwideLines(ex, P, lx).concat([N.pt(P.f1, P.L1, "1", COL.blue, false, "right"), N.pt(P.f2, P.L2, "2", COL.blue, false, "right"),
+          N.pt(P.e1, P.L1, "out", COL.up, true, "left"), N.note("Out at limit 1's price: +" + lusd(P.atE1) + ", " + (P.atE1 / P.tot).toFixed(2) + "R", 0, COL.up)]),
+        say: "The breakout below the range fails and the market comes back to the first entry. That is the second ending, and you take it: breakeven on the first piece, a profit on the second. You do not wait for the middle now. Price went this far against the plan, so the edge was weaker than it looked, and the first safe exit is the right one." }
+    ];
+  };
+  LVID.wideC = lwideLesson(756, "The wide scale-in: the range breaks");
+  LVID.wideC.check = function (ex) { var P = lwide(ex); return !!P && P.f1 > 0 && P.f2 > P.f1 && P.st > P.f2 && P.e1 < 0 && P.hm < 0; };
+  LVID.wideC.scenes = function (ex) {
+    var P = lwide(ex), lx = P.j - 48, v = Math.min(ex.bars.length - 1, P.st + 5);
+    return [{ title: "Example", vis: v, view: [P.j - 50, v],
+      add: lwideLines(ex, P, lx).concat([N.bar(P.j, "", COL.dn), N.pt(P.f1, P.L1, "1", COL.blue, false, "right"), N.pt(P.f2, P.L2, "2", COL.blue, false, "right"),
+        N.pt(P.st, P.S, "stopped", COL.dn, false, "right"), N.note("Both filled, the stop is hit: −" + lusd(P.tot).replace("−", "") + ", the planned loss", 0, COL.dn)]),
+      say: "And the day it fails. Both limits fill, the market never comes back to the first entry, and it falls a full range below the low. The stop takes the planned loss, one normal loss, because the total was fixed before the first order." }];
+  };
+
   /** A strong trend: buy the pullback itself with a limit one tick below the low
       of its first bear bar; stop below the last higher low. */
   function ltrendLim(ex) {
@@ -11566,6 +11651,33 @@ var PROG = (function () {
     ]);
   }
 
+  /** the tight and the wide scale-in on one made-up range, 40 pips high, $50 at
+      risk on EURUSD, priced with the FxPro figures: [entry 1, entry 2, stop] in
+      pips from the range low */
+  function ltodayWideCmp() {
+    var V = COST_PRE.fxpro.v.EURUSD, H = 40, mid = H / 2;
+    var mk = function (e1, e2, st) {
+      var d = (e1 - st) + (e2 - st), lots = Math.floor(50 / (d * 10) * 100) / 100, m = function (pips) { return lots * pips * 10; };
+      return { lots: lots, loss: m(d), cost: 2 * lots * (V[0] * 10 + V[1]), atE1: m(e1 - e2), mid2: m((mid - e1) + (mid - e2)), top2: m((H - e1) + (H - e2)),
+        mid1: m(mid - e1), top1: m(H - e1) };
+    };
+    var A = mk(10, 0, -20), B = mk(10, -20, -40), usd = function (x) { return "$" + x.toFixed(0); },
+      r = function (x, P) { return "+" + usd(x) + " (" + (x / P.loss).toFixed(2) + "R)"; };
+    return ltable(["", "The tighter plan", "The wide plan"], [
+      ["<b>Entry 1</b>", "Bottom third, 10 pips above the low", "Bottom third, 10 pips above the low"],
+      ["<b>Entry 2</b>", "At the range low", "Half the range's height below the low: 20 pips"],
+      ["<b>One stop</b>", "Half the range's height below the low: 20 pips", "The range's height below the low: 40 pips"],
+      ["<b>Size per entry</b>", A.lots.toFixed(2) + " lots", B.lots.toFixed(2) + " lots"],
+      ["<b>Both stopped</b>", "−" + usd(A.loss), "−" + usd(B.loss)],
+      ["<b>Costs, both filled</b>", "$" + A.cost.toFixed(2), "$" + B.cost.toFixed(2)],
+      ["<b>Both filled, out at entry 1</b>", r(A.atE1, A), r(B.atE1, B)],
+      ["<b>Both filled, out at the middle</b>", r(A.mid2, A), r(B.mid2, B)],
+      ["<b>Only entry 1, out at the middle</b>", r(A.mid1, A), r(B.mid1, B)],
+      ["<b>Price turns at the low</b>", "Both filled: in profit quickly", "Only entry 1: a smaller win"],
+      ["<b>Price pokes 25 pips below the low and comes back</b>", "<span class=\"dn\">Stopped out: −" + usd(A.loss) + "</span>", "<span class=\"up\">Both filled, out at entry 1: +" + usd(B.atE1) + "</span>"]
+    ]) + '<p class="mu" style="font-size:12px">A range 40 pips high, $50 at risk. Costs: the commission is from your screen, the spread of ' + V[0] + ' pip is ' + (COST_PRE.fxpro.est.EURUSD ? 'an estimate' : 'from your screen') + '.</p>';
+  }
+
   lch({ id: "today", part: "Today", title: "Today's trade plan",
     sub: "The whole method on one page, in the order you use it: before the session, on every bar, before the order, and after the session.",
     body: function () {
@@ -11627,6 +11739,27 @@ var PROG = (function () {
           lfig("limitRange", "Back to entry one", "<b>4. The scalp exit.</b> Price comes back to the first entry: breakeven on the first order, a profit on the second. Many scalpers take everything off here."),
           lfig("limitRange", "The middle", "<b>5. Or the plan's target:</b> the middle of the range, with both pieces in profit."),
           lfig("limitRangeFail", "Example", "<b>When the range breaks.</b> About one time in five the breakout is real. Both limits fill, price keeps going, and the stop takes the planned loss: one normal loss, because the total was fixed in advance. Never a third order, never a moved stop.")]) +
+        lh("The wide plan: Brooks' version") +
+        lp(TLVL.a + " The pictures above use a stop half a range beyond the edge. Brooks more often describes a wider one: the stop a <b>measured move</b> away, a second entry on the way there, and getting out at <b>breakeven on the first entry with a profit on the second</b>. Same idea, more room, smaller pieces.") +
+        ltable(["", "The wide plan, for buys at the bottom (mirror it for sells at the top)"], [
+          ["<b>Entry 1</b>", "A buy limit in the bottom third of the range"],
+          ["<b>One stop</b>", "The full height of the range below the range low (a measured move)"],
+          ["<b>Entry 2</b>", "A buy limit at half the range's height below the low: halfway to the stop, and a level where breakouts often stall"],
+          ["<b>Size</b>", "The same on both; both together risk one normal trade (half of that while this entry is still advanced for you)"],
+          ["<b>Only entry 1 fills</b>", "Out at the middle of the range"],
+          ["<b>Both fill</b>", "Out of everything at entry 1's price: breakeven on the first, a profit on the second"],
+          ["<b>Out early</b>", "Two or more big trend bars closing beyond the edge with follow-through: the range is over, get out before the stop"],
+          ["<b>Never</b>", "A third entry, a moved stop, or a new scale-in right after a stop-out"]
+        ]) +
+        lfigs([lfig("wideA", "The wide plan", "<b>1. The plan, before the first order.</b> Limit 1 in the bottom third, limit 2 half a range below the low, one stop a full range below the low. The box shows the size and the risk of each piece."),
+          lfig("wideA", "Only entry one fills", "<b>2. First ending: only entry 1 fills.</b> Price dips to the low and turns; limit 2 is never reached. Out at the middle. A small win, because the piece is small."),
+          lfig("wideB", "Through the low", "<b>3. Another day: price goes through the low.</b> Limit 2 fills half a range below the low. This is exactly where the tighter plan has its stop and takes its full loss."),
+          lfig("wideB", "Out at entry one", "<b>4. Second ending: both filled, out at entry 1's price.</b> The breakout fails and price comes back. Breakeven on the first piece, a profit on the second. You don't wait for the middle now."),
+          lfig("wideC", "Example", "<b>5. When it fails.</b> Both fill and price falls a full range below the low. The stop takes the one planned loss.")]) +
+        lh("The tighter plan or the wide plan?") +
+        ltodayWideCmp() +
+        lp("<b>How to read it:</b> with the same first entry it is a straight trade-off. The wide stop makes every piece smaller, so ordinary wins are smaller. In return the wide plan survives the deep poke through the edge that stops the tighter plan out, and even makes a little on it. The wide plan is better on a market that often pokes far through a range edge and comes back; the tighter plan is better on a market with clean edges. Neither is better on paper.") +
+        lwarn("<b>The catch in both:</b> a win is small and a loss is the full plan. Out at entry 1, the wide plan wins about 0.4R and loses 1R, so after costs price has to come back about <b>three times out of four</b> just to break even. Brooks says ranges give those odds. Whether your ranges do is not known in advance: pick one plan, keep it unchanged for twenty trades, and let your log decide.") +
         lh("After a stop-out: when can you scale in again?") +
         lp("The scale-in was built on a <b>known edge</b>: a price where the market had turned before. After the stop is hit, price is beyond that edge and nothing says where a new limit or a new stop would go. So the question before any scale-in, the first one or the next one, is always the same: <b>am I at a level where price has clearly turned at least twice?</b> Your last result is not part of the question.") +
         ltable(["What the chart shows after the stop-out", "Scale in again?", "What you can do"], [
