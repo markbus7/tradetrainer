@@ -403,6 +403,16 @@
   .lta button small{display:block;font-size:12px;color:var(--muted);margin-top:2px;font-weight:400}
   .lta.lgopts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:8px}
   .lgcard>b{margin-top:8px}
+  .lgsize{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:flex-end;margin:8px 0 2px;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--bg2)}
+  .lgsize label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--muted)}
+  .lgsize input,.lgsize select{width:118px;background:var(--bg3);color:var(--paper);border:1px solid var(--line);border-radius:7px;padding:7px 8px;font-size:14px}
+  .lgsout{flex:1 1 100%;font-size:14px;line-height:1.5}
+  .lglog1{align-items:center}.lglog1 .btn:first-child{border-color:#2a5a3c}
+  .lgh3{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .lglr{display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;align-items:center;font-size:13px;padding:6px 0;border-top:1px solid var(--line)}
+  .lglr i{font-style:normal;color:var(--muted);font-size:11.5px}.lglb{display:flex;gap:5px;flex-wrap:wrap}
+  .ltfull{margin:6px 0 18px;border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--bg2)}
+  .ltfull>summary{cursor:pointer;font-size:14.5px;line-height:1.5}.ltfull[open]>summary{margin-bottom:8px}
   .lglook{font-size:13px;color:#ffe2a8;background:#1d1709;border:1px solid var(--amber-dim);border-radius:8px;padding:6px 10px;margin:-2px 0 10px}
   .lglook b{color:#fff}
   .lta.lgpics{grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));align-items:start}
@@ -716,7 +726,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.91.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.92.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11984,6 +11994,31 @@ var PROG = (function () {
     for (var g = 0; g < TENTRY.length; g++) for (var i = 0; i < TENTRY[g].rows.length; i++) if (TENTRY[g].rows[i][5] === ch) return TENTRY[g].rows[i];
     return null;
   }
+  /* the guide's own log: every card that was taken or skipped, and how the taken ones ended */
+  function lglogGet() { try { var a = JSON.parse(localStorage.getItem("tt_glog") || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function lglogSet(a) { try { localStorage.setItem("tt_glog", JSON.stringify(a.slice(-500))); } catch (e) { } }
+  function lglogHtml() {
+    var L = lglogGet(), o = [];
+    if (!L.length) return '<div class="mu" style="font-size:13px">Nothing logged yet. On an instruction card, press "I took this trade" or "I skipped it". Your own win rate per entry then builds up here.</div>';
+    var open = L.map(function (x, i) { return [x, i]; }).filter(function (q) { return q[0].took && !q[0].res; });
+    if (open.length) o.push('<div class="lgnh">Open: how did it end?</div>' + open.map(function (q) {
+      var x = q[0], t = lNow(new Date(x.t));
+      return '<div class="lglr"><span><b class="' + (x.d > 0 ? "up" : "dn") + '">' + (x.d > 0 ? "BUY" : "SELL") + '</b> ' + esc(x.nm) + ' <i>' + t.day + ' ' + String(t.month).slice(0, 3) + ' ' + lhm(t.H) + '</i></span><span class="lglb">' +
+        '<button class="btn sm" data-lres="w" data-li="' + q[1] + '">Target hit</button><button class="btn sm" data-lres="l" data-li="' + q[1] + '">Stopped</button>' +
+        '<button class="btn sm" data-lres="s" data-li="' + q[1] + '">Out near the entry</button><button class="btn sm" data-lres="x" data-li="' + q[1] + '">Remove</button></span></div>';
+    }).join(""));
+    var by = {}, keys = [];
+    L.forEach(function (x) {
+      var k = x.ch; if (!by[k]) { by[k] = { nm: (lguideEntry(k) || [x.nm])[0], w: 0, l: 0, s: 0, o: 0, sk: 0, R: parseFloat((lguideEntry(k) || [])[3]) || 1 }; keys.push(k); }
+      var b = by[k]; if (!x.took) b.sk++; else if (x.res === "w") b.w++; else if (x.res === "l") b.l++; else if (x.res === "s") b.s++; else b.o++;
+    });
+    o.push(ltable(["Entry", "Taken", "Won", "Lost", "Near entry", "Your win rate", "Needed", "Skipped"], keys.map(function (k) {
+      var b = by[k], n = b.w + b.l, need = Math.round(100 / (1 + b.R));
+      return ["<b>" + esc(b.nm) + "</b>", b.w + b.l + b.s + b.o, b.w, b.l, b.s, n ? '<b class="' + (b.w / n * 100 >= need ? "up" : "dn") + '">' + Math.round(b.w / n * 100) + "%</b> of " + n : "–", need + "% at " + b.R + "R", b.sk];
+    })));
+    o.push('<div class="mu" style="font-size:12px">"Needed" is the win rate that breaks even when wins make the entry\'s minimum reward and losses cost 1R, before costs. Fewer than 20 trades of one entry say very little: the number is yours to watch, not a verdict yet.</div>');
+    return o.join("");
+  }
   var LGUIDE_PATH = [];   /* [{id, pick}], kept while the page is open */
   var LGUIDE_PICS = true;
   try { LGUIDE_PICS = localStorage.getItem("tt_gpics") !== "0"; } catch (e) { }
@@ -12002,6 +12037,14 @@ var PROG = (function () {
     help4: [["tight", "A tight channel"], ["mtr", "The test"], ["mtr", "Trend line break"], ["wedge", "Push three"]],
     help5: [["tight", "The pullback"], ["every", "Leg two"], ["broad", "A deep pullback"]]
   };
+  /* where a question is about one direction, its pictures come from the chapter's own
+     worked examples: number 0 is the buy that worked, number 2 the sell that worked */
+  var LGPX = { strong: ["spike", "tight", "tight", "breakout", null], normal: ["count", "broad", null, null], turn: ["mtr", "wedge", "flag", "climax", null] };
+  function lgpics(cur, dir) {
+    var gp = LGP[cur], px = LGPX[cur];
+    if (!gp || !px || !dir || (dir > 0 && cur !== "turn")) return gp;
+    return gp.map(function (f, i) { return px[i] && LVID["x_" + px[i] + (dir > 0 ? 0 : 2)] ? ["x_" + px[i] + (dir > 0 ? 0 : 2), "Example"] : f; });
+  }
   /* how far back to look for each question */
   var LGLOOK = {
     start: "Look at the <b>last 20 bars</b>: the stretch the EMA covers. On a 15-minute chart that is the last five hours; on a 5-minute chart, the last hour and a half.",
@@ -12049,8 +12092,10 @@ var PROG = (function () {
       LGUIDE_PATH.forEach(function (s) { var o = LGT[s.id].o[s.pick]; if (o[4] === "flip") dir = -dir; else if (o[4]) dir = o[4]; cur = o[2]; });
       return { cur: cur, dir: dir };
     }
+    var cardNow = null;
     function card(ch, dir) {
-      var r = lguideEntry(ch), E = LGE[ch], d = dir * (E[5] ? -1 : 1), adv = r[1] === "a", odds = r[4] ? lodds(r[4]) : "–";
+      var r = lguideEntry(ch), E = LGE[ch], d = dir * (E[5] ? -1 : 1); cardNow = { ch: ch, d: d, nm: E[6] ? lguideWords(E[6], d) : r[0] };
+      var adv = r[1] === "a", odds = r[4] ? lodds(r[4]) : "–";
       var w = function (s) { return lguideWords(s, d); };
       var mirror = E[4] !== d, nm = E[6] ? w(E[6]) : r[0];
       return '<div class="ltend order lgcard"><span class="ltk ' + (d > 0 ? "up" : "dn") + '">' + (d > 0 ? "BUY" : "SELL") + '</span> ' + TLVL[r[1]] +
@@ -12061,12 +12106,21 @@ var PROG = (function () {
         '<li><b>Stop:</b> ' + w(E[2]) + '</li>' +
         '<li><b>Target:</b> ' + w(E[3]) + '</li>' +
         '<li><b>Check before you send it:</b> the distance to the target is at least <b>' + r[3].replace(/,.*$/, "") + '</b> (R = the distance from entry to stop), and the clock above says Trade for your market. If not, skip this one.</li>' +
-        '<li><b>Size:</b> from the stop distance, in the calculator. ' + (adv ? 'Use <b>half your normal risk</b>: this entry is advanced until you have logged twenty of them.' : 'Your normal risk.') + '</li>' +
+        '<li><b>Size:</b> ' + (ch === "limits" ? 'both orders together risk one normal trade (half while this entry is advanced). Work it out in the calculator in the full plan below.'
+          : (adv ? '<b>half your normal risk</b>, because this entry is advanced until you have logged twenty of them.' : 'your normal risk.') + ' Type your stop distance:') + '</li>' +
         '</ol>' +
+        (ch === "limits" ? '' : '<div class="lgsize" data-adv="' + (adv ? 1 : 0) + '">' +
+          '<label>Balance ($)<input data-gs="bal" inputmode="decimal"></label><label>Risk (%)<input data-gs="risk" inputmode="decimal"></label>' +
+          '<label>Market<select data-gs="mk">' + COST_MK.map(function (m) { return '<option value="' + m[0] + '">' + m[1] + '</option>'; }).join("") + '</select></label>' +
+          '<label><span data-gs="lab">Stop distance</span><input data-gs="stop" inputmode="decimal"></label>' +
+          '<div class="lgsout"></div></div>') +
         (ch === "limits" ? '<div class="lwarn" style="margin:8px 0 0">The wide stop makes the risk in pips large, so the size is small. About three in four of these must end at break-even or better for the plan to pay; that is a figure to measure in your own log, not a promise.</div>' : '') +
         '<p class="mu" style="margin-top:8px;font-size:12.5px">Taught win rate: ' + (odds === "–" ? "none given for this entry" : "about " + odds) + '. It is a teaching figure, not a measured result. Tag the trade "' + nm + '" in your log, so your own numbers decide.</p></div>' +
-        fig(E[7] || r[7], (E[7] || r[7])[2] + (mirror ? ' <b>The picture shows the ' + (E[4] > 0 ? "buy" : "sell") + '; yours is the mirror image.</b>' : ''), ch === "late") +
-        '<div class="ltbar"><button class="btn sm" data-a="calc" data-adv="' + (adv ? 1 : 0) + '">Work out the size &#8595;</button>' +
+        '<div class="ltbar lglog1"><button class="btn sm" data-log="1">I took this trade</button><button class="btn sm" data-log="0">I skipped it</button><span class="mu" data-logmsg></span></div>' +
+        (mirror && LVID["x_" + (ch === "late" ? "tight" : ch) + (d > 0 ? 0 : 2)]
+          ? fig(["x_" + (ch === "late" ? "tight" : ch) + (d > 0 ? 0 : 2), "Example"], '<b>A ' + (d > 0 ? "buy" : "sell") + ' that worked.</b> The orange box is the signal bar, the shaded box is the trade from the entry to the target; the red line is the stop.', true)
+          : fig(E[7] || r[7], (E[7] || r[7])[2] + (mirror ? ' <b>The picture shows the ' + (E[4] > 0 ? "buy" : "sell") + '; yours is the mirror image.</b>' : ''), ch === "late")) +
+        '<div class="ltbar">' + (ch === "limits" ? '<button class="btn sm" data-a="calc" data-adv="' + (adv ? 1 : 0) + '">Work out the size &#8595;</button>' : '') +
         '<button class="btn sm" data-ggo="' + r[5] + '">Why: ' + r[6] + '</button></div>';
     }
     function render() {
@@ -12076,9 +12130,9 @@ var PROG = (function () {
         return '<button class="ltcrumb" data-back="' + i + '" title="Go back to this question">' + esc(LGT[s.id].o[s.pick][0]) + '</button>';
       }).join('<span class="mu">›</span>') : '<span class="mu">Start here after every bar close.</span>') + '</div>');
       if (n) {
-        var gp = LGP[W.cur], pics = !!gp && LGUIDE_PICS;
+        var gp = lgpics(W.cur, W.dir), pics = !!gp && LGUIDE_PICS, sided = !!LGPX[W.cur] && (W.dir < 0 || W.cur === "turn");
         out.push('<div class="ltq">' + n.q + '</div>' + (LGLOOK[W.cur] ? '<div class="lglook">' + LGLOOK[W.cur] + '</div>' : '') +
-          (pics && W.cur !== "start" && W.cur !== "help1" ? '<div class="mu ltfhint">Which picture looks most like your chart? The pictures show one direction; yours may be the mirror image.</div>' : '') +
+          (pics && W.cur !== "start" && W.cur !== "help1" ? '<div class="mu ltfhint">Which picture looks most like your chart? ' + (sided ? 'Each shows a whole ' + (W.dir > 0 ? 'buy' : 'sell') + ' that worked: the orange box is the signal bar, the shaded box the trade.' : 'The pictures show one direction; yours may be the mirror image.') + '</div>' : '') +
           '<div class="lta' + (pics ? ' ltopts lgpics' : ' lgopts') + '">' + n.o.map(function (o, i) {
           var b = '<button data-pick="' + i + '"><b>' + o[0] + '</b>' + (o[1] ? '<small>' + o[1] + '</small>' : '') + '</button>';
           return pics ? '<div class="ltopt">' + (gp[i] ? fig(gp[i]).replace("data-gfig", 'data-gsmall="1" data-gfig') : '') + b + '</div>' : b;
@@ -12106,13 +12160,48 @@ var PROG = (function () {
       var rs = askEl.querySelector('[data-a="reset"]'); if (rs) rs.onclick = function () { LGUIDE_PATH = []; render(); };
       var pc = askEl.querySelector('[data-a="pics"]'); if (pc) pc.onclick = function () { LGUIDE_PICS = !LGUIDE_PICS; try { localStorage.setItem("tt_gpics", LGUIDE_PICS ? "1" : "0"); } catch (e) { } render(); };
       var gg = askEl.querySelector("[data-ggo]"); if (gg) gg.onclick = function () { paintLearn(gg.dataset.ggo); };
+      /* the size, on the card */
+      var sz = askEl.querySelector(".lgsize");
+      if (sz) {
+        var C = ltcState(), q = function (k) { return sz.querySelector('[data-gs="' + k + '"]'); }, numv = function (k) { return parseFloat(String(q(k).value).replace(",", ".")); };
+        var fill = function () {
+          q("bal").value = C.bal; q("risk").value = C.risk; q("mk").value = C.mk;
+          q("lab").textContent = COSTS.isFx(C.mk) ? "Stop distance (pips)" : "Stop distance (in price)";
+          q("stop").value = C.stopU[C.mk] != null ? C.stopU[C.mk] : "";
+        };
+        var show = function () {
+          var b = numv("bal"), rk = numv("risk"); if (b > 0) C.bal = b; if (rk > 0) C.risk = rk;
+          if (q("stop").value !== "") C.stopU[C.mk] = q("stop").value;
+          sz.querySelector(".lgsout").innerHTML = ltcLine(numv("stop"), sz.dataset.adv === "1"); learnSave();
+        };
+        fill(); show();
+        ["bal", "risk", "stop"].forEach(function (k) { q(k).oninput = show; });
+        q("mk").onchange = function () { C.mk = q("mk").value; fill(); show(); };
+      }
+      [].forEach.call(askEl.querySelectorAll("[data-log]"), function (b) {
+        b.onclick = function () {
+          var L = lglogGet(); L.push({ t: Date.now(), ch: cardNow.ch, nm: cardNow.nm, d: cardNow.d, took: b.dataset.log === "1", res: "" }); lglogSet(L);
+          askEl.querySelector("[data-logmsg]").textContent = b.dataset.log === "1" ? "Logged. Mark how it ended under \"Your trades\" below." : "Logged as skipped.";
+          [].forEach.call(askEl.querySelectorAll("[data-log]"), function (x) { x.disabled = true; });
+          paintLog();
+        };
+      });
       var cb = askEl.querySelector('[data-a="calc"]'); if (cb) cb.onclick = function () {
+        var full = $("ltFull"); if (full) full.open = true;
         var c = document.querySelector('[data-calc="today"]'), a = $("tcAdv");
         if (a && a.checked !== (cb.dataset.adv === "1")) a.click();
         if (c) c.scrollIntoView({ behavior: "smooth", block: "start" });
       };
     }
-    paintNow(); paintMy(); render();
+    var h3 = document.createElement("div"); h3.className = "lgh lgh3"; h3.innerHTML = '<span>3</span> Your trades with the guide';
+    var logEl = document.createElement("div"); logEl.className = "lglog"; el.appendChild(h3); el.appendChild(logEl);
+    function paintLog() {
+      logEl.innerHTML = lglogHtml();
+      [].forEach.call(logEl.querySelectorAll("[data-lres]"), function (b) {
+        b.onclick = function () { var L = lglogGet(), i = +b.dataset.li; if (!L[i]) return; if (b.dataset.lres === "x") L.splice(i, 1); else L[i].res = b.dataset.lres; lglogSet(L); paintLog(); };
+      });
+    }
+    paintNow(); paintMy(); render(); paintLog();
     lnewsLoad(paintNow);
     timer = setInterval(function () { lnewsLoad(paintNow); }, 30000);
     return { pause: function () { }, dispose: function () { clearInterval(timer); figs.forEach(function (f) { f.dispose(); }); figs = []; } };
@@ -12121,8 +12210,9 @@ var PROG = (function () {
   lch({ id: "today", part: "Today", title: "Today's trade plan",
     sub: "The whole method on one page, in the order you use it: before the session, on every bar, before the order, and after the session.",
     body: function () {
-      return lp("Use the guide below while you trade: it tells you what the clock allows, then you press what you see on the chart and it gives you the one instruction that fits. Everything under it is the same method written out in full, for when you want to read why.") +
+      return lp("Use the guide while you trade: it tells you what the clock allows, then you press what you see on the chart and it gives you the one instruction that fits, with the size. The same method written out in full is folded away underneath.") +
         '<div class="lguide" data-guide="1"></div>' +
+        '<details class="ltfull" id="ltFull"><summary><b>The full plan in writing</b> <span class="mu">the daily ticks, every entry with its picture, the range scale-ins, the size and cost calculator, the review</span></summary>' +
         lkey("<b>Every entry Brooks uses is on this page.</b> The ones marked " + TLVL.s + " are where everyone starts. " + TLVL.n + " comes after about fifty starter trades. " + TLVL.a +
           " entries are allowed, but they need more reading of the chart, so they come with two rules: <b>half your normal risk</b> until you have logged twenty of that entry, and <b>tag every trade</b> with its entry, so your own results decide when it stops being advanced.") +
 
@@ -12263,7 +12353,8 @@ var PROG = (function () {
         ltick("hist", "Every trade looked at again in " + "<b>History</b>: was the read in step 2 right?") +
         ltick("twenty", "<b>Every twenty trades</b>: the result per entry. An advanced entry with twenty trades and a positive total goes to full risk.") +
         '</div>' +
-        '<p class="mu" style="font-size:12px">The ticks reset every day.</p>';
+        '<p class="mu" style="font-size:12px">The ticks reset every day.</p>' +
+        '</details>';
     },
     quiz: [
       { q: "The market is in a strong bull spike. You missed the H1. Is buying the close of the next strong bull bar allowed?", o: ["Yes, as an advanced entry: wide stop beyond the spike, half risk", "No, only the H2 is allowed", "Yes, with a tight stop under that bar"], a: 0, why: "When always-in is clearly long, most bars are a reasonable buy. The stop goes where the trend is wrong, so it is wide, the size small, and the risk half while it is still advanced." },
@@ -14082,10 +14173,30 @@ var PROG = (function () {
       percent (halved for an advanced entry), the lots rounded down to 0.01 as
       cTrader does, and the costs of that size in money and in R. Each figure
       says whether it is from the broker's own screen or still an estimate. */
-  function mountTodayCalc(el) {
+  /** the size check's inputs, shared by the calculator and the guide's cards */
+  function ltcState() {
     var C = LSt.tcalc || (LSt.tcalc = {});
     C.bal = C.bal || 10000; C.risk = C.risk || 0.5; C.mk = C.mk || "EURUSD"; C.stopU = C.stopU || {}; C.rr = C.rr || 1.5;
     C.acc = C.acc && COST_PRE[C.acc] && C.acc !== "off" ? C.acc : (COST_PRE.fxpro ? "fxpro" : "raw"); C.adv = !!C.adv;
+    return C;
+  }
+  /** the size for one stop distance, in one line: lots, the money at risk, the costs and where each figure comes from */
+  function ltcLine(stopU, adv) {
+    var C = ltcState(), ch = lcostCh(C.mk), u = COSTS.isFx(C.mk) ? COSTS.unit(C.mk) : 1, stop = stopU * u, perMove = lotUnits(ch) * qRate(ch);
+    if (!(C.bal > 0 && C.risk > 0 && stop > 0)) return '<span class="mu">Type the distance from your entry to your stop.</span>';
+    var money = C.bal * (adv ? C.risk / 2 : C.risk) / 100, perLot = stop * perMove, lots = Math.floor(money / perLot * 100 + 1e-9) / 100, v = COSTS.get(C.mk, C.acc);
+    if (!(lots > 0)) return '<span class="dn"><b>Below 0.01 lots.</b></span> You may risk $' + money.toFixed(2) + (adv ? ' (half: advanced)' : '') + ', and the smallest size, 0.01 lots, risks $' + (0.01 * perLot).toFixed(2) +
+      ' at this stop. That is ' + (0.01 * perLot / C.bal * 100).toFixed(1) + '% of the account: skip it, or trade a market where 0.01 lots fits your risk.';
+    var P = COST_PRE[C.acc], e = COSTS.est(C.mk, C.acc), lab = function (kind) {
+      return !P || !P.broker ? (C.acc === "own" ? "your own figure" : "typical, not your broker") : (e === "both" || (e === "spread" && kind === "sp")) ? "estimate" : "from your screen";
+    };
+    var risked = lots * perLot, spM = lots * COSTS.spread(ch, C.acc) * perMove, cmM = lots * v[1], cR = (spM + cmM) / risked;
+    return '<b class="am">' + lots.toFixed(2) + ' lots</b> · risks <b>$' + risked.toFixed(2) + '</b>' + (adv ? ' (half risk: advanced)' : '') +
+      ' · costs $' + (spM + cmM).toFixed(2) + ' = ' + lcostR(cR) + ' <span class="mu">(spread $' + spM.toFixed(2) + ', ' + lab("sp") + '; commission $' + cmM.toFixed(2) + ', ' + lab("cm") + ')</span>' +
+      (cR > 0.2 ? ' <span class="dn">More than a fifth of the risk goes to costs: the stop is too small for this market.</span>' : '');
+  }
+  function mountTodayCalc(el) {
+    var C = ltcState();
     var unitOf = function (sym) { return COSTS.isFx(sym) ? COSTS.unit(sym) : 1; };
     el.innerHTML =
       '<div class="lcgrid">' +
