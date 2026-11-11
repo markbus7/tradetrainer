@@ -403,6 +403,10 @@
   .lta button small{display:block;font-size:12px;color:var(--muted);margin-top:2px;font-weight:400}
   .lta.lgopts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:8px}
   .lgcard>b{margin-top:8px}
+  .lglook{font-size:13px;color:#ffe2a8;background:#1d1709;border:1px solid var(--amber-dim);border-radius:8px;padding:6px 10px;margin:-2px 0 10px}
+  .lglook b{color:#fff}
+  .lta.lgpics{grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));align-items:start}
+  .lgpics .ltopt .lfscr{height:200px}.lgpics .ltopt .lfcopy{display:none}
   .lguide .ltfig .lfscr{height:clamp(280px,44vh,400px)}
   .lgsteps{margin:6px 0 0;padding-left:20px;font-size:14px;line-height:1.5}
   .lgsteps li{margin-bottom:5px}.lgsteps li>b{color:var(--paper)}
@@ -712,7 +716,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.90.1", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.91.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11902,10 +11906,10 @@ var PROG = (function () {
       ["Up", "You only buy.", "strong", null, 1], ["Down", "You only sell.", "strong", null, -1]] },
     strong: { q: "What has the trend just done?", o: [
       ["The first small pause after the spike", "One to three small bars, then a bar that goes on with the trend.", "e:spike"],
-      ["A strong trend bar just closed, no pullback", "It closed on its extreme and you are not in yet.", "e:late"],
+      ["No pullback: it just keeps going, and I am not in", "Trend bars closing near their extremes, or small bars pressing the extreme. This is the sell-any-bar (or buy-any-bar) phase.", "e:late"],
       ["A one- or two-bar pullback in a tight channel", "Small bars in a narrow path, hardly overlapping.", "e:tight"],
       ["It just broke out of a range, and this is the first pullback", "The pullback stays beyond the breakout point.", "e:breakout"],
-      ["None of these", "", "w:strongwait"]] },
+      ["A big bar against the trend just closed, or the bars are huge and far from the EMA", "", "w:strongwait"]] },
     ndir: { q: "Which way is the trend?", o: [
       ["Up", "Higher highs and higher lows, price mostly above the EMA.", "normal", null, 1],
       ["Down", "Lower highs and lower lows, price mostly below the EMA.", "normal", null, -1]] },
@@ -11942,7 +11946,7 @@ var PROG = (function () {
   };
   var LGW = {
     unclear: ["No trade on this bar", "If you cannot say what the market is doing, there is nothing here to trade. Barbwire makes every bar look like a signal. Wait for a breakout and its first pullback, or for price to reach an edge you know. Then start again.", ["where", "The place beats the bar"]],
-    strongwait: ["Wait for the next pause", "The trend is strong, so the next small pause or one-bar pullback is your entry. Do not sell against it and do not chase a weak bar. Look again on the next bar close."],
+    strongwait: ["Wait a few bars", "A big bar against the trend, or a run of huge bars far from the EMA (a climax), often leads to a pause or a bounce to the EMA first. Do not trade against the trend, and do not enter at the market now. Wait for a one- or two-bar pullback and a signal bar with the trend, then start again."],
     midswing: ["Wait for the pullback", "Price is in the middle of a swing. The entry is at the end of the next pullback to the EMA, not here. If a strong trend bar closes on its extreme and at least 1.5R is left to the target, that is the late entry under \"A strong trend\"."],
     noedge: ["Wait: mark the edges first", "Without two turns on each side you do not know where the thirds are, so every entry and stop would be a guess. Mark the highs and lows where price turned, and wait until each side has turned price twice. Until then only a failed breakout or a breakout pullback is a trade.", ["range", "Filled"]],
     middle: ["Wait: the middle of a range is no trade", "In the middle the next move is a coin flip and the stop is far. A strong bar here means nothing. Put an alert at the top third and the bottom third and look again when price gets there.", ["where", "The place beats the bar"]],
@@ -11954,7 +11958,7 @@ var PROG = (function () {
      [what you must see, the order, the stop, the target, the picture shows a buy (1) or a sell (-1), against the chosen trend] */
   var LGE = {
     spike: ["A spike {up}: several strong {bull} bars in a row. Then the first small pause of one to three bars, and a bar that goes {above} the prior bar's {high} (an {H}1).", "{Buy} stop one tick {above} that bar's {high}.", "{Below} the {low} of the pause.", "The spike's height, measured {up} from the {top} of the spike.", 1],
-    late: ["The trend is clearly {up} and a strong {bull} bar has just closed on its {high}. No pullback yet.", "{Buy} at market on the close.", "Wide: {below} the start of the spike or the last swing {low}. The size comes from that stop, so it is small.", "The target of the setup you are late for, never a new one. Less than 1.5R left from here: skip.", 1],
+    late: ["The trend is clearly {up} over the last 20 bars: the bars are {above} the EMA and close near their {high}s, and no strong {bear} bar has closed. In this phase any bar is a reasonable entry.", "{Buy} at market on the close of the bar.", "Wide: {below} the last small pullback's {low} (the last swing {low}), or the start of the spike. The stop decides the trade, not the bar: the size comes from that distance, so it is small.", "The measured move of the spike, or the next level on the higher timeframe. Less than 1.5R left from here: wait for a one- or two-bar pullback instead, which gives the same trade at a better price.", 1, 0, "Any bar in a strong trend, at the market"],
     tight: ["A tight channel {up}: small bars, hardly overlapping. Now a pullback of only one or two bars.", "{Buy} stop one tick {above} the {high} of the pullback's signal bar.", "{Below} the pullback's {low}.", "Leg 1 = leg 2: the last leg's height, measured {up} from the pullback's {low}.", 1],
     breakout: ["A big {bull} bar (or two) closes well {above} the range. The first pullback stays {above} the breakout point.", "{Buy} stop one tick {above} the pullback's signal bar.", "{Below} the pullback's {low}.", "The range's height, measured {up} from the breakout point.", 1],
     count: ["A trend {up} with clear pullbacks. Now two legs {down} to the EMA, then a {bull} signal bar (an {H}2).", "{Buy} stop one tick {above} the signal bar's {high}.", "One tick {below} the signal bar, or {below} the pullback's {low} if the bar is small.", "Leg 1 = leg 2: the leg before the pullback, measured {up} from the pullback's {low}.", 1],
@@ -11981,8 +11985,37 @@ var PROG = (function () {
     return null;
   }
   var LGUIDE_PATH = [];   /* [{id, pick}], kept while the page is open */
-  var LGUIDE_PICS = false;
-  var LG_PIC = [["spike", "A High 1 buy"], ["every", "The orders"], ["range", "Filled"], ["mtr", "The orders"], ["nothing", "Barbwire"]];
+  var LGUIDE_PICS = true;
+  try { LGUIDE_PICS = localStorage.getItem("tt_gpics") !== "0"; } catch (e) { }
+  /* a small chart for each choice, by question: [lesson, step] or null */
+  var LGP = {
+    start: [["spike", "A High 1 buy"], ["every", "Leg two"], ["range", "Thirds"], ["mtr", "The test"], ["nothing", "Barbwire"], null],
+    strong: [["spike", "The first pullback"], ["tight", "A tight channel"], ["tight", "The pullback"], ["bo", "Pullback or failure?"], null],
+    normal: [["every", "Leg two"], ["broad", "Two legs down"], ["counter", "A double top"], ["answers", "Wait: don't chase"]],
+    redge: [["range", "Thirds"], null],
+    rplace: [["where", "Bottom third"], ["where", "The place beats the bar"], ["where", "Top third"], null, ["fbo", "No follow-through"], ["bo", "The breakout"], null],
+    rhow: [["range", "The buy signal"], ["wideA", "The wide plan"]],
+    turn: [["mtr", "The test"], ["wedge", "Push three"], ["flag", "Rejected"], ["climax", "The climax"], null],
+    help1: [["ema", "Left behind"], ["ema", "Below it"], ["ema", "Flat: no trend"]],
+    help2: [["ema", "Where pullbacks end"], ["ema", "Flat again"]],
+    help3: [["range", "Sideways"], ["bo", "A huge bull bar"], ["nothing", "Barbwire"]],
+    help4: [["tight", "A tight channel"], ["mtr", "The test"], ["mtr", "Trend line break"], ["wedge", "Push three"]],
+    help5: [["tight", "The pullback"], ["every", "Leg two"], ["broad", "A deep pullback"]]
+  };
+  /* how far back to look for each question */
+  var LGLOOK = {
+    start: "Look at the <b>last 20 bars</b>: the stretch the EMA covers. On a 15-minute chart that is the last five hours; on a 5-minute chart, the last hour and a half.",
+    sdir: "The last 20 bars.", ndir: "The last 20 bars.",
+    strong: "Look at only the <b>last 1 to 3 bars</b>.",
+    normal: "Look at the <b>last 5 to 10 bars</b>: the leg or the pullback that is happening now.",
+    redge: "Look at the <b>whole sideways stretch</b>, as far left as it goes. That is often 40 bars or more.",
+    rplace: "Look at the <b>last bar's close</b>, against the top and the bottom you marked.",
+    tdir: "The 20 to 40 bars before the turn.",
+    turn: "Look at the <b>last 20 to 40 bars</b>: the end of the old trend and what came after.",
+    help1: "Look at the <b>last 20 bars</b>, no more. What happened before that does not count for this check.",
+    help2: "The same last 20 bars.", help3: "Look at the <b>last 20 to 40 bars</b>.",
+    help4: "Look at the <b>last 10 bars</b>, against the 20 before them.", help5: "Look at the <b>last two or three pullbacks</b>."
+  };
   function mountGuide(el) {
     var figs = [], timer = null;
     var nowEl = document.createElement("div"), askEl = document.createElement("div");
@@ -12043,12 +12076,14 @@ var PROG = (function () {
         return '<button class="ltcrumb" data-back="' + i + '" title="Go back to this question">' + esc(LGT[s.id].o[s.pick][0]) + '</button>';
       }).join('<span class="mu">›</span>') : '<span class="mu">Start here after every bar close.</span>') + '</div>');
       if (n) {
-        var pics = W.cur === "start" && LGUIDE_PICS;
-        out.push('<div class="ltq">' + n.q + '</div><div class="lta' + (pics ? ' ltopts' : ' lgopts') + '">' + n.o.map(function (o, i) {
+        var gp = LGP[W.cur], pics = !!gp && LGUIDE_PICS;
+        out.push('<div class="ltq">' + n.q + '</div>' + (LGLOOK[W.cur] ? '<div class="lglook">' + LGLOOK[W.cur] + '</div>' : '') +
+          (pics && W.cur !== "start" && W.cur !== "help1" ? '<div class="mu ltfhint">Which picture looks most like your chart? The pictures show one direction; yours may be the mirror image.</div>' : '') +
+          '<div class="lta' + (pics ? ' ltopts lgpics' : ' lgopts') + '">' + n.o.map(function (o, i) {
           var b = '<button data-pick="' + i + '"><b>' + o[0] + '</b>' + (o[1] ? '<small>' + o[1] + '</small>' : '') + '</button>';
-          return pics ? '<div class="ltopt">' + (LG_PIC[i] ? fig(LG_PIC[i]) : '<div class="ltnofig mu">no picture: the checks sort it out</div>') + b + '</div>' : b;
+          return pics ? '<div class="ltopt">' + (gp[i] ? fig(gp[i]).replace("data-gfig", 'data-gsmall="1" data-gfig') : '') + b + '</div>' : b;
         }).join("") + '</div>');
-        if (W.cur === "start") out.push('<div class="ltbar"><button class="btn sm" data-a="pics">' + (pics ? "Hide the pictures" : "Show a picture of each") + '</button></div>');
+        if (gp) out.push('<div class="ltbar"><button class="btn sm" data-a="pics">' + (pics ? "Hide the pictures" : "Show a picture for each choice") + '</button></div>');
       } else if (W.cur.charAt(0) === "e") {
         out.push(card(W.cur.slice(2), W.dir || 1));
       } else {
@@ -12058,7 +12093,7 @@ var PROG = (function () {
       out.push('<div class="ltbar">' + (LGUIDE_PATH.length ? '<button class="btn sm" data-a="back">&#8592; Back</button><button class="btn sm" data-a="reset">&#8635; Next bar: start again</button>' : '') + '</div>');
       askEl.innerHTML = out.join("");
       [].forEach.call(askEl.querySelectorAll("[data-gfig]"), function (fe) {
-        try { var lf = new LessonFigure(fe, fe.dataset.gfig, fe.dataset.title, true); figs.push(lf); learnPlayers.push(lf); }
+        try { var lf = new LessonFigure(fe, fe.dataset.gfig, fe.dataset.title, !fe.dataset.gsmall); figs.push(lf); learnPlayers.push(lf); }
         catch (e) { fe.querySelector(".lfscr").innerHTML = '<div class="hint">This chart could not be drawn (' + esc(e.message) + ').</div>'; }
       });
       [].forEach.call(askEl.querySelectorAll("[data-pick]"), function (b) {
@@ -12069,7 +12104,7 @@ var PROG = (function () {
       });
       var bk = askEl.querySelector('[data-a="back"]'); if (bk) bk.onclick = function () { LGUIDE_PATH.pop(); render(); };
       var rs = askEl.querySelector('[data-a="reset"]'); if (rs) rs.onclick = function () { LGUIDE_PATH = []; render(); };
-      var pc = askEl.querySelector('[data-a="pics"]'); if (pc) pc.onclick = function () { LGUIDE_PICS = !LGUIDE_PICS; render(); };
+      var pc = askEl.querySelector('[data-a="pics"]'); if (pc) pc.onclick = function () { LGUIDE_PICS = !LGUIDE_PICS; try { localStorage.setItem("tt_gpics", LGUIDE_PICS ? "1" : "0"); } catch (e) { } render(); };
       var gg = askEl.querySelector("[data-ggo]"); if (gg) gg.onclick = function () { paintLearn(gg.dataset.ggo); };
       var cb = askEl.querySelector('[data-a="calc"]'); if (cb) cb.onclick = function () {
         var c = document.querySelector('[data-calc="today"]'), a = $("tcAdv");
