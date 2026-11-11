@@ -377,6 +377,36 @@
   .ltgrp{border:1px solid var(--line);border-radius:10px;padding:10px 12px 4px;margin:10px 0 14px;background:var(--bg2)}
   .ltgh{font-size:14px;line-height:1.45}
   .ltimg{margin:12px 0 16px}
+  .lguide{border:1px solid var(--amber-dim);border-radius:12px;background:var(--bg2);padding:12px;margin:12px 0 20px}
+  .lgh{font:600 15px Inter,sans-serif;color:#e6e8ec;margin:0 0 10px}
+  .lgh span{display:inline-block;font:700 11px Archivo,sans-serif;color:#0b0e13;background:var(--amber);border-radius:5px;padding:2px 7px;margin-right:6px;vertical-align:1px}
+  .lgnow{margin-bottom:8px}
+  .lgmy{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line);font-size:13px}
+  .lgmy summary{cursor:pointer;color:var(--muted)}
+  .lgmyf{margin:8px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .lgmyf input,.lgmyf select{background:var(--bg3);color:var(--paper);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px}
+  .lgmyr{display:flex;gap:10px;align-items:center;margin-top:4px}
+  .lgnews{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+  .lgnh{font-size:13.5px;font-weight:600;color:#e6e8ec;margin-bottom:6px}.lgnh .mu{font-weight:400;font-size:12px}
+  .lgnr{display:grid;grid-template-columns:48px 1fr auto;gap:8px;font-size:12.5px;padding:5px 0;border-top:1px solid var(--line);align-items:baseline}
+  .lgnr:first-of-type{border-top:0}
+  .lgnr>b{color:var(--paper)}.lgnr i{font-style:normal;color:var(--muted);font-size:11.5px;margin-left:4px}
+  .lgnr em{font-style:normal;color:#ffe2a8;text-align:right}.lgnr em b{color:#fff}
+  .lgnr.done{opacity:.5}.lgnr.done em{color:var(--muted)}.lgnr.now em{color:var(--dn)}
+  .lgnone{font-size:13px;color:#b9f0cf}.lgnsrc{font-size:12px;margin-top:8px}
+  @media(max-width:560px){.lgnr{grid-template-columns:48px 1fr}.lgnr em{grid-column:2;text-align:left}}
+  .lgvhead{font-size:14px;line-height:1.45;padding:8px 10px;border-radius:8px;margin-bottom:10px;border:1px solid var(--line);background:var(--bg3)}
+  .lgvhead.go{border-color:#2a5a3c;background:#11241a}
+  .lnowr.lgvr{align-items:start;grid-template-columns:104px 66px 1fr}
+  .lnowr em.lgv.go{background:#1c4a30;color:#b9f0cf}.lnowr em.lgv.wait{background:#5b4a22;color:#ffe2a8}.lnowr em.lgv.no{background:#161a21;color:var(--muted);border:1px solid var(--line)}
+  .lnowr.lgvr i b{color:#d6dae2}
+  .lta button small{display:block;font-size:12px;color:var(--muted);margin-top:2px;font-weight:400}
+  .lta.lgopts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:8px}
+  .lgcard>b{margin-top:8px}
+  .lguide .ltfig .lfscr{height:clamp(280px,44vh,400px)}
+  .lgsteps{margin:6px 0 0;padding-left:20px;font-size:14px;line-height:1.5}
+  .lgsteps li{margin-bottom:5px}.lgsteps li>b{color:var(--paper)}
+  .ltk.dn{color:var(--dn)}.ltk.up{color:var(--up)}
   .ltimg img{display:block;width:100%;height:auto;border-radius:10px 10px 0 0;background:#000}
   .ltstep{font:600 15px Inter,sans-serif;color:#e6e8ec;margin:22px 0 6px;padding-top:12px;border-top:1px solid var(--line)}
   .ltstep span{display:inline-block;font:700 10px Archivo,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#0b0e13;background:var(--amber);border-radius:5px;padding:3px 7px;margin-right:8px;vertical-align:2px}
@@ -682,7 +712,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.88.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.90.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11362,12 +11392,12 @@ var PROG = (function () {
   /** how a market is doing now, and when that changes */
   function lStatus(row, t) {
     /* every boundary is on a quarter hour, so walk the 5-minute marks from the next one */
-    var lv = lLevel(row, t.wd, t.H), wd = t.wd, H = Math.ceil(t.H * 12 + 1e-6) / 12, gone = 0;
+    var lv = lLevel(row, t.wd, t.H), wd = t.wd, q = Math.ceil(t.H * 12 + 1e-6), gone = 0;
     for (var k = 0; k <= 7 * 24 * 12; k++) {
-      if (H >= 24) { H -= 24; wd = wd % 7 + 1; gone += 24; }
-      var l2 = lLevel(row, wd, H);
+      if (q >= 288) { q -= 288; wd = wd % 7 + 1; gone += 24; }
+      var H = q / 12, l2 = lLevel(row, wd, H);
       if (l2 !== lv) return { lv: lv, next: l2, at: H, inMin: (gone + H - t.H) * 60, wd: wd };
-      H += 1 / 12;
+      q++;
     }
     return { lv: lv };
   }
@@ -11708,10 +11738,351 @@ var PROG = (function () {
     ]) + '<p class="mu" style="font-size:12px">A range 40 pips high, $50 at risk. Costs: the commission is from your screen, the spread of ' + V[0] + ' pip is ' + (COST_PRE.fxpro.est.EURUSD ? 'an estimate' : 'from your screen') + '.</p>';
   }
 
+  /* ---------- Today: the guide. The clock says which markets to trade now; then you
+     press what you see on the chart and get one instruction, instead of scrolling. ---------- */
+  /* scheduled times per market hour: [name, minutes to stay out afterwards, a US time, only on this weekday, conditional] */
+  var LG_EV = {
+    9: ["the European open", 30, 0, 0, 0], 14.25: ["an ECB decision", 15, 0, 0, 1], 14.5: ["US data", 15, 1, 0, 1],
+    15.5: ["the US open", 30, 1, 0, 0], 16.5: ["the EIA oil report", 15, 1, 3, 0], 17.5: ["the European close", 15, 0, 0, 0],
+    20: ["a FOMC decision", 15, 1, 0, 1], 22: ["the US close", 15, 1, 0, 0]
+  };
+  /* This week's scheduled news. It is read in the browser from the public weekly
+     calendar feed of ForexFactory; when that fails, the user adds today's times by hand. */
+  var LNEWS_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
+  var LNEWS = { items: null, at: 0, err: "", busy: false, tried: 0, cbs: [] };   /* a failed read is tried again after five minutes */
+  function lnewsParse(j) {
+    if (!Array.isArray(j)) throw new Error("not a list");
+    var out = [];
+    j.forEach(function (x) {
+      var ms = x && Date.parse(x.date);
+      if (!ms || !x.title) return;
+      out.push({ t: ms, c: String(x.country || "").toUpperCase(), n: String(x.title).slice(0, 80), i: String(x.impact || "") });
+    });
+    if (!out.length) throw new Error("empty");
+    return out;
+  }
+  function lnewsLoad(done) {
+    var now = Date.now();
+    if (!LNEWS.items) {
+      try { var c = JSON.parse(localStorage.getItem("tt_news") || "null"); if (c && c.items && now - c.at < 6 * 864e5) { LNEWS.items = c.items; LNEWS.at = c.at; } } catch (e) { }
+    }
+    if (LNEWS.busy) { LNEWS.cbs.push(done); return; }
+    if ((LNEWS.items && now - LNEWS.at < 3 * 36e5) || now - LNEWS.tried < 5 * 6e4 || typeof fetch !== "function") { done(); return; }
+    LNEWS.busy = true; LNEWS.tried = now; LNEWS.cbs = [done];
+    fetch(LNEWS_URL, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("answer " + r.status); return r.json(); }).then(function (j) {
+      LNEWS.items = lnewsParse(j); LNEWS.at = Date.now(); LNEWS.err = "";
+      try { localStorage.setItem("tt_news", JSON.stringify({ at: LNEWS.at, items: LNEWS.items })); } catch (e) { }
+    }).catch(function (e) { LNEWS.err = String(e && e.message || e).slice(0, 60) || "failed"; }).then(function () { LNEWS.busy = false; LNEWS.cbs.splice(0).forEach(function (f) { f(); }); });
+  }
+  function lnewsDay(t) { return t.year + "-" + t.month + "-" + t.day; }
+  function lnewsMine(t) {
+    try { var m = JSON.parse(localStorage.getItem("tt_news_my") || "null"); return m && m.day === lnewsDay(t) ? m.list : []; } catch (e) { return []; }
+  }
+  function lnewsMineSave(t, list) { try { localStorage.setItem("tt_news_my", JSON.stringify({ day: lnewsDay(t), list: list })); } catch (e) { } }
+  /** which markets a release moves */
+  function lnewsHits(row, n) {
+    if (n.c === "ALL") return true;
+    if (/crude oil/i.test(n.n)) return row === "UKOIL";
+    if (n.c === "USD") return true;
+    if (n.c === "EUR") return row === "GER40" || row === "EURUSD";
+    if (n.c === "JPY") return row === "USDJPY";
+    return false;
+  }
+  /** today's high-impact releases for the user's markets: {known, list: [{H, c, n, mine}]} */
+  function lnewsToday(t) {
+    var list = [], known = false;
+    if (LNEWS.items) {
+      /* the feed only counts when it holds this week: something within three days of now */
+      var now = Date.now();
+      known = LNEWS.items.some(function (x) { return Math.abs(x.t - now) < 3.5 * 864e5; });
+      if (known) LNEWS.items.forEach(function (x) {
+        if (x.i !== "High" || !/^(USD|EUR|JPY)$/.test(x.c)) return;
+        var a = lNow(new Date(x.t));
+        if (a.day === t.day && a.month === t.month) list.push({ H: a.H, c: x.c, n: x.n });
+      });
+    }
+    lnewsMine(t).forEach(function (m) { list.push({ H: m.h, c: m.c, n: "added by you", mine: true }); });
+    list.sort(function (a, b) { return a.H - b.H; });
+    return { known: known, list: list };
+  }
+
+  /** what the clock allows for one market: {k: go | wait | no, t: text} */
+  function lguideRow(r, t, news) {
+    var s = lStatus(r, t), sh = t.nyDiff - 6, wait = null, soon = null;
+    var until = s.at != null && s.inMin <= 12 * 60 ? lhm(s.at) : "";
+    if (s.lv === 0) return { k: "no", tag: "Closed", t: "Closed" + (s.at != null ? ". Opens " + (s.wd === t.wd ? "" : LDAYS[s.wd] + " ") + lhm(s.at) : "") };
+    var evs = [];
+    (r[2].indexOf(14.5) < 0 ? r[2].concat([14.5]) : r[2]).forEach(function (h0) {
+      var e = LG_EV[h0]; if (!e || (e[3] && e[3] !== t.wd) || t.wd > 5) return;
+      /* with the calendar loaded, the "if there is one today" guesses give way to the real releases */
+      if (e[4] && news.known) return;
+      evs.push({ h: h0 + (e[2] ? sh : 0), e: e });
+    });
+    news.list.forEach(function (n) { if (lnewsHits(r[0], n)) evs.push({ h: n.H, e: ["news at " + lhm(n.H) + " (" + (n.c === "ALL" ? "" : n.c + " ") + esc(n.n) + ")", 15, 0, 0, 0] }); });
+    evs.sort(function (a, b) { return a.h - b.h; });
+    evs.forEach(function (v) {
+      var e = v.e, h = v.h, d = (t.H - h) * 60;
+      if (d >= -5 && d < e[1]) { if (!wait || h + e[1] / 60 > wait.to) wait = { e: e, to: h + e[1] / 60 }; }
+      else if (d < -5 && d >= -45 && !soon) soon = { e: e, h: h };
+    });
+    if (wait) return { k: "wait", tag: "Wait", t: "No new trade until <b>" + lhm(wait.to) + "</b>: " + wait.e[0] + (wait.e[4] ? ", if there is one today" : "") + ". The first bars are too wild to read." };
+    var tail = soon ? " Be flat by <b>" + lhm(soon.h - 5 / 60) + "</b>: " + soon.e[0] + (soon.e[4] ? ", if there is one today" : "") + "." : "";
+    if (s.lv >= 2) return { k: "go", tag: "Trade", t: (s.lv === 3 ? "Busiest hours" : "Active") + (until ? " until " + until : "") + "." + tail };
+    return { k: "no", tag: "Leave it", t: "Quiet: thin and slow, most moves fail." + (s.at != null && s.next > 1 ? " " + (s.next === 3 ? "Busiest" : "Active") + " from " + (s.wd === t.wd ? "" : LDAYS[s.wd] + " ") + lhm(s.at) + (s.inMin <= 12 * 60 ? " (in " + lIn(s.inMin) + ")" : "") + "." : "") };
+  }
+  function lguideNow(t) {
+    var weekend = t.wd === 6 || (t.wd === 7 && t.H < 23) || (t.wd === 5 && t.H >= 23), roll = !weekend && t.H >= 22.5 && t.H < 23.5;
+    var news = lnewsToday(t);
+    var rows = LTL_ROWS.map(function (r) { var v = lguideRow(r, t, news); if (roll && v.k === "go") { v.k = "wait"; v.tag = "Wait"; } v.n = r[0]; return v; });
+    var go = rows.filter(function (v) { return v.k === "go"; }).map(function (v) { return v.n; });
+    var head = weekend ? "Weekend: nothing to trade. Use Practice or review your week."
+      : roll ? "No new trades: the 23:00 rollover. Spreads widen, and a position held through it pays or receives swap."
+      : go.length ? "You can trade now: <b>" + go.join(", ") + "</b>. Pick one and stay with it."
+      : rows.some(function (v) { return v.k === "wait"; }) ? "Hold off for a few minutes: see the Wait lines below."
+      : "Nothing to trade right now. Wait for the next busy hours below.";
+    return '<div class="lnowt"><b>' + (t.weekday ? t.weekday + " " + t.day + " " + t.month + " · " : "") + lhm(t.H) + '</b> <span class="mu">your time, Amsterdam (' + t.timeZoneName + ')</span></div>' +
+      '<div class="lgvhead ' + (go.length && !roll && !weekend ? "go" : "no") + '">' + head + '</div>' +
+      '<div class="lnowg">' + rows.map(function (v) {
+        return '<div class="lnowr lgvr"><span>' + v.n + '</span><em class="lgv ' + v.k + '">' + v.tag + '</em><i>' + v.t + '</i></div>';
+      }).join("") + '</div>' +
+      (Math.abs(t.nyDiff - 6) > 0.01 ? '<div class="lwarn" style="margin:8px 0 0">This week New York is <b>' + t.nyDiff + ' hours</b> behind you instead of 6, so the US busy hours start <b>' + (t.nyDiff < 6 ? 'one hour earlier' : 'one hour later') + '</b> than shown.</div>' : '') +
+      lguideNews(t, news);
+  }
+  function lguideNews(t, news) {
+    var o = ['<div class="lgnews"><div class="lgnh">News today for your markets <span class="mu">(high impact, USD, EUR and JPY)</span></div>'];
+    if (news.list.length) o.push(news.list.map(function (n) {
+      var d = (t.H - n.H) * 60, st = d >= 15 ? "done" : d >= -5 ? "now" : "soon";
+      var who = n.c === "ALL" || (n.c === "USD" && !/crude oil/i.test(n.n)) ? "all your markets" : LTL_ROWS.map(function (r) { return r[0]; }).filter(function (x) { return lnewsHits(x, n); }).join(", ");
+      return '<div class="lgnr ' + st + '"><b>' + lhm(n.H) + '</b><span>' + (n.c === "ALL" ? "" : n.c + " · ") + esc(n.n) + ' <i>' + who + '</i></span><em>' +
+        (st === "done" ? "over" : st === "now" ? "stay out until <b>" + lhm(n.H + 0.25) + "</b>" : "flat by <b>" + lhm(n.H - 5 / 60) + "</b>, trade again <b>" + lhm(n.H + 0.25) + "</b>") + '</em></div>';
+    }).join(""));
+    else if (news.known) o.push('<div class="lgnone">None today. Nothing scheduled stands in your way.</div>');
+    if (news.known) o.push('<div class="mu lgnsrc">From the ForexFactory weekly calendar, read ' + lhm(lNow(new Date(LNEWS.at)).H) + '. Times are Amsterdam time. Trade again means: 15 minutes after the release, if the bars have calmed down.</div>');
+    else o.push('<div class="lwarn" style="margin:8px 0 0">' + (LNEWS.busy ? "Loading this week's news calendar…" : "The news calendar could not be loaded" + (LNEWS.err ? " (" + esc(LNEWS.err) + ")" : "") + ". Until it is, look up today's high-impact releases yourself and add their times below; the lines that say \"if there is one today\" stay as a warning.") + '</div>');
+    o.push('</div>');
+    return o.join("");
+  }
+
+  /* the questions. An option is [label, what it looks like, next, picture, direction].
+     next: a question id, "e:<chapter id>" for an entry, "w:<id>" for a wait. */
+  var LGT = {
+    start: { q: "What does the chart in front of you look like?", o: [
+      ["A strong trend", "A spike or a tight channel: strong bars one way, hardly any pullback, the EMA left behind.", "sdir"],
+      ["A normal trend", "Clear swings one way, with pullbacks that reach the EMA.", "ndir"],
+      ["A trading range", "A flat EMA, overlapping bars, a top and a bottom.", "redge"],
+      ["A trend that is turning", "The trend line is broken and the old extreme is being tested.", "tdir"],
+      ["Unclear", "Barbwire: overlapping bars with long tails and no direction.", "w:unclear"],
+      ["Not sure: help me decide", "Four checks on your chart that sort it into one of the others.", "help1"]] },
+    help1: { q: "Check 1. Look at the EMA across the last 20 bars.", o: [
+      ["It slopes up", "From the lower left to the upper right.", "help2", null, 1],
+      ["It slopes down", "From the upper left to the lower right.", "help2", null, -1],
+      ["It is flat, or it keeps changing direction", "", "help3"]] },
+    help2: { q: "Check 2. On which side of the EMA have the last 20 bars closed?", o: [
+      ["Almost all on the trend's side", "Above the EMA when it slopes up, below it when it slopes down.", "help4"],
+      ["On both sides: price keeps crossing the EMA", "", "help3"]] },
+    help3: { q: "Is there a top and a bottom where price has turned?", o: [
+      ["Yes: the bars overlap between a high area and a low area", "That is a trading range.", "redge"],
+      ["It just left a sideways area with one or two big bars", "That is a breakout, or a failed one.", "rplace"],
+      ["No: overlapping bars with long tails, no clear top or bottom", "", "w:unclear"]] },
+    help4: { q: "Check 3. Has anything strong happened against the trend?", o: [
+      ["No: the moves against it are small", "A few small bars, then the trend goes on.", "help5"],
+      ["Yes: a strong move broke the trend line and crossed the EMA, and price is now back near the old extreme", "That is a possible reversal.", "turn", null, "flip"],
+      ["Yes: a strong move broke the trend line, but price has not gone back to the old extreme", "", "w:nottested"],
+      ["Three pushes that get weaker, or very big bars far from the EMA", "A wedge or a climax: a possible reversal.", "turn", null, "flip"]] },
+    help5: { q: "Check 4. How deep are the pullbacks?", o: [
+      ["One to three bars; they do not reach the EMA", "That is a strong trend.", "strong"],
+      ["They reach the EMA, in clear swings", "That is a normal trend.", "normal"],
+      ["Deep: more than half of the last leg, wide swings", "That is a broad channel, a normal trend.", "normal"]] },
+    sdir: { q: "Which way is the strong trend?", o: [
+      ["Up", "You only buy.", "strong", null, 1], ["Down", "You only sell.", "strong", null, -1]] },
+    strong: { q: "What has the trend just done?", o: [
+      ["The first small pause after the spike", "One to three small bars, then a bar that goes on with the trend.", "e:spike"],
+      ["A strong trend bar just closed, no pullback", "It closed on its extreme and you are not in yet.", "e:late"],
+      ["A one- or two-bar pullback in a tight channel", "Small bars in a narrow path, hardly overlapping.", "e:tight"],
+      ["It just broke out of a range, and this is the first pullback", "The pullback stays beyond the breakout point.", "e:breakout"],
+      ["None of these", "", "w:strongwait"]] },
+    ndir: { q: "Which way is the trend?", o: [
+      ["Up", "Higher highs and higher lows, price mostly above the EMA.", "normal", null, 1],
+      ["Down", "Lower highs and lower lows, price mostly below the EMA.", "normal", null, -1]] },
+    normal: { q: "Where is price in the trend now?", o: [
+      ["A two-legged pullback to the EMA", "Two legs against the trend, price at or near the EMA.", "e:count"],
+      ["A deep pullback to the channel line (a broad channel)", "The swings are wide and both sides have been making money.", "e:broad"],
+      ["At the trend's extreme, at a magnet, with a strong signal against it", "A prior swing, a channel line or a round number. Against the trend.", "e:counter"],
+      ["In between: moving with the trend, no pullback yet", "", "w:midswing"]] },
+    redge: { q: "Do you know the edges? Each edge must have turned price at least twice.", o: [
+      ["Yes, the top and the bottom have both turned price twice or more", "Count turns, not wicks.", "rplace"],
+      ["No, or only one side", "A single spike is a failed breakout, not an edge.", "w:noedge"]] },
+    rplace: { q: "Where is price in the range?", o: [
+      ["Bottom third", "You only buy here.", "rhow", null, 1],
+      ["Middle third", "", "w:middle"],
+      ["Top third", "You only sell here.", "rhow", null, -1],
+      ["It poked below the bottom and closed back inside", "A failed breakout: a buy.", "e:fbo", null, 1],
+      ["It poked above the top and closed back inside", "A failed breakout: a sell.", "e:fbo", null, -1],
+      ["It broke out upward with big bars and follow-through", "The range is over: now a strong trend up.", "e:breakout", null, 1],
+      ["It broke out downward with big bars and follow-through", "The range is over: now a strong trend down.", "e:breakout", null, -1]] },
+    rhow: { q: "How do you want to get in?", o: [
+      ["With a stop order, on a second entry signal", "You wait for the turn to show itself. This is where everyone starts.", "e:range"],
+      ["With limit orders, scaling in", "You are in before the turn, with a wide stop and two orders.", "rlast"]] },
+    rlast: { q: "Was your last scale-in in this area stopped out?", o: [
+      ["No", "", "e:limits"],
+      ["Yes", "", "w:afterstop"]] },
+    tdir: { q: "Which way was the old trend?", o: [
+      ["Up: I am looking for a sell", "", "turn", null, -1], ["Down: I am looking for a buy", "", "turn", null, 1]] },
+    turn: { q: "Which of these is it?", o: [
+      ["The trend line broke, and price is back testing the old extreme", "A major trend reversal.", "e:mtr"],
+      ["Three pushes, each one weaker", "A wedge.", "e:wedge"],
+      ["A small flag late in the trend, and its breakout is failing", "A final flag.", "e:flag"],
+      ["Very big bars far from the EMA, then a pause", "A climax.", "e:climax"],
+      ["None of these", "", "w:noturn"]] }
+  };
+  var LGW = {
+    unclear: ["No trade on this bar", "If you cannot say what the market is doing, there is nothing here to trade. Barbwire makes every bar look like a signal. Wait for a breakout and its first pullback, or for price to reach an edge you know. Then start again.", ["where", "The place beats the bar"]],
+    strongwait: ["Wait for the next pause", "The trend is strong, so the next small pause or one-bar pullback is your entry. Do not sell against it and do not chase a weak bar. Look again on the next bar close."],
+    midswing: ["Wait for the pullback", "Price is in the middle of a swing. The entry is at the end of the next pullback to the EMA, not here. If a strong trend bar closes on its extreme and at least 1.5R is left to the target, that is the late entry under \"A strong trend\"."],
+    noedge: ["Wait: mark the edges first", "Without two turns on each side you do not know where the thirds are, so every entry and stop would be a guess. Mark the highs and lows where price turned, and wait until each side has turned price twice. Until then only a failed breakout or a breakout pullback is a trade.", ["range", "Filled"]],
+    middle: ["Wait: the middle of a range is no trade", "In the middle the next move is a coin flip and the stop is far. A strong bar here means nothing. Put an alert at the top third and the bottom third and look again when price gets there.", ["where", "The place beats the bar"]],
+    afterstop: ["No limit orders here for now", "After a stopped-out scale-in the edge is no longer known. Use only stop-order entries in this area (the second entry signal, or a failed breakout) until a level has turned price at least twice again. Then limits are allowed again."],
+    nottested: ["Still the old trend, only weaker", "A broken trend line alone is not a reversal. Most of the time the market goes sideways or the old trend resumes. No trade against the trend until price has gone back to test the old extreme and a second signal forms there. With the trend, only a two-legged pullback to the EMA. Look again after the next few bars."],
+    noturn: ["Not a reversal yet", "Most reversal attempts fail and become a flag in the old trend. Without one of the four pictures, trade the old trend's next pullback or wait."]
+  };
+  /* each entry in words you can follow on the chart, written for a buy; a sell is mirrored word by word.
+     [what you must see, the order, the stop, the target, the picture shows a buy (1) or a sell (-1), against the chosen trend] */
+  var LGE = {
+    spike: ["A spike {up}: several strong {bull} bars in a row. Then the first small pause of one to three bars, and a bar that goes {above} the prior bar's {high} (an {H}1).", "{Buy} stop one tick {above} that bar's {high}.", "{Below} the {low} of the pause.", "The spike's height, measured {up} from the {top} of the spike.", 1],
+    late: ["The trend is clearly {up} and a strong {bull} bar has just closed on its {high}. No pullback yet.", "{Buy} at market on the close.", "Wide: {below} the start of the spike or the last swing {low}. The size comes from that stop, so it is small.", "The target of the setup you are late for, never a new one. Less than 1.5R left from here: skip.", 1],
+    tight: ["A tight channel {up}: small bars, hardly overlapping. Now a pullback of only one or two bars.", "{Buy} stop one tick {above} the {high} of the pullback's signal bar.", "{Below} the pullback's {low}.", "Leg 1 = leg 2: the last leg's height, measured {up} from the pullback's {low}.", 1],
+    breakout: ["A big {bull} bar (or two) closes well {above} the range. The first pullback stays {above} the breakout point.", "{Buy} stop one tick {above} the pullback's signal bar.", "{Below} the pullback's {low}.", "The range's height, measured {up} from the breakout point.", 1],
+    count: ["A trend {up} with clear pullbacks. Now two legs {down} to the EMA, then a {bull} signal bar (an {H}2).", "{Buy} stop one tick {above} the signal bar's {high}.", "One tick {below} the signal bar, or {below} the pullback's {low} if the bar is small.", "Leg 1 = leg 2: the leg before the pullback, measured {up} from the pullback's {low}.", 1],
+    broad: ["A broad channel {up}. Now a deep two-legged pullback near the channel's {lower} line, and a {bull} signal bar.", "{Buy} stop one tick {above} the signal bar.", "{Below} the swing {low}.", "The prior {high}. Take the profit there, not beyond it.", 1, 0, "The {bottom} of a broad channel"],
+    counter: ["The trend is {down} but not strong. Price is at a magnet (a prior swing, a channel line, a round number) and a strong second {buy} signal forms there.", "{Buy} stop one tick {above} the signal bar. Small size.", "{Below} the extreme.", "Only the EMA or the last swing. It is a scalp: out at the target.", -1, 1],
+    range: ["Price is in the {bottom} third. The move {down} stalls, a first {buy} signal fails, and a second {bull} signal bar forms.", "{Buy} stop one tick {above} the second signal bar.", "{Below} the {low} of the test of the edge.", "The other side of the range. The middle is a magnet on the way: if price stalls there, take it.", 1],
+    fbo: ["Price pokes {below} the range's {bottom}, gets no follow-through, and a bar closes back inside.", "{Buy} stop one tick {above} that bar.", "{Below} the breakout's extreme.", "The other side of the range.", -1],
+    limits: ["Price drifts into the {bottom} third with small overlapping bars. Not after two or three big {bear} bars closing on their {low}s: that is a breakout attempt.", "{Buy} limit 1 in the {bottom} third, one pip {below} the {low} of the first bar that closes there. {Buy} limit 2 at half the range's height {below} the edge. The same size on both.", "One stop for both: the full range height {below} the edge. Both orders together risk one normal trade.", "Only limit 1 fills: out at the middle. Both fill: out at limit 1's price (break-even on the first, a profit on the second).", 1, 0, "", ["wideA", "The wide plan", "<b>The wide plan.</b> Limit 1 in the bottom third, limit 2 half the range's height below the low, one stop a full range height below the low."]],
+    mtr: ["The old trend line is broken by a strong move {up}. Price goes back to test the old {low}, and a second {buy} signal forms at the test.", "{Buy} stop one tick {above} the second-entry signal bar.", "{Below} the test's extreme.", "The first leg of the new move, measured again from the test. Less than 2R: skip.", -1],
+    wedge: ["Three pushes {down}, each one weaker than the last. Take the second signal after the third push.", "{Buy} stop one tick {above} the signal bar.", "{Below} the third push.", "The start of the wedge. Less than 2R: skip.", 1],
+    flag: ["Late in the trend {down} a small flag forms, breaks out {down} weakly and is rejected. A second {buy} signal.", "{Buy} stop one tick {above} the signal bar.", "{Below} the {low} of the failed breakout.", "The flag's height, measured {up} beyond the flag. Less than 2R: skip.", -1],
+    climax: ["Very big {bear} bars far from the EMA, then a pause, and a second {buy} signal.", "{Buy} stop one tick {above} the signal bar.", "{Below} the climax's {low}.", "Where the big bars began. A correction, not a new trend. Less than 2R: skip.", -1]
+  };
+  var LG_W = [["Buy", "Sell"], ["buy", "sell"], ["Below", "Above"], ["above", "below"], ["below", "above"], ["high", "low"], ["low", "high"], ["up", "down"], ["down", "up"],
+    ["bull", "bear"], ["bear", "bull"], ["H", "L"], ["top", "bottom"], ["bottom", "top"], ["lower", "upper"]];
+  function lguideWords(s, dir) {
+    return s.replace(/\{(\w+)\}/g, function (m, w) {
+      for (var i = 0; i < LG_W.length; i++) if (LG_W[i][0] === w) return LG_W[i][dir > 0 ? 0 : 1];
+      return w;
+    });
+  }
+  function lguideEntry(ch) {
+    for (var g = 0; g < TENTRY.length; g++) for (var i = 0; i < TENTRY[g].rows.length; i++) if (TENTRY[g].rows[i][5] === ch) return TENTRY[g].rows[i];
+    return null;
+  }
+  var LGUIDE_PATH = [];   /* [{id, pick}], kept while the page is open */
+  var LGUIDE_PICS = false;
+  var LG_PIC = [["spike", "A High 1 buy"], ["every", "The orders"], ["range", "Filled"], ["mtr", "The orders"], ["nothing", "Barbwire"]];
+  function mountGuide(el) {
+    var figs = [], timer = null;
+    var nowEl = document.createElement("div"), askEl = document.createElement("div");
+    nowEl.className = "lgnow"; askEl.className = "lgask";
+    el.innerHTML = '<div class="lgh"><span>1</span> Right now: what the clock allows</div>';
+    el.appendChild(nowEl);
+    var myEl = document.createElement("details"); myEl.className = "lgmy"; el.appendChild(myEl);
+    var paintMy = function () {
+      var t = lNow(), list = lnewsMine(t), open = myEl.open;
+      myEl.innerHTML = '<summary>Add a news time yourself' + (list.length ? ' (' + list.length + ' added today)' : '') + '</summary>' +
+        '<div class="lgmyf"><input type="time" id="lgMyT" aria-label="Time of the release, Amsterdam time"> ' +
+        '<select id="lgMyC" aria-label="What it moves"><option value="USD">USD: all your markets</option><option value="EUR">EUR: EURUSD and GER40</option><option value="JPY">JPY: USDJPY</option></select> ' +
+        '<button class="btn sm" id="lgMyAdd">Add</button></div>' +
+        list.map(function (m, i) { return '<div class="lgmyr">' + lhm(m.h) + ' · ' + m.c + ' <button class="btn sm" data-myx="' + i + '">Remove</button></div>'; }).join("") +
+        '<div class="mu" style="font-size:12px;margin-top:6px">Amsterdam time. Kept for today only.</div>';
+      myEl.open = open;
+      $("lgMyAdd").onclick = function () {
+        var v = $("lgMyT").value.split(":"); if (v.length < 2) return;
+        list.push({ h: +v[0] + +v[1] / 60, c: $("lgMyC").value }); lnewsMineSave(t, list); paintMy(); paintNow();
+      };
+      [].forEach.call(myEl.querySelectorAll("[data-myx]"), function (b) { b.onclick = function () { list.splice(+b.dataset.myx, 1); lnewsMineSave(t, list); paintMy(); paintNow(); }; });
+    };
+    var h2 = document.createElement("div"); h2.className = "lgh"; h2.innerHTML = '<span>2</span> What do you see? Press it, after every bar close';
+    el.appendChild(h2); el.appendChild(askEl);
+    var paintNow = function () { nowEl.innerHTML = lguideNow(lNow()); };
+    function fig(f, cap, extra) {
+      return '<figure class="lfig ltfig" data-gfig="' + f[0] + '" data-title="' + f[1] + '"' + (extra ? ' data-extra="1"' : '') + '><div class="lfscr"></div>' + (cap ? '<figcaption>' + cap + '</figcaption>' : '') + '</figure>';
+    }
+    function where() {
+      var cur = "start", dir = 0;
+      LGUIDE_PATH.forEach(function (s) { var o = LGT[s.id].o[s.pick]; if (o[4] === "flip") dir = -dir; else if (o[4]) dir = o[4]; cur = o[2]; });
+      return { cur: cur, dir: dir };
+    }
+    function card(ch, dir) {
+      var r = lguideEntry(ch), E = LGE[ch], d = dir * (E[5] ? -1 : 1), adv = r[1] === "a", odds = r[4] ? lodds(r[4]) : "–";
+      var w = function (s) { return lguideWords(s, d); };
+      var mirror = E[4] !== d, nm = E[6] ? w(E[6]) : r[0];
+      return '<div class="ltend order lgcard"><span class="ltk ' + (d > 0 ? "up" : "dn") + '">' + (d > 0 ? "BUY" : "SELL") + '</span> ' + TLVL[r[1]] +
+        '<b>' + nm + '</b>' +
+        '<ol class="lgsteps">' +
+        '<li><b>You must see:</b> ' + w(E[0]) + ' <span class="mu">Not there yet? Wait for it; do not enter early.</span></li>' +
+        '<li><b>Order:</b> ' + w(E[1]) + '</li>' +
+        '<li><b>Stop:</b> ' + w(E[2]) + '</li>' +
+        '<li><b>Target:</b> ' + w(E[3]) + '</li>' +
+        '<li><b>Check before you send it:</b> the distance to the target is at least <b>' + r[3].replace(/,.*$/, "") + '</b> (R = the distance from entry to stop), and the clock above says Trade for your market. If not, skip this one.</li>' +
+        '<li><b>Size:</b> from the stop distance, in the calculator. ' + (adv ? 'Use <b>half your normal risk</b>: this entry is advanced until you have logged twenty of them.' : 'Your normal risk.') + '</li>' +
+        '</ol>' +
+        (ch === "limits" ? '<div class="lwarn" style="margin:8px 0 0">The wide stop makes the risk in pips large, so the size is small. About three in four of these must end at break-even or better for the plan to pay; that is a figure to measure in your own log, not a promise.</div>' : '') +
+        '<p class="mu" style="margin-top:8px;font-size:12.5px">Taught win rate: ' + (odds === "–" ? "none given for this entry" : "about " + odds) + '. It is a teaching figure, not a measured result. Tag the trade "' + nm + '" in your log, so your own numbers decide.</p></div>' +
+        fig(E[7] || r[7], (E[7] || r[7])[2] + (mirror ? ' <b>The picture shows the ' + (E[4] > 0 ? "buy" : "sell") + '; yours is the mirror image.</b>' : ''), ch === "late") +
+        '<div class="ltbar"><button class="btn sm" data-a="calc" data-adv="' + (adv ? 1 : 0) + '">Work out the size &#8595;</button>' +
+        '<button class="btn sm" data-ggo="' + r[5] + '">Why: ' + r[6] + '</button></div>';
+    }
+    function render() {
+      figs.forEach(function (f) { f.dispose(); var i = learnPlayers.indexOf(f); if (i >= 0) learnPlayers.splice(i, 1); }); figs = [];
+      var W = where(), out = [], n = LGT[W.cur];
+      out.push('<div class="ltpath">' + (LGUIDE_PATH.length ? LGUIDE_PATH.map(function (s, i) {
+        return '<button class="ltcrumb" data-back="' + i + '" title="Go back to this question">' + esc(LGT[s.id].o[s.pick][0]) + '</button>';
+      }).join('<span class="mu">›</span>') : '<span class="mu">Start here after every bar close.</span>') + '</div>');
+      if (n) {
+        var pics = W.cur === "start" && LGUIDE_PICS;
+        out.push('<div class="ltq">' + n.q + '</div><div class="lta' + (pics ? ' ltopts' : ' lgopts') + '">' + n.o.map(function (o, i) {
+          var b = '<button data-pick="' + i + '"><b>' + o[0] + '</b>' + (o[1] ? '<small>' + o[1] + '</small>' : '') + '</button>';
+          return pics ? '<div class="ltopt">' + (LG_PIC[i] ? fig(LG_PIC[i]) : '<div class="ltnofig mu">no picture: the checks sort it out</div>') + b + '</div>' : b;
+        }).join("") + '</div>');
+        if (W.cur === "start") out.push('<div class="ltbar"><button class="btn sm" data-a="pics">' + (pics ? "Hide the pictures" : "Show a picture of each") + '</button></div>');
+      } else if (W.cur.charAt(0) === "e") {
+        out.push(card(W.cur.slice(2), W.dir || 1));
+      } else {
+        var wt = LGW[W.cur.slice(2)];
+        out.push('<div class="ltend wait"><span class="ltk mu">WAIT</span><b>' + wt[0] + '</b><p>' + wt[1] + '</p></div>' + (wt[2] ? fig(wt[2]) : ''));
+      }
+      out.push('<div class="ltbar">' + (LGUIDE_PATH.length ? '<button class="btn sm" data-a="back">&#8592; Back</button><button class="btn sm" data-a="reset">&#8635; Next bar: start again</button>' : '') + '</div>');
+      askEl.innerHTML = out.join("");
+      [].forEach.call(askEl.querySelectorAll("[data-gfig]"), function (fe) {
+        try { var lf = new LessonFigure(fe, fe.dataset.gfig, fe.dataset.title, true); figs.push(lf); learnPlayers.push(lf); }
+        catch (e) { fe.querySelector(".lfscr").innerHTML = '<div class="hint">This chart could not be drawn (' + esc(e.message) + ').</div>'; }
+      });
+      [].forEach.call(askEl.querySelectorAll("[data-pick]"), function (b) {
+        b.onclick = function () { LGUIDE_PATH.push({ id: W.cur, pick: +b.dataset.pick }); render(); };
+      });
+      [].forEach.call(askEl.querySelectorAll("[data-back]"), function (b) {
+        b.onclick = function () { LGUIDE_PATH = LGUIDE_PATH.slice(0, +b.dataset.back); render(); };
+      });
+      var bk = askEl.querySelector('[data-a="back"]'); if (bk) bk.onclick = function () { LGUIDE_PATH.pop(); render(); };
+      var rs = askEl.querySelector('[data-a="reset"]'); if (rs) rs.onclick = function () { LGUIDE_PATH = []; render(); };
+      var pc = askEl.querySelector('[data-a="pics"]'); if (pc) pc.onclick = function () { LGUIDE_PICS = !LGUIDE_PICS; render(); };
+      var gg = askEl.querySelector("[data-ggo]"); if (gg) gg.onclick = function () { paintLearn(gg.dataset.ggo); };
+      var cb = askEl.querySelector('[data-a="calc"]'); if (cb) cb.onclick = function () {
+        var c = document.querySelector('[data-calc="today"]'), a = $("tcAdv");
+        if (a && a.checked !== (cb.dataset.adv === "1")) a.click();
+        if (c) c.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+    }
+    paintNow(); paintMy(); render();
+    lnewsLoad(paintNow);
+    timer = setInterval(function () { lnewsLoad(paintNow); }, 30000);
+    return { pause: function () { }, dispose: function () { clearInterval(timer); figs.forEach(function (f) { f.dispose(); }); figs = []; } };
+  }
+
   lch({ id: "today", part: "Today", title: "Today's trade plan",
     sub: "The whole method on one page, in the order you use it: before the session, on every bar, before the order, and after the session.",
     body: function () {
-      return lp("Follow this page from the top every trading day. You don't need the other chapters to use it: each line links to the one that explains it, for when you want to know why.") +
+      return lp("Use the guide below while you trade: it tells you what the clock allows, then you press what you see on the chart and it gives you the one instruction that fits. Everything under it is the same method written out in full, for when you want to read why.") +
+        '<div class="lguide" data-guide="1"></div>' +
         lkey("<b>Every entry Brooks uses is on this page.</b> The ones marked " + TLVL.s + " are where everyone starts. " + TLVL.n + " comes after about fifty starter trades. " + TLVL.a +
           " entries are allowed, but they need more reading of the chart, so they come with two rules: <b>half your normal risk</b> until you have logged twenty of that entry, and <b>tag every trade</b> with its entry, so your own results decide when it stops being advanced.") +
 
@@ -14722,6 +15093,7 @@ var PROG = (function () {
       catch (e) { el.querySelector(".lfscr").innerHTML = '<div class="hint">This chart could not be drawn (' + esc(e.message) + ').</div>'; }
     });
     [].forEach.call(root.querySelectorAll("[data-tree]"), function (el) { mountTree(el); });
+    [].forEach.call(root.querySelectorAll("[data-guide]"), function (el) { learnPlayers.push(mountGuide(el)); });
     [].forEach.call(root.querySelectorAll("[data-now]"), function (el) { learnPlayers.push(mountNow(el)); });
     [].forEach.call(root.querySelectorAll("[data-equity]"), function (el) { mountEquity(el); });
     [].forEach.call(root.querySelectorAll("[data-calc]"), function (el) { if (el.dataset.calc === "costs") mountCostCalc(el); else if (el.dataset.calc === "today") mountTodayCalc(el); else mountCalc(el); });
