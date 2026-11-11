@@ -376,6 +376,8 @@
   .ltick input{margin-top:4px;accent-color:var(--amber);flex:none}
   .ltgrp{border:1px solid var(--line);border-radius:10px;padding:10px 12px 4px;margin:10px 0 14px;background:var(--bg2)}
   .ltgh{font-size:14px;line-height:1.45}
+  .ltstep{font:600 15px Inter,sans-serif;color:#e6e8ec;margin:22px 0 6px;padding-top:12px;border-top:1px solid var(--line)}
+  .ltstep span{display:inline-block;font:700 10px Archivo,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#0b0e13;background:var(--amber);border-radius:5px;padding:3px 7px;margin-right:8px;vertical-align:2px}
   .lgloss dt{font-family:Archivo,sans-serif;font-weight:700;font-size:14px;color:var(--paper);margin-top:12px}
   .lgloss dd{font-size:14px;line-height:1.6;color:#cfd4dd;margin:2px 0 0}
   /* still figures */
@@ -678,7 +680,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.82.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.83.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -9397,7 +9399,7 @@ var PROG = (function () {
       var keep = st0.notes.filter(function (m) { return own.indexOf(m) < 0 && ((m.t === "bar" && ordI.indexOf(m.i) >= 0) || m.t === "hl"); });
       this.focusNotes = keep.concat(own);
       var trade = !!st0.pos || own.some(function (m) { return m.t === "order" || m.t === "lvl" || m.t === "mm" || m.t === "hl"; });
-      if (!trade) { this.fpad = 0.12; this.noExtra = true; }
+      if (!trade && !root.dataset.extra) { this.fpad = 0.12; this.noExtra = true; }
     }
     this.apply(k, true);
     if (this.focusNotes) { this.notes = this.focusNotes; this.ch.render(); }
@@ -10621,6 +10623,92 @@ var PROG = (function () {
     }
   };
 
+  /* ---------- Today's plan, on one chart ----------
+     The whole routine as the steps you repeat on your own chart, all on the
+     chart of the first lesson: the levels from the higher timeframe, the same
+     levels on the trading chart, the direction, the place, the signal bar,
+     the orders, the size, the hold and the exit. The hourly chart is the same
+     15-minute bars, four to a candle, up to the bar before the signal, so it
+     shows only what you could have seen at that moment. */
+  function lplanLv(ex) {
+    var B = ex.bars;
+    return { low: B[6].l, old: B[14].h, high: B[36].h };
+  }
+  function lplanHtfEx() {
+    var ex = LVID.every.example(), B = ex.bars, out = [];
+    for (var i = 0; i + 3 <= 51; i += 4) {
+      var s = B.slice(i, i + 4);
+      out.push({ t: s[0].t, o: s[0].o, c: s[3].c, v: s.reduce(function (a, x) { return a + x.v; }, 0),
+        h: Math.max.apply(null, s.map(function (x) { return x.h; })), l: Math.min.apply(null, s.map(function (x) { return x.l; })) });
+    }
+    return { bars: out, sym: ex.sym, alias: ex.alias, tf: "1H", tfLbl: "1 hour", dec: ex.dec, gt: ex.gt, lv: lplanLv(ex) };
+  }
+  LVID.planHtf = {
+    title: "Today's plan, step 1: the levels on the 1-hour chart",
+    example: lplanHtfEx,
+    check: function (hx) { var ex = LVID.every.example(); return LVID.every.check(ex) && hx.bars.length === 13 && hx.bars[9].h === hx.lv.high && hx.bars[3].h === hx.lv.old && hx.bars[1].l === hx.lv.low; },
+    extraPrices: function (hx) { return [hx.lv.low, hx.lv.high]; },
+    scenes: function (hx) {
+      var fp = lfp(hx), V = hx.lv;
+      return [
+        { title: "The hourly chart", vis: 12, add: [],
+          say: "Before you look at a single 15 minute bar, open the 1 hour chart. Each candle here is four of your 15 minute bars. You are not looking for a trade here. You are looking for prices the market has already reacted to." },
+        { title: "Mark the levels", vis: 12, add: [
+            N.hl(V.high, 9, "the high of the move " + fp(V.high) + ": a magnet above", COL.violet, true, 0),
+            N.hl(V.old, 3, "old high " + fp(V.old) + ", broken: support now", COL.blue, true, 0),
+            N.hl(V.low, 1, "the low " + fp(V.low), COL.dn, true, 2)],
+          say: "Draw a horizontal line at each price where the market clearly turned or broke through. Here that is three lines: the low the move started from, the old high that the market broke above, and the highest price so far. An old high that was broken often becomes support when price comes back to it. The high of the move is a magnet: price is drawn to it, and it is where earlier buyers take profits. Three to five lines is enough. Then go to the 15 minute chart." }
+      ];
+    }
+  };
+  LVID.plan = {
+    title: "Today's plan: one trade, step by step",
+    example: LVID.every.example,
+    check: function (ex) {
+      var B = ex.bars, V = lplanLv(ex), g = ex.gt;
+      return LVID.every.check(ex) && B[20].l > B[6].l && B[34].l > B[20].l && B[28].h > B[14].h && B[36].h > B[28].h &&
+        lo(ex, 37, 43).i === 41 && B[52].l > V.old && B[52].l - V.old < 0.0006 && g.target > V.high && lo(ex, 53, 74).p > g.invalid;
+    },
+    extraPrices: function (ex) { return [ex.gt.target, ex.bars[6].l]; },
+    scenes: function (ex) {
+      var g = ex.gt, B = ex.bars, fp = lfp(ex), V = lplanLv(ex), R = g.entry - g.invalid, pips = function (d) { return (Math.abs(d) * 1e4).toFixed(1); };
+      var lv = function (lx) { return [N.hl(V.high, 36, "the high of the move: a magnet", COL.violet, true, 2),
+        N.hl(V.old, 14, "old high, broken: support now", COL.blue, true, lx || 2), N.hl(V.low, 6, "the low", COL.dn, true, 12)]; };
+      var P = COST_PRE.fxpro.v.EURUSD, est = COST_PRE.fxpro.est.EURUSD || "", stopP = R * 1e4,
+        lots = Math.floor(50 / (stopP * 10) * 100) / 100, cost = lots * (P[0] * 10 + P[1]), risk = lots * stopP * 10;
+      var l1 = lo(ex, 37, 43), l2 = lo(ex, 45, 52);
+      return [
+        { title: "The levels on your chart", vis: 51, view: [0, 78], clear: true, add: lv(),
+          say: "The same three lines, now on the 15 minute chart you trade from. They tell you where you are before you read a single bar. Price is between the old high below and the high of the move above." },
+        { title: "The direction", vis: 51, clear: true, add: lv(37).concat([
+            N.pt(6, B[6].l, "low", COL.up, false), N.pt(20, B[20].l, "higher low", COL.up, false), N.pt(34, B[34].l, "higher low", COL.up, false),
+            N.pt(14, B[14].h, "high", COL.up, true), N.pt(28, B[28].h, "higher high", COL.up, true), N.pt(36, B[36].h, "higher high", COL.up, true),
+            N.note("Always-in: LONG. Buys only.", 0, COL.up)]),
+          say: "Now the direction. Mark the swing highs and the swing lows. Each low is higher than the one before, each high is higher than the one before, and the EMA is rising. That is a bull trend, and always-in is long. From here you only look for buys." },
+        { title: "The place, and what you wait for", vis: 51, clear: true, add: lv().concat([
+            N.pt(l1.i, l1.p, "leg 1 down", COL.txt, false), N.bar(44, "H1", COL.txt), N.pt(51, B[51].l, "leg 2 down", COL.txt, false, "right"),
+            N.note("Waiting for: a bull bar closing near its high, here", 0, COL.amber)]),
+          say: "Where are we? Price has pulled back from the high in two legs, down to the EMA and to just above the old high that became support. That is a good place to buy in a bull trend. So you know what you are waiting for: a bull bar that closes near its high, here. Until it comes, you wait." },
+        { title: "The signal bar", vis: 52, clear: true, add: lv().concat([N.bar(52, "H2 signal bar: bull, closes near its high", COL.amber, true)]),
+          say: "This is the bar. A bull bar closing near its high, with a tail below, at the EMA, just above support, after two legs down. It is the High 2. Now you look it up in the entry menu: a normal trend, the two-legged pullback." },
+        { title: "Entry, stop and target", vis: 52, clear: true, add: lv().concat(lorders(ex, 52)).concat([lmm(ex)]),
+          say: "Before the next bar opens, all three prices go on the chart. The buy stop one pip above the signal bar. The stop one pip below it, where the setup is wrong. The target is leg one, measured again from the pullback low. Check the level above: the high of the move is on the way, and the target is beyond it, so expect a pause there." },
+        { title: "The size", vis: 52, clear: true, add: lorders(ex, 52).concat([N.card([
+            ["THE SIZE, FROM THE STOP", COL.amber],
+            ["Stop: " + pips(R) + " pips · target: " + pips(g.target - g.entry) + " pips = " + ((g.target - g.entry) / R).toFixed(1) + "R", COL.paper],
+            ["Risk $50 ÷ ($10 a pip × " + pips(R) + ") = " + lots.toFixed(2) + " lots ($" + risk.toFixed(0) + " at risk)", COL.paper],
+            ["Costs: $" + cost.toFixed(2) + " = " + (cost / risk).toFixed(2) + "R", COL.paper],
+            ["commission " + (est === "both" ? "an estimate" : "from your screen") + ", spread " + (est ? "an estimate" : "from your screen"), COL.txt]
+          ], { i: 0, p: g.target + 0.0001 })]),
+          say: "Now the size. The stop is about nine pips, so with fifty dollars at risk you trade about half a lot. The reward is more than three times the risk, and the costs are about a tenth of the risk. The trade is worth taking. Only now do you place the order." },
+        { title: "In the trade: hold", vis: 70, clear: true, pos: lpos(g, 53, 70), add: lv().concat([N.pt(70, B[70].l, "a normal pullback: the stop holds", COL.txt, false, "right")]),
+          say: "You are in. The market reaches the high of the move, pauses there as expected, and pulls back, even a little below your entry. Nothing on the chart is broken: no strong bear bar, no close below the signal bar. You hold, and the stop stays where it is." },
+        { title: "The exit", vis: 74, pos: lpos(g, 53, 74), add: [N.note("Target filled: +" + ((g.target - g.entry) / R).toFixed(1) + "R before costs", 0, COL.up)],
+          say: "The target is filled. You write three lines: the entry, a High 2 in a normal trend. Did I follow the plan: yes. The result in R after costs. Then you start again at the top: the levels, the direction, the place." }
+      ];
+    }
+  };
+
   /* ---------- against the trend: both sides of a broad channel ----------
      The counter-trend sell is read off the bars by Brooks' rule: two pushes to
      the top (a double top), the first attempt down fails, the second entry is
@@ -11410,7 +11498,7 @@ var PROG = (function () {
     { g: "Always-in long or short, and the trend is strong (a spike, a tight channel, few pullbacks)", go: "With the trend only. Most bars are a reasonable entry here, as long as the stop is where the trend would be wrong.",
       rows: [
         ["The first pullback: H1 / L1", "a", "Stop order beyond the first small pause's signal bar; stop beyond the pullback", "1.5R", "spikeChannel", "spike", "Spike and channel", ["spike", "A High 1 buy", "<b>The first pullback (H1).</b> After the spike, a small pause, then a bull bar that goes above the prior bar's high. Buy above it; the stop goes below the pullback low."]],
-        ["The close of a strong trend bar", "a", "At market on the close; the stop wide, beyond the spike or the last swing. Small size, from that stop", "1.5R", "", "late", "Late entries", ["late", "One strong bar later", "<b>The close of a strong trend bar.</b> A strong bull bar closes on its high. You buy that close, but the stop stays where the trade is wrong, far below, so the size is small."]],
+        ["The close of a strong trend bar", "a", "At market on the close; the stop wide, beyond the spike or the last swing. Small size, from that stop", "1.5R", "", "late", "Late entries", ["late", "One strong bar later", "<b>The close of a strong trend bar.</b> A strong bull bar closes on its high. You buy that close. The stop stays where the trade is wrong (the red line), so the size is small. <b>1.8R left</b> means: from this close, the distance up to the target (the green line) is 1.8 times the distance down to the stop."]],
         ["The pullback in a tight channel", "a", "Stop order beyond the signal bar of any one- or two-bar pullback; stop beyond the pullback", "1.5R", "tightChannel", "tight", "Tight channel", ["tight", "The orders", "<b>A tight channel.</b> The pullbacks are only one or two bars. Buy above the pullback's signal bar, stop below the pullback, target leg 1 = leg 2."]],
         ["The breakout and its first pullback", "a", "Stop order beyond the signal bar of the first pullback after the breakout; stop beyond the pullback", "1.5R", "successBo", "breakout", "Breakouts", ["bo", "The measured move", "<b>The breakout and its first pullback.</b> A big bar leaves the range, the first pullback holds above it. Buy above the pullback's signal bar; the target is the range's height again."]]
       ] },
@@ -11445,7 +11533,7 @@ var PROG = (function () {
         return [lgo(r[5], r[0]) + '<div style="margin-top:4px">' + TLVL[r[1]] + '</div>', r[2], r[3], r[4] ? lodds(r[4]) : "–"];
       })));
       var fg = G.rows.map(function (r) { return r[7]; }).concat(G.figs || []);
-      o.push(lfigs(fg.map(function (f) { return lfig(f[0], f[1], f[2]); })));
+      o.push(lfigs(fg.map(function (f) { return (f[0] === "late" ? lfigx : lfig)(f[0], f[1], f[2]); })));
       o.push('</div>');
     });
     return o.join("");
@@ -11481,23 +11569,44 @@ var PROG = (function () {
         ltick("night", "<b>Flat before the 23:00 rollover</b>, or check the swap first: holding a CFD overnight costs (or pays) swap every night, and one weekday counts triple for the weekend (on FX, usually Wednesday). " + lgo("ccomm", "Swap")) +
         '</div>' +
 
-        lh("2. Read the chart, at the close of every bar") +
-        lp("Three questions, always in this order. The answers pick the row of the entry menu below.") +
-        lol(["<b>Always-in: long, short, or unclear?</b> If you had to be in now, which way? " + lgo("alwaysin", "Always-in"),
-          "<b>Trend or range?</b> Strong trend, normal trend, trading range, or turning. " + lgo("cycle", "The market cycle"),
-          "<b>Where are we?</b> At the EMA, in the top, middle or bottom third, near a prior high or low. " + lgo("where", "Where are we?")]) +
-        lfigs([lfig("alwaysin", "The flip to long", "<b>Question 1, always-in.</b> A strong breakout with follow-through flips the market to always-in long. From here you only look for buys until something as strong flips it back."),
-          lfig("cycle", "The channel", "<b>Question 2, trend or range.</b> Here: a spike up, then a channel with higher lows. That is a trend, so you look for pullbacks to buy. Overlapping bars around a flat EMA would be a range."),
-          lfig("where", "The range and its thirds", "<b>Question 3, where are we.</b> Split the range in thirds. Buys belong in the bottom third, sells in the top third, nothing in the middle.")]) +
-        lp("Then say in one sentence what you are waiting for (\"a bull signal bar at the EMA after two legs down\"). If you can't, the answer is <b>wait</b>. " + lgo("routine", "The every-bar routine")) +
+        lh("2. The routine on your chart, step by step") +
+        lp("One trade from start to finish, on one chart. Every step says what to do on your own chart, and the picture shows it done. Repeat the same steps, in the same order, on the chart in front of you.") +
+        '<h4 class="ltstep"><span>Step 1</span> Mark the levels on the higher timeframe</h4>' +
+        lp("<b>On your chart:</b> open the <b>1-hour</b> chart of your market. Draw a horizontal line at every price where the market clearly turned or broke through in the last day or two: yesterday's high and low, and the clear swing highs and lows. Three to five lines, no more. You are not looking for a trade here, only for the prices that matter. " + lgo("timeframes", "Higher timeframes")) +
+        lfigs([lfig("planHtf", "Mark the levels", "<b>Done on this chart:</b> three lines. The low the move started from, the old high the market broke above (often support when price comes back), and the highest price so far (a magnet, where buyers take profits).")]) +
+        '<h4 class="ltstep"><span>Step 2</span> Go to your trading chart: the lines come with you</h4>' +
+        lp("<b>On your chart:</b> switch to the <b>15-minute</b> chart, with the 20-bar EMA and nothing else. The lines you drew are still there. Before reading any bar, say where price is between them.") +
+        lfigs([lfig("plan", "The levels on your chart", "<b>Done:</b> the same three lines on the 15-minute chart. Price is between the old high below and the high of the move above.")]) +
+        '<h4 class="ltstep"><span>Step 3</span> Find the direction</h4>' +
+        lp("<b>On your chart:</b> mark the last three swing lows and swing highs. Are they stepping up, stepping down, or overlapping? Is the EMA rising, falling or flat? Stepping up with a rising EMA is always-in <b>long</b>: buys only. Stepping down is always-in <b>short</b>: sells only. Overlapping around a flat EMA is a <b>range</b>: only the edges. If you can't tell, it is <b>unclear</b>: wait. " + lgo("alwaysin", "Always-in") + ", " + lgo("cycle", "The market cycle")) +
+        lfigs([lfig("plan", "The direction", "<b>Done:</b> each low is higher than the last, each high is higher than the last, and the EMA is rising. Always-in long: from here, buys only.")]) +
+        '<h4 class="ltstep"><span>Step 4</span> Find the place, and say what you are waiting for</h4>' +
+        lp("<b>On your chart:</b> where is price now? At the EMA, at one of your lines, or in the middle of nowhere? In a bull trend you want a pullback <i>down</i> to the EMA or to support. Then say it out loud in one sentence: \"I am waiting for a bull bar closing near its high, here.\" If you can't finish that sentence, you wait. " + lgo("where", "Where are we?") + ", " + lgo("routine", "The every-bar routine")) +
+        lfigs([lfig("plan", "The place, and what you wait for", "<b>Done:</b> two legs down from the high, to the EMA and to just above the old high that became support. A good place to buy in a bull trend. No signal bar yet, so no order yet.")]) +
+        '<h4 class="ltstep"><span>Step 5</span> The signal bar closes: look up the entry</h4>' +
+        lp("<b>On your chart:</b> wait for the bar to <b>close</b>. Is it the bar you said you were waiting for: in your direction, closing near its extreme, a normal size? Then find it in the entry menu below (section 3). The menu gives the order, the stop and the reward it needs. " + lgo("bars", "Reading a bar") + ", " + lgo("count", "Pullbacks: H1, H2")) +
+        lfigs([lfig("plan", "The signal bar", "<b>Done:</b> a bull bar closing near its high, with a tail below, at the EMA, after two legs down. In the menu: group B, the two-legged pullback (H2).")]) +
+        '<h4 class="ltstep"><span>Step 6</span> Put entry, stop and target on the chart</h4>' +
+        lp("<b>On your chart:</b> draw all three before you place anything. <b>Entry:</b> one tick beyond the signal bar. <b>Stop:</b> where the setup is wrong, here one tick beyond the other end of the signal bar. <b>Target:</b> what the menu says, here leg 1 measured again from the pullback low. Then check your lines from step 1: is one of them between the entry and the target? Is the reward at least what the menu asks? " + lgo("stops", "Where the stop goes") + ", " + lgo("targets", "Targets")) +
+        lfigs([lfig("plan", "Entry, stop and target", "<b>Done:</b> the buy stop above the signal bar, the stop below it, the target at leg 1 = leg 2. The high of the move is on the way to the target, so expect a pause there.")]) +
+        '<h4 class="ltstep"><span>Step 7</span> Work out the size and the costs</h4>' +
+        lp("<b>On your chart:</b> measure the stop in pips (entry to stop). Put it in the calculator in section 4 with your risk. It gives the lots and the costs in R. Costs above 0.2R, or a reward below what the menu asks: no trade. Only now place the order, with the stop and the target on the order itself. " + lgo("sizing", "Position size")) +
+        lfigs([lfig("plan", "The size", "<b>Done:</b> the stop in pips decides the lots; the costs are about a tenth of the risk and the reward is more than three times the risk. The order goes in.")]) +
+        '<h4 class="ltstep"><span>Step 8</span> In the trade: hold, and check each bar</h4>' +
+        lp("<b>On your chart:</b> at each bar close ask one question: is the reason for the trade still there? A normal pullback that stays above your stop: hold, and leave the stop where it is. A strong bar against you that breaks the structure, or a strong signal the other way: get out. " + lgo("manage", "Managing a trade") + ", " + lgo("early", "Getting out early")) +
+        lfigs([lfig("plan", "In the trade: hold", "<b>Done:</b> price pauses at the high of the move, as the line said it might, and dips below the entry. Nothing is broken, so the stop stays and you hold.")]) +
+        '<h4 class="ltstep"><span>Step 9</span> The exit, and three lines in your log</h4>' +
+        lp("<b>On your chart:</b> the target or the stop ends the trade. Write three lines: the entry's name from the menu, whether you followed every step, and the result in R after costs. Then start again at step 2.") +
+        lfigs([lfig("plan", "The exit", "<b>Done:</b> the target is filled. The log: H2 in a normal trend; plan followed; the result in R after costs.")]) +
+        lkey("<b>Does this make you profitable?</b> No routine can promise that, and no single trade or week proves anything. What these steps do is make sure every trade has the odds and the reward on its side after costs, and that every loss is the same small size. Whether it works <i>for you</i> is something you measure: a hundred trades on the Desk or a demo account, logged by entry, before any real size. " + lgo("expect", "What to expect")) +
 
         lh("3. The entry menu") +
-        lp("Find your row from the answers above. Every row is a reasonable entry in that market; the label only says how much reading it asks. The win rates are the ones this app teaches and tests with.") +
+        lp("Find your group from step 3 (the direction) and your row from step 5 (the signal bar). Every row is a reasonable entry in that market; the label only says how much reading it asks. The win rates are the ones this app teaches and tests with.") +
         ltodayMenu() +
         lh("Missed it? A late entry") +
         lp("Not \"never chase\" and not \"get in anyhow\". " + TLVL.s + " The stop stays where the setup is wrong, so check from <i>your</i> price: is the reward to the target still at least 1.5× the risk to the same stop (2× for a reversal)? Yes: enter, smaller. No: a limit at your planned price, or the next pullback's signal bar, which is often the best late entry of all. Never late in a range or a reversal. " + lgo("late", "Late entries")) +
-        lfigs([lfig("late", "A one-bar pause", "<b>A late entry that works.</b> One small bar against a strong move, then a buy above it. The stop is still below the original signal bar, and the reward is still big enough."),
-          lfig("late", "Too late", "<b>A late entry to skip.</b> It looks like the best moment to buy, but from here the stop is far and the target is close: the reward is smaller than the risk.")]) +
+        lfigs([lfigx("late", "A one-bar pause", "<b>A late entry that works.</b> One small bar against a strong move, then a buy above it. The stop is still below the original signal bar, and the reward is still big enough."),
+          lfigx("late", "Too late", "<b>A late entry to skip.</b> It looks like the best moment to buy, but from here the stop is far and the target is close: the reward is smaller than the risk.")]) +
         lh("Once you are in") +
         lp("Hold. Get out only for a reason on the chart: the stop or target, a strong bar that breaks the structure, or a strong signal the other way. Half off only on a rejection at a magnet. " + lgo("manage", "Managing a trade") + ", " + lgo("early", "Getting out early")) +
 
@@ -14322,7 +14431,7 @@ var PROG = (function () {
     var page = $("learnBody").querySelector(".lpage"); if (!page) return "";
     var out = [page.querySelector("h2").textContent];
     var sub = page.querySelector(".lsub"); if (sub) out.push(sub.textContent);
-    [].forEach.call(page.querySelectorAll(".lbody p, .lbody li, .lbody h3, .lbody figcaption, .lbody .lshead b, .lbody tr, .lbody dt, .lbody dd, .lbody .lkey, .lbody .lwarn, .lbody .lcard > div"), function (el) {
+    [].forEach.call(page.querySelectorAll(".lbody p, .lbody li, .lbody h3, .lbody h4, .lbody figcaption, .lbody .lshead b, .lbody tr, .lbody dt, .lbody dd, .lbody .lkey, .lbody .lwarn, .lbody .lcard > div"), function (el) {
       if (el.closest(".lvid, .ltree, .lcalc, .lboard")) return;
       if (el.tagName === "TR") { out.push([].map.call(el.children, function (c) { return c.textContent.trim(); }).filter(Boolean).join(", ")); return; }
       if (el.parentNode && el.parentNode.classList && el.parentNode.classList.contains("lcard")) { out.push(el.children[0].textContent + ": " + el.children[1].textContent); return; }
@@ -14424,6 +14533,8 @@ var PROG = (function () {
   function lfig(vid, title, cap) {
     return '<figure class="lfig" data-fig="' + vid + '" data-title="' + title + '"><div class="lfscr"></div><figcaption>' + cap + '</figcaption></figure>';
   }
+  /** the same, with the lesson's stop and target kept inside the picture */
+  function lfigx(vid, title, cap) { return lfig(vid, title, cap).replace('<figure class="lfig"', '<figure class="lfig" data-extra="1"'); }
   function lfigs(a) { return '<div class="lfigs">' + a.join("") + '</div>'; }
   function lkey(html) { return '<div class="lkey">' + html + '</div>'; }
   function lwarn(html) { return '<div class="lwarn">' + html + '</div>'; }
