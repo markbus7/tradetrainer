@@ -680,7 +680,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.86.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.87.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11610,12 +11610,22 @@ var PROG = (function () {
       rows: [], figs: [["nothing", "Barbwire", "<b>Barbwire.</b> Overlapping bars with long tails around a flat EMA. Every bar looks like a signal and none is. Wait for a breakout and its pullback."],
         ["where", "The place beats the bar", "<b>The place beats the bar.</b> The same strong bull bar is a buy in the bottom third and a trap at the top; in the middle it is nothing. Look at where the bar is before you look at the bar."]] }
   ];
+  /* the target of each entry, by its chapter: where the chart says price is likely to go */
+  var TTARGET = {
+    spike: "The spike's height, added to the top of the spike", late: "The target of the setup you are late for; never a new one",
+    tight: "Leg 1 = leg 2", breakout: "The range's height, added to the breakout point",
+    count: "Leg 1 = leg 2: the leg before the pullback, added to the pullback's low", broad: "The prior high (low), not beyond it",
+    counter: "The EMA or the last swing", range: "The other side of the range", fbo: "The other side of the range",
+    limits: "Only entry 1 filled: the middle. Both filled: entry 1's price",
+    mtr: "The first leg of the new move, measured again from the test", wedge: "The start of the wedge",
+    flag: "The flag's height, measured beyond the flag", climax: "Where the big bars began"
+  };
   function ltodayMenu() {
     var o = [];
     TENTRY.forEach(function (G, gi) {
       o.push('<div class="ltgrp"><div class="ltgh"><b>' + String.fromCharCode(65 + gi) + '.</b> ' + G.g + '</div><p class="mu" style="margin:4px 0 8px">' + G.go + '</p>');
-      if (G.rows.length) o.push(ltable(["Entry", "Order and stop", "Reward at least", "Wins"], G.rows.map(function (r) {
-        return [lgo(r[5], r[0]) + '<div style="margin-top:4px">' + TLVL[r[1]] + '</div>', r[2], r[3], r[4] ? lodds(r[4]) : "–"];
+      if (G.rows.length) o.push(ltable(["Entry", "Order and stop", "Target", "Reward at least", "Wins"], G.rows.map(function (r) {
+        return [lgo(r[5], r[0]) + '<div style="margin-top:4px">' + TLVL[r[1]] + '</div>', r[2], "<b>" + TTARGET[r[5]] + "</b>", r[3].replace(/,.*$/, ""), r[4] ? lodds(r[4]) : "–"];
       })));
       var fg = G.rows.map(function (r) { return r[7]; }).concat(G.figs || []);
       o.push(lfigs(fg.map(function (f) { return (f[0] === "late" ? lfigx : lfig)(f[0], f[1], f[2]); })));
@@ -11729,6 +11739,7 @@ var PROG = (function () {
         lh("3. The entry menu") +
         lp("Find your group from step 3 (the direction) and your row from step 5 (the signal bar). Every row is a reasonable entry in that market; the label only says how much reading it asks. The win rates are the ones this app teaches and tests with.") +
         ltodayMenu() +
+        lkey("<b>The target comes from the chart; the reward is only a check.</b> Put the target where the menu says. Then measure: is it at least the reward in the next column away? If not, skip the trade. Never move a target further away to make the numbers fit. And look at your lines from step 1: a line between the entry and the target is where price may pause, and a strong one closer than the minimum reward is a reason to skip. A late entry keeps the original target; only your price changes. " + lgo("targets", "Targets and the trader's equation")) +
         lh("Scaling in at a range, as it looks in practice") +
         lp(TLVL.a + " Brooks' way to trade a range: buy low, sell high, scalp, trade small and scale in. You don't wait for a signal bar; you buy with limit orders while price is still falling to the edge. That only works when the whole plan is made <b>before the first order</b>: every order, one wide stop for all of them, and a total risk equal to one normal trade. " + lgo("limits", "Limit orders, wide stops and scaling in") + " has the narrated lesson.") +
         lkey("<b>Where the one stop goes.</b> There is no price at which a range is proven over. Half the height of the range beyond the edge, the distance used in these pictures, is a <b>working distance</b>, not a level where the idea is wrong: it is far enough that most pokes through the edge don't reach it, and price can still turn back from there. A wider stop (the full height of the range beyond the edge) is hit less often, but every piece must be smaller. Pick one distance, size all the entries to it, and never move it.") +
