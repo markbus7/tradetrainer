@@ -678,7 +678,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.81.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.82.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11409,32 +11409,33 @@ var PROG = (function () {
   var TENTRY = [
     { g: "Always-in long or short, and the trend is strong (a spike, a tight channel, few pullbacks)", go: "With the trend only. Most bars are a reasonable entry here, as long as the stop is where the trend would be wrong.",
       rows: [
-        ["The first pullback: H1 / L1", "a", "Stop order beyond the first small pause's signal bar; stop beyond the pullback", "1.5R", "spikeChannel", "spike", "Spike and channel"],
-        ["The close of a strong trend bar", "a", "At market on the close; the stop wide, beyond the spike or the last swing. Small size, from that stop", "1.5R", "", "late", "Late entries"],
-        ["The pullback in a tight channel", "a", "Stop order beyond the signal bar of any one- or two-bar pullback; stop beyond the pullback", "1.5R", "tightChannel", "tight", "Tight channel"],
-        ["The breakout and its first pullback", "a", "Stop order beyond the signal bar of the first pullback after the breakout; stop beyond the pullback", "1.5R", "successBo", "breakout", "Breakouts"]
+        ["The first pullback: H1 / L1", "a", "Stop order beyond the first small pause's signal bar; stop beyond the pullback", "1.5R", "spikeChannel", "spike", "Spike and channel", ["spike", "A High 1 buy", "<b>The first pullback (H1).</b> After the spike, a small pause, then a bull bar that goes above the prior bar's high. Buy above it; the stop goes below the pullback low."]],
+        ["The close of a strong trend bar", "a", "At market on the close; the stop wide, beyond the spike or the last swing. Small size, from that stop", "1.5R", "", "late", "Late entries", ["late", "One strong bar later", "<b>The close of a strong trend bar.</b> A strong bull bar closes on its high. You buy that close, but the stop stays where the trade is wrong, far below, so the size is small."]],
+        ["The pullback in a tight channel", "a", "Stop order beyond the signal bar of any one- or two-bar pullback; stop beyond the pullback", "1.5R", "tightChannel", "tight", "Tight channel", ["tight", "The orders", "<b>A tight channel.</b> The pullbacks are only one or two bars. Buy above the pullback's signal bar, stop below the pullback, target leg 1 = leg 2."]],
+        ["The breakout and its first pullback", "a", "Stop order beyond the signal bar of the first pullback after the breakout; stop beyond the pullback", "1.5R", "successBo", "breakout", "Breakouts", ["bo", "The measured move", "<b>The breakout and its first pullback.</b> A big bar leaves the range, the first pullback holds above it. Buy above the pullback's signal bar; the target is the range's height again."]]
       ] },
     { g: "Always-in long or short, a normal trend (clear pullbacks to the EMA)", go: "With the trend, at the end of each pullback.",
       rows: [
-        ["The two-legged pullback: H2 / L2 at the EMA", "s", "Stop order one tick beyond the signal bar; stop beyond the signal bar or the pullback", "1.5R", "twoLegPullback", "count", "Pullbacks: H1, H2, L1, L2"],
-        ["The bottom of a broad channel (top, in a bear)", "a", "Stop order beyond a signal bar near the channel line; stop beyond the swing", "1R, to the prior high", "broadChannel", "broad", "Broad channel"],
-        ["A scalp against the trend", "a", "Only at a strong signal at a magnet; small target, at the EMA or the last swing", "1R", "", "counter", "Trading against the trend"]
+        ["The two-legged pullback: H2 / L2 at the EMA", "s", "Stop order one tick beyond the signal bar; stop beyond the signal bar or the pullback", "1.5R", "twoLegPullback", "count", "Pullbacks: H1, H2, L1, L2", ["every", "The orders", "<b>The H2 at the EMA.</b> Two legs down to the EMA in a bull trend, then a bull signal bar. Buy stop above it, stop below it, target leg 1 = leg 2."]],
+        ["The bottom of a broad channel (top, in a bear)", "a", "Stop order beyond a signal bar near the channel line; stop beyond the swing", "1R, to the prior high", "broadChannel", "broad", "Broad channel", ["broad", "The orders", "<b>The bottom of a broad channel.</b> A deep two-legged pullback to the channel's lower line. Buy above the signal bar; take profit at the prior high, not beyond it."]],
+        ["A scalp against the trend", "a", "Only at a strong signal at a magnet; small target, at the EMA or the last swing", "1R", "", "counter", "Trading against the trend", ["counter", "The counter-trend sell", "<b>A scalp against the trend.</b> A double top in a bull channel and the bears' second attempt. Sell below the bar, stop above the double top, target only the bottom of the channel."]]
       ] },
     { g: "Sideways: a trading range (a flat EMA, overlapping bars, a clear top and bottom)", go: "Only at the edges. The middle of a range is a wait, whatever the bar looks like.",
       rows: [
-        ["A second entry at the edge", "s", "Stop order beyond the second signal bar in the top (sell) or bottom (buy) third; stop beyond the edge", "1R, the other side", "rangeLow", "range", "Trading ranges"],
-        ["A failed breakout back into the range", "s", "Stop order beyond the signal bar that comes back in; stop beyond the breakout's extreme", "1R, the other side", "failedBo", "fbo", "Failed breakouts"],
-        ["A limit order at the edge, scaling in", "a", "Limit at the edge, wide stop, the size split over two or three orders", "1R", "", "limits", "Limit orders, wide stops and scaling in"]
+        ["A second entry at the edge", "s", "Stop order beyond the second signal bar in the top (sell) or bottom (buy) third; stop beyond the edge", "1R, the other side", "rangeLow", "range", "Trading ranges", ["range", "Filled", "<b>A second entry at the edge.</b> Price in the bottom third, the selling stops, a second buy signal. The target is the other edge; the middle is a magnet on the way."]],
+        ["A failed breakout back into the range", "s", "Stop order beyond the signal bar that comes back in; stop beyond the breakout's extreme", "1R, the other side", "failedBo", "fbo", "Failed breakouts", ["fbo", "The orders", "<b>A failed breakout.</b> Price pokes above the range, gets no follow-through and comes back in. Sell below the signal bar, stop above the failed high, target the bottom of the range."]],
+        ["A limit order at the edge, scaling in", "a", "Limit at the edge, wide stop, the size split over two or three orders", "1R", "", "limits", "Limit orders, wide stops and scaling in", ["limitRange", "Entry two", "<b>Limit orders at the edge, scaling in.</b> Two limits near the range low, one wide stop for both. The size is split, so both together risk one normal trade."]]
       ] },
     { g: "Turning: the trend line is broken and the extreme is being tested", go: "A reversal wins about four times in ten, so it needs twice the risk as a reward.",
       rows: [
-        ["Major trend reversal", "n", "Stop order beyond the second-entry signal bar at the test; stop beyond the test's extreme", "2R", "mtr", "mtr", "Major trend reversal"],
-        ["Wedge (three pushes)", "a", "Stop order beyond the signal bar after the third push; stop beyond it", "2R", "wedgeBottom", "wedge", "Wedges"],
-        ["Final flag", "a", "Stop order beyond the signal bar where the breakout of the late flag fails; stop beyond the flag's extreme", "2R", "finalFlag", "flag", "Final flag"],
-        ["Climax", "a", "Only after the climax has paused and a second signal forms; stop beyond the climax", "2R", "climax", "climax", "Climaxes"]
+        ["Major trend reversal", "n", "Stop order beyond the second-entry signal bar at the test; stop beyond the test's extreme", "2R", "mtr", "mtr", "Major trend reversal", ["mtr", "The orders", "<b>Major trend reversal.</b> The trend line breaks, the old high is tested, and a second-entry signal forms. Stop beyond the test's extreme; the reward must be 2R."]],
+        ["Wedge (three pushes)", "a", "Stop order beyond the signal bar after the third push; stop beyond it", "2R", "wedgeBottom", "wedge", "Wedges", ["wedge", "The orders", "<b>Wedge.</b> Three pushes, each one weaker. Enter on the second signal after the third push, stop beyond it, target the start of the wedge."]],
+        ["Final flag", "a", "Stop order beyond the signal bar where the breakout of the late flag fails; stop beyond the flag's extreme", "2R", "finalFlag", "flag", "Final flag", ["flag", "The orders", "<b>Final flag.</b> A flag late in a trend breaks out weakly and is rejected. Enter on the second signal against the old trend, stop beyond the flag's extreme."]],
+        ["Climax", "a", "Only after the climax has paused and a second signal forms; stop beyond the climax", "2R", "climax", "climax", "Climaxes", ["climax", "The orders", "<b>Climax.</b> Very big bars far from the EMA, then a pause and a signal the other way. The target is where the big bars began: a correction, not a new trend."]]
       ] },
     { g: "Unclear: always-in is not clear, barbwire, the middle of a range, or news in the next few minutes", go: "Wait. This is not sitting out a trend: there is no edge here to trade.",
-      rows: [] }
+      rows: [], figs: [["nothing", "Barbwire", "<b>Barbwire.</b> Overlapping bars with long tails around a flat EMA. Every bar looks like a signal and none is. Wait for a breakout and its pullback."],
+        ["where", "The place beats the bar", "<b>The place beats the bar.</b> The same strong bull bar is a buy in the bottom third and a trap at the top; in the middle it is nothing. Look at where the bar is before you look at the bar."]] }
   ];
   function ltodayMenu() {
     var o = [];
@@ -11443,6 +11444,8 @@ var PROG = (function () {
       if (G.rows.length) o.push(ltable(["Entry", "Order and stop", "Reward at least", "Wins"], G.rows.map(function (r) {
         return [lgo(r[5], r[0]) + '<div style="margin-top:4px">' + TLVL[r[1]] + '</div>', r[2], r[3], r[4] ? lodds(r[4]) : "–"];
       })));
+      var fg = G.rows.map(function (r) { return r[7]; }).concat(G.figs || []);
+      o.push(lfigs(fg.map(function (f) { return lfig(f[0], f[1], f[2]); })));
       o.push('</div>');
     });
     return o.join("");
@@ -11483,6 +11486,9 @@ var PROG = (function () {
         lol(["<b>Always-in: long, short, or unclear?</b> If you had to be in now, which way? " + lgo("alwaysin", "Always-in"),
           "<b>Trend or range?</b> Strong trend, normal trend, trading range, or turning. " + lgo("cycle", "The market cycle"),
           "<b>Where are we?</b> At the EMA, in the top, middle or bottom third, near a prior high or low. " + lgo("where", "Where are we?")]) +
+        lfigs([lfig("alwaysin", "The flip to long", "<b>Question 1, always-in.</b> A strong breakout with follow-through flips the market to always-in long. From here you only look for buys until something as strong flips it back."),
+          lfig("cycle", "The channel", "<b>Question 2, trend or range.</b> Here: a spike up, then a channel with higher lows. That is a trend, so you look for pullbacks to buy. Overlapping bars around a flat EMA would be a range."),
+          lfig("where", "The range and its thirds", "<b>Question 3, where are we.</b> Split the range in thirds. Buys belong in the bottom third, sells in the top third, nothing in the middle.")]) +
         lp("Then say in one sentence what you are waiting for (\"a bull signal bar at the EMA after two legs down\"). If you can't, the answer is <b>wait</b>. " + lgo("routine", "The every-bar routine")) +
 
         lh("3. The entry menu") +
@@ -11490,11 +11496,15 @@ var PROG = (function () {
         ltodayMenu() +
         lh("Missed it? A late entry") +
         lp("Not \"never chase\" and not \"get in anyhow\". " + TLVL.s + " The stop stays where the setup is wrong, so check from <i>your</i> price: is the reward to the target still at least 1.5× the risk to the same stop (2× for a reversal)? Yes: enter, smaller. No: a limit at your planned price, or the next pullback's signal bar, which is often the best late entry of all. Never late in a range or a reversal. " + lgo("late", "Late entries")) +
+        lfigs([lfig("late", "A one-bar pause", "<b>A late entry that works.</b> One small bar against a strong move, then a buy above it. The stop is still below the original signal bar, and the reward is still big enough."),
+          lfig("late", "Too late", "<b>A late entry to skip.</b> It looks like the best moment to buy, but from here the stop is far and the target is close: the reward is smaller than the risk.")]) +
         lh("Once you are in") +
         lp("Hold. Get out only for a reason on the chart: the stop or target, a strong bar that breaks the structure, or a strong signal the other way. Half off only on a rejection at a magnet. " + lgo("manage", "Managing a trade") + ", " + lgo("early", "Getting out early")) +
 
         lh("4. Size and cost check, before every order") +
         lp("The stop comes from the chart. The size comes from the stop. <b>The wider the stop, the smaller the position</b>, because the same money at risk is spread over more pips. And since you pay spread and commission per lot, a smaller position pays less: a wide stop makes the costs a <i>smaller</i> share of the trade, not a bigger one.") +
+        lfigs([lfig("stops", "Standard stop", "<b>A close stop</b>, just beyond the signal bar: few pips, so the same money buys <b>more lots</b>. It is also hit more easily."),
+          lfig("stops", "Structural stop", "<b>A wide stop</b>, beyond the whole pullback: more pips, so the same money buys <b>fewer lots</b>. Same money at risk, smaller position.")]) +
         lp("The same $50 at risk on EURUSD, with your FxPro figures:") +
         ltodayExample() +
         lp("Two things to notice. The lots are <b>rounded down</b> to 0.01, so the money at risk ends a little under $50: at 30 pips, 0.16 lots risks $48, not $50. And at 10 pips the costs eat about a tenth of every trade; at 30 pips about a thirtieth. What the wide stop costs you is not fees but distance: the target is also three times further away. " + lgo("cminimum", "The smallest stop and the smallest target")) +
