@@ -680,7 +680,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.83.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.84.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11603,6 +11603,14 @@ var PROG = (function () {
         lh("3. The entry menu") +
         lp("Find your group from step 3 (the direction) and your row from step 5 (the signal bar). Every row is a reasonable entry in that market; the label only says how much reading it asks. The win rates are the ones this app teaches and tests with.") +
         ltodayMenu() +
+        lh("Scaling in at a range, as it looks in practice") +
+        lp(TLVL.a + " Brooks' way to trade a range: buy low, sell high, scalp, trade small and scale in. You don't wait for a signal bar; you buy with limit orders while price is still falling to the edge. That only works when the whole plan is made <b>before the first order</b>: every order, one wide stop for all of them, and a total risk equal to one normal trade. " + lgo("limits", "Limit orders, wide stops and scaling in") + " has the narrated lesson.") +
+        lfigs([lfig("limitRange", "The plan", "<b>1. The plan, all at once.</b> Price reaches the bottom third. Two buy limits go in together, with one stop for both, well below the range low. The same size on both, and both together risk one normal trade."),
+          lfig("limitRange", "Entry one", "<b>2. The first limit fills.</b> You bought while the market was still falling. That is normal for a limit order, and it is why the stop is wide and the piece is small."),
+          lfig("limitRange", "Entry two", "<b>3. The second limit fills</b> at the range low. The plan is complete: the average price is better than entry one, the risk to the stop is what you planned. No more orders, and the stop stays."),
+          lfig("limitRange", "Back to entry one", "<b>4. The scalp exit.</b> Price comes back to the first entry: breakeven on the first order, a profit on the second. Many scalpers take everything off here."),
+          lfig("limitRange", "The middle", "<b>5. Or the plan's target:</b> the middle of the range, with both pieces in profit."),
+          lfig("limitRangeFail", "Example", "<b>When the range breaks.</b> About one time in five the breakout is real. Both limits fill, price keeps going, and the stop takes the planned loss: one normal loss, because the total was fixed in advance. Never a third order, never a moved stop.")]) +
         lh("Missed it? A late entry") +
         lp("Not \"never chase\" and not \"get in anyhow\". " + TLVL.s + " The stop stays where the setup is wrong, so check from <i>your</i> price: is the reward to the target still at least 1.5× the risk to the same stop (2× for a reversal)? Yes: enter, smaller. No: a limit at your planned price, or the next pullback's signal bar, which is often the best late entry of all. Never late in a range or a reversal. " + lgo("late", "Late entries")) +
         lfigs([lfigx("late", "A one-bar pause", "<b>A late entry that works.</b> One small bar against a strong move, then a buy above it. The stop is still below the original signal bar, and the reward is still big enough."),
