@@ -1,0 +1,46 @@
+# Saves this week's economic calendar as news.json, so the Today page can read it.
+# The public ForexFactory weekly feed does not answer browsers directly, so it is
+# fetched here and the app reads its own copy. A commit is made only when the
+# schedule itself changes.
+name: News calendar
+
+on:
+  schedule:
+    - cron: "17 */4 * * *"
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/news.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: news-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch and check the calendar
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 3 --retry-delay 20 -m 60 -A "Mozilla/5.0 (calendar reader)" \
+            -o feed.json "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+          # keep only what the app uses; fail (and keep the old file) on anything that is not a filled list
+          jq -e '[.[] | select(.title and .date) | {title, country, date, impact}] | if length > 0 then . else error("empty") end' feed.json > news.new.json
+          mv news.new.json news.json
+          rm -f feed.json
+          echo "items: $(jq length news.json), high impact: $(jq '[.[] | select(.impact == "High")] | length' news.json)"
+          jq -c '.[0]' news.json
+      - name: Commit when it changed
+        run: |
+          set -euo pipefail
+          git add news.json
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update news.json (this week's calendar)"
+          git push

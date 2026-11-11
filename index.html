@@ -712,7 +712,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.90.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.90.1", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11769,8 +11769,13 @@ var PROG = (function () {
     if (LNEWS.busy) { LNEWS.cbs.push(done); return; }
     if ((LNEWS.items && now - LNEWS.at < 3 * 36e5) || now - LNEWS.tried < 5 * 6e4 || typeof fetch !== "function") { done(); return; }
     LNEWS.busy = true; LNEWS.tried = now; LNEWS.cbs = [done];
-    fetch(LNEWS_URL, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("answer " + r.status); return r.json(); }).then(function (j) {
-      LNEWS.items = lnewsParse(j); LNEWS.at = Date.now(); LNEWS.err = "";
+    /* first the copy a scheduled job keeps next to this file (the feed refuses browsers), then the feed itself */
+    var get = function (u) { return fetch(u, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("answer " + r.status); return r.json(); }).then(lnewsParse); };
+    var fresh = function (items) { var n = Date.now(); if (!items.some(function (x) { return Math.abs(x.t - n) < 3.5 * 864e5; })) throw new Error("the saved calendar is out of date"); return items; };
+    (location.protocol === "file:" ? get(LNEWS_URL) : get("news.json?t=" + Math.floor(now / 6e5)).then(fresh).catch(function (e1) {
+      return get(LNEWS_URL).catch(function () { throw e1; });
+    })).then(function (j) {
+      LNEWS.items = j; LNEWS.at = Date.now(); LNEWS.err = "";
       try { localStorage.setItem("tt_news", JSON.stringify({ at: LNEWS.at, items: LNEWS.items })); } catch (e) { }
     }).catch(function (e) { LNEWS.err = String(e && e.message || e).slice(0, 60) || "failed"; }).then(function () { LNEWS.busy = false; LNEWS.cbs.splice(0).forEach(function (f) { f(); }); });
   }
