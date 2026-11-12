@@ -726,7 +726,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.92.1", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.92.2", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -11831,22 +11831,36 @@ var PROG = (function () {
     var until = s.at != null && s.inMin <= 12 * 60 ? lhm(s.at) : "";
     if (s.lv === 0) return { k: "no", tag: "Closed", t: "Closed" + (s.at != null ? ". Opens " + (s.wd === t.wd ? "" : LDAYS[s.wd] + " ") + lhm(s.at) : "") };
     var evs = [];
-    (r[2].indexOf(14.5) < 0 ? r[2].concat([14.5]) : r[2]).forEach(function (h0) {
+    /* US data and the US open move every market, not only the US ones; a market
+       that is not opening itself stays out for 15 minutes instead of 30 */
+    r[2].concat([14.5, 15.5].filter(function (h) { return r[2].indexOf(h) < 0; })).forEach(function (h0) {
       var e = LG_EV[h0]; if (!e || (e[3] && e[3] !== t.wd) || t.wd > 5) return;
       /* with the calendar loaded, the "if there is one today" guesses give way to the real releases */
       if (e[4] && news.known) return;
+      if (h0 === 15.5 && r[2].indexOf(15.5) < 0) e = [e[0], 15, e[2], e[3], e[4]];
       evs.push({ h: h0 + (e[2] ? sh : 0), e: e });
     });
     news.list.forEach(function (n) { if (lnewsHits(r[0], n)) evs.push({ h: n.H, e: ["news at " + lhm(n.H) + " (" + (n.c === "ALL" ? "" : n.c + " ") + esc(n.n) + ")", 15, 0, 0, 0] }); });
     evs.sort(function (a, b) { return a.h - b.h; });
     evs.forEach(function (v) {
       var e = v.e, h = v.h, d = (t.H - h) * 60;
-      if (d >= -5 && d < e[1]) { if (!wait || h + e[1] / 60 > wait.to) wait = { e: e, to: h + e[1] / 60 }; }
-      else if (d < -5 && d >= -45 && !soon) soon = { e: e, h: h };
+      /* no new trade from 15 minutes before: a trade started then has no time to work */
+      if (d >= -15 && d < e[1]) { if (!wait || h + e[1] / 60 > wait.to) wait = { e: e, to: h + e[1] / 60, h: h, before: d < 0 }; }
+      else if (d < -15 && d >= -45 && !soon) soon = { e: e, h: h };
     });
-    if (wait) return { k: "wait", tag: "Wait", t: "No new trade until <b>" + lhm(wait.to) + "</b>: " + wait.e[0] + (wait.e[4] ? ", if there is one today" : "") + ". The first bars are too wild to read." };
+    if (wait) {
+      var what = wait.e[0] + (wait.e[4] ? ", if there is one today" : "");
+      return { k: "wait", tag: "Wait", t: wait.before
+        ? "No new trade now: " + wait.e[0] + " at " + lhm(wait.h) + (wait.e[4] ? " (if there is one today)" : "") + " is minutes away. Be flat by <b>" + lhm(wait.h - 5 / 60) + "</b>; look again at <b>" + lhm(wait.to) + "</b>."
+        : "No new trade until <b>" + lhm(wait.to) + "</b>: " + what + ". The first bars are too wild to read." };
+    }
     var tail = soon ? " Be flat by <b>" + lhm(soon.h - 5 / 60) + "</b>: " + soon.e[0] + (soon.e[4] ? ", if there is one today" : "") + "." : "";
-    if (s.lv >= 2) return { k: "go", tag: "Trade", t: (s.lv === 3 ? "Busiest hours" : "Active") + (until ? " until " + until : "") + "." + tail };
+    if (s.lv >= 2) {
+      var nm = s.lv === 3 ? "Busiest hours" : "Active hours", nx = ["closed", "quiet", "active", "busiest"][s.next];
+      /* the good hours are about to end: too late to start */
+      if (until && s.next < 2 && s.inMin < 15) return { k: "no", tag: "Leave it", t: "These hours end at " + until + ", then it goes " + nx + ". Too late for a new trade." };
+      return { k: "go", tag: "Trade", t: (!until ? nm + "." : s.next > s.lv ? nm + " now, and " + nx + " from " + until + "." : nm + " until " + until + ", then " + nx + ".") + tail };
+    }
     return { k: "no", tag: "Leave it", t: "Quiet: thin and slow, most moves fail." + (s.at != null && s.next > 1 ? " " + (s.next === 3 ? "Busiest" : "Active") + " from " + (s.wd === t.wd ? "" : LDAYS[s.wd] + " ") + lhm(s.at) + (s.inMin <= 12 * 60 ? " (in " + lIn(s.inMin) + ")" : "") + "." : "") };
   }
   function lguideNow(t) {
