@@ -726,7 +726,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.92.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.92.1", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -18523,7 +18523,7 @@ var PROG = (function () {
   if (/^#learn/.test(location.hash)) {
     var lid = location.hash.split("/")[1];
     setView("learn"); if (lid && LCH_BY[lid]) paintLearn(lid);
-  } else if (!PROG.st.placed) setTimeout(showHelp, 400);
+  } else setView("today");   /* straight to today's plan; "how it works" opens only from Help */
   window.addEventListener("resize", function () { chD.render(); chP.render(); if (BT.ch) { chB.render(); drawCurve(); } });
   /* the toolbars rebuild their innerHTML on every render, which is fine — the
      listener stays on the same element, only its content and width change */
