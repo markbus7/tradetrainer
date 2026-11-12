@@ -402,18 +402,6 @@
     "impact": "Low"
   },
   {
-    "title": "M2 Money Supply y/y",
-    "country": "CNY",
-    "date": "2026-11-12T04:03:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "New Loans",
-    "country": "CNY",
-    "date": "2026-11-12T04:03:00-05:00",
-    "impact": "Low"
-  },
-  {
     "title": "Building Permits m/m",
     "country": "CAD",
     "date": "2026-11-12T08:30:00-05:00",
@@ -555,6 +543,18 @@
     "title": "Trade Balance",
     "country": "EUR",
     "date": "2026-11-13T05:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "M2 Money Supply y/y",
+    "country": "CNY",
+    "date": "2026-11-13T05:03:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "New Loans",
+    "country": "CNY",
+    "date": "2026-11-13T05:03:00-05:00",
     "impact": "Low"
   },
   {
