@@ -747,7 +747,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.94.1", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.94.2", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -10491,6 +10491,36 @@ var PROG = (function () {
     }
   };
 
+  /* the guide's "where is price in the range?" pictures: the same range three times,
+     each ending on a bar that closes in the third its label names */
+  function lplaceAt(ex) {
+    var H = hi(ex, 60, 80).p, L = ex.gt.target, t = (H - L) / 3, b = ex.bars, mid = 98, best = 1e9;
+    for (var i = 99; i <= 116; i++) { var d = Math.abs(b[i].c - (H + L) / 2); if (b[i].c > L + t && b[i].c < H - t && d < best) { best = d; mid = i; } }
+    return { H: H, L: L, t: t, bot: 97, mid: mid, top: 119 };
+  }
+  LVID.place = {
+    title: "Bottom, middle or top third?",
+    example: LVID.fbo.example,
+    check: function (ex) {
+      var P = lplaceAt(ex), b = ex.bars;
+      return LVID.fbo.check(ex) && b[P.bot].c < P.L + P.t && b[P.bot].c > P.L && b[P.mid].c > P.L + P.t && b[P.mid].c < P.H - P.t && b[P.top].c > P.H - P.t;
+    },
+    extraPrices: LVID.fbo.extraPrices,
+    scenes: function (ex) {
+      var P = lplaceAt(ex), b = ex.bars;
+      var sc = function (title, i, lab, col, say) {
+        return { title: title, vis: i, view: [30, i + 8], clear: true, say: say, add: [
+          N.box(30, i + 6, P.H - P.t, P.H, "top third", COL.dn, "in"), N.box(30, i + 6, P.L + P.t, P.H - P.t, "middle third", COL.txt, "in"), N.box(30, i + 6, P.L, P.L + P.t, "bottom third", COL.up, "in"),
+          N.pt(i, b[i].c, lab, col, i !== P.bot)] };
+      };
+      return [
+        sc("Bottom", P.bot, "last close: bottom third", COL.up, "The last bar closes in the bottom third of the range. Here you only buy."),
+        sc("Middle", P.mid, "last close: the middle", COL.paper, "The last bar closes in the middle third. No trade here: wait for an edge."),
+        sc("Top", P.top, "last close: top third", COL.dn, "The last bar closes in the top third of the range. Here you only sell.")
+      ];
+    }
+  };
+
   LVID.stops = {
     title: "Where the stop goes",
     example: LVID.range.example,
@@ -12142,7 +12172,7 @@ var PROG = (function () {
     strong: [["spike", "The first pullback"], ["tight", "A tight channel"], ["tight", "The pullback"], ["bo", "Pullback or failure?"], null],
     normal: [["every", "Leg two"], ["broad", "Two legs down"], ["counter", "A double top"], ["answers", "Wait: don't chase"]],
     redge: [["range", "Thirds"], null],
-    rplace: [["where", "Bottom third"], ["where", "The place beats the bar"], ["where", "Top third"], null, ["fbo", "No follow-through"], ["bo", "The breakout"], null],
+    rplace: [["place", "Bottom"], ["place", "Middle"], ["place", "Top"], ["x_fbo0", "Example"], ["x_fbo2", "Example"], ["x_breakout0", "Example"], ["x_breakout2", "Example"]],
     rhow: [["range", "The buy signal"], ["wideA", "The wide plan"]],
     turn: [["mtr", "The test"], ["wedge", "Push three"], ["flag", "Rejected"], ["climax", "The climax"], null],
     help1: [["ema", "Left behind"], ["ema", "Below it"], ["ema", "Flat: no trend"]],
