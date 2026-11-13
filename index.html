@@ -423,6 +423,8 @@
   em.lgv.go{background:#1c4a30;color:#b9f0cf}em.lgv.wait{background:#5b4a22;color:#ffe2a8}em.lgv.no{background:#161a21;color:var(--muted);border:1px solid var(--line)}
   .lta.lgmks{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-bottom:12px}
   .lta button.on{border-color:var(--amber);background:#1d1709}
+  .lgslow{margin:8px 0 4px;padding-left:18px;font-size:13.5px;line-height:1.55}.lgslow li{margin-bottom:5px}
+  .lgslow1{border-left:3px solid var(--amber-dim);padding-left:9px;margin-top:10px;font-size:13px}
   .lgneed{font-size:13px;color:#ffe2a8;border-left:3px solid var(--amber);padding:2px 0 2px 9px;margin-bottom:10px}
   .lgh u{text-decoration:none}
   .lgi{flex:none;width:24px;height:24px;border-radius:50%;border:1px solid var(--amber-dim);background:transparent;color:var(--amber);font:italic 700 13px Georgia,serif;line-height:1;cursor:pointer;padding:0;margin-left:8px;vertical-align:1px}
@@ -745,7 +747,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.94.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.94.1", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -10760,7 +10762,9 @@ var PROG = (function () {
     scenes: function (ex) {
       var P = LVL_P, f = function (p) { return p.toFixed(4); }, days = function () { return [N.band(0, 23, "two days ago", COL.txt), N.band(24, 47, "yesterday", COL.blue), N.band(48, 65, "today so far", COL.amber)]; };
       return [
-        { title: "The three days", vis: 65, clear: true, add: days(), say: "A 1 hour chart of the last three days. Each candle is one hour." },
+        { title: "The three days", vis: 65, clear: true, add: [N.band(0, 23, "", COL.txt), N.band(24, 47, "yesterday", COL.blue), N.band(48, 65, "today so far", COL.amber)].concat([N.hl(P.yh, 28, "yesterday's high " + f(P.yh), COL.violet, true, 0), N.hl(P.th, 58, "today's high " + f(P.th), COL.amber, true, 0),
+            N.hl(P.sw, 20, "turned twice " + f(P.sw), COL.blue, true, 0), N.hl(P.tl, 52, "today's low " + f(P.tl), COL.amber, true, 2), N.hl(P.yl, 42, "yesterday's low " + f(P.yl), COL.violet, true, 2)]),
+          say: "A 1 hour chart of the last three days, with the levels marked. Each candle is one hour." },
         { title: "Yesterday", vis: 65, clear: true, add: [N.band(24, 47, "yesterday", COL.blue), N.hl(P.yh, 28, "yesterday's high " + f(P.yh), COL.violet, true, 0), N.hl(P.yl, 42, "yesterday's low " + f(P.yl), COL.violet, true, 2)],
           say: "Yesterday's highest and lowest price. Two lines." },
         { title: "Today", vis: 65, clear: true, add: [N.band(48, 65, "today so far", COL.amber), N.hl(P.th, 58, "today's high " + f(P.th), COL.amber, true, 0), N.hl(P.tl, 52, "today's low " + f(P.tl), COL.amber, true, 2)],
@@ -11939,6 +11943,24 @@ var PROG = (function () {
   function lguideNow(t) {
     var weekend = t.wd === 6 || (t.wd === 7 && t.H < 23) || (t.wd === 5 && t.H >= 23), roll = !weekend && t.H >= 22.5 && t.H < 23.5;
     var news = lnewsToday(t);
+    var G0 = lgset(), T0 = LG_TF[G0.tf], slow = T0 ? T0.slow || 0 : 0;
+    var stamp = '<div class="lnowt"><b>' + (t.weekday ? t.weekday + " " + t.day + " " + t.month + " · " : "") + lhm(t.H) + '</b> <span class="mu">your time, Amsterdam (' + t.timeZoneName + ')</span></div>';
+    /* a 4-hour or daily trade is not timed by the hour: the bar close and the big releases decide */
+    if (slow === 2) {
+      var m0 = lgmk(G0), mine = news.list.filter(function (n) { return !m0 || lnewsHits(LTL_ROWS[m0[1]][0], n); }), ahead = mine.filter(function (n) { return (t.H - n.H) * 60 < 15; });
+      var big = ahead.filter(function (n) { return LG_BIG.test(n.n); }), stopper = G0.tf === "1440" ? big : ahead;
+      var hd = weekend ? "Weekend: the market is closed. A good moment to mark your levels for next week."
+        : roll ? "Not in this hour: around the 23:00 rollover the spread is wide. Place a new order after 23:30."
+        : stopper.length ? "No new entry yet: <b>" + esc(stopper[0].n) + "</b> at " + lhm(stopper[0].H) + " falls inside the bar that is forming. Wait until that bar has closed, then read the chart."
+        : "The clock does not stand in your way. Enter only when a <b>" + T0.n.toLowerCase() + "</b> bar has just closed and step 4 gives a signal.";
+      return stamp + '<div class="lgvhead ' + (weekend || roll || stopper.length ? "no" : "go") + '">' + hd + '</div>' +
+        '<ul class="lgslow"><li><b>Time of day:</b> does not matter on your ' + T0.n.toLowerCase() + ' chart. Quiet hours and the opens are for the 5- and 15-minute charts. What counts is the bar close; the timer on the chart shows it.</li>' +
+        '<li><b>News:</b> ' + (G0.tf === "1440" ? "only the biggest releases can move a whole daily bar: interest-rate decisions, the US jobs report, inflation (CPI). When one is due today, enter after it, not before. Other releases you can ignore at this size."
+          : "when a high-impact release falls inside the 4-hour bar that is forming, do not enter before it. Wait until that bar has closed.") + '</li>' +
+        '<li><b>A trade that is already open:</b> stays open through news, with its stop on the order. The stop on these charts is wide for that reason. On a very big release the stop can be filled a little worse than its price (slippage); that is part of the cost of holding for days.</li>' +
+        '<li><b>The 23:00 rollover:</b> no new order between 22:30 and 23:30, and swap is charged or paid on what you hold.</li></ul>' +
+        lguideNews(t, news, G0.tf);
+    }
     var rows = LTL_ROWS.map(function (r) { var v = lguideRow(r, t, news); if (roll && v.k === "go") { v.k = "wait"; v.tag = "Wait"; } v.n = r[0]; return v; });
     var go = rows.filter(function (v) { return v.k === "go"; }).map(function (v) { return v.n; });
     var head = weekend ? "Weekend: nothing to trade. Use Practice or review your week."
@@ -11946,24 +11968,29 @@ var PROG = (function () {
       : go.length ? "You can trade now: <b>" + go.join(", ") + "</b>. Pick one and stay with it."
       : rows.some(function (v) { return v.k === "wait"; }) ? "Hold off for a few minutes: see the Wait lines below."
       : "Nothing to trade right now. Wait for the next busy hours below.";
-    return '<div class="lnowt"><b>' + (t.weekday ? t.weekday + " " + t.day + " " + t.month + " · " : "") + lhm(t.H) + '</b> <span class="mu">your time, Amsterdam (' + t.timeZoneName + ')</span></div>' +
+    return stamp +
       '<div class="lgvhead ' + (go.length && !roll && !weekend ? "go" : "no") + '">' + head + '</div>' +
       '<div class="lnowg">' + rows.map(function (v) {
         return '<div class="lnowr lgvr"><span>' + v.n + '</span><em class="lgv ' + v.k + '">' + v.tag + '</em><i>' + v.t + '</i></div>';
       }).join("") + '</div>' +
       (Math.abs(t.nyDiff - 6) > 0.01 ? '<div class="lwarn" style="margin:8px 0 0">This week New York is <b>' + t.nyDiff + ' hours</b> behind you instead of 6, so the US busy hours start <b>' + (t.nyDiff < 6 ? 'one hour earlier' : 'one hour later') + '</b> than shown.</div>' : '') +
-      lguideNews(t, news);
+      (slow === 1 ? '<div class="lgnote lgslow1"><b>On your 1-hour chart:</b> Leave it (quiet hours) is a warning, not a ban. Moves are slower and the spread is wider at night, but your stop is wide enough to carry it. Wait still counts for a <b>new</b> entry: not in the minutes around an open or a release. A trade that is already open stays open through news, with its stop on the order.</div>' : '') +
+      lguideNews(t, news, G0.tf);
   }
-  function lguideNews(t, news) {
+  var LG_BIG = /FOMC|Federal Funds|Rate|Non-Farm|CPI|Press Conference|Monetary Policy/i;
+  function lguideNews(t, news, tf) {
+    var slowTf = tf && LG_TF[tf] ? LG_TF[tf].slow || 0 : 0;
     var o = ['<div class="lgnews"><div class="lgnh">News today for your markets <span class="mu">(high impact, USD, EUR and JPY)</span></div>'];
     if (news.list.length) o.push(news.list.map(function (n) {
       var d = (t.H - n.H) * 60, st = d >= 15 ? "done" : d >= -5 ? "now" : "soon";
       var who = n.c === "ALL" || (n.c === "USD" && !/crude oil/i.test(n.n)) ? "all your markets" : LTL_ROWS.map(function (r) { return r[0]; }).filter(function (x) { return lnewsHits(x, n); }).join(", ");
       return '<div class="lgnr ' + st + '"><b>' + lhm(n.H) + '</b><span>' + (n.c === "ALL" ? "" : n.c + " · ") + esc(n.n) + ' <i>' + who + '</i></span><em>' +
-        (st === "done" ? "over" : st === "now" ? "stay out until <b>" + lhm(n.H + 0.25) + "</b>" : "flat by <b>" + lhm(n.H - 5 / 60) + "</b>, trade again <b>" + lhm(n.H + 0.25) + "</b>") + '</em></div>';
+        (st === "done" ? "over" : slowTf === 2 ? (tf === "1440" && !LG_BIG.test(n.n) ? "small for a daily chart" : "no new entry before it; open trades stay")
+          : slowTf === 1 ? (st === "now" ? "no new entry until <b>" + lhm(n.H + 0.25) + "</b>" : "no new entry from <b>" + lhm(n.H - 0.25) + "</b> to <b>" + lhm(n.H + 0.25) + "</b>; open trades stay")
+          : st === "now" ? "stay out until <b>" + lhm(n.H + 0.25) + "</b>" : "flat by <b>" + lhm(n.H - 5 / 60) + "</b>, trade again <b>" + lhm(n.H + 0.25) + "</b>") + '</em></div>';
     }).join(""));
     else if (news.known) o.push('<div class="lgnone">None today. Nothing scheduled stands in your way.</div>');
-    if (news.known) o.push('<div class="mu lgnsrc">From the ForexFactory weekly calendar, read ' + lhm(lNow(new Date(LNEWS.at)).H) + '. Times are Amsterdam time. Trade again means: 15 minutes after the release, if the bars have calmed down.</div>');
+    if (news.known) o.push('<div class="mu lgnsrc">From the ForexFactory weekly calendar, read ' + lhm(lNow(new Date(LNEWS.at)).H) + '. Times are Amsterdam time.' + (slowTf ? '' : ' Trade again means: 15 minutes after the release, if the bars have calmed down.') + '</div>');
     else o.push('<div class="lwarn" style="margin:8px 0 0">' + (LNEWS.busy ? "Loading this week's news calendar…" : "The news calendar could not be loaded" + (LNEWS.err ? " (" + esc(LNEWS.err) + ")" : "") + ". Until it is, look up today's high-impact releases yourself and add their times below; the lines that say \"if there is one today\" stay as a warning.") + '</div>');
     o.push('</div>');
     return o.join("");
@@ -12174,13 +12201,15 @@ var PROG = (function () {
   /* step 5: what kind of trade an entry is. t = with the trend, r = range or scalp, v = reversal, x = the range scale-in */
   var LG_KIND = { spike: "t", late: "t", tight: "t", breakout: "t", count: "t", broad: "r", counter: "r", range: "r", fbo: "r", climax: "r", limits: "x", mtr: "v", wedge: "v", flag: "v" };
   function lgManage(ch) {
-    var k = LG_KIND[ch] || "t", o = [];
+    var k = LG_KIND[ch] || "t", o = [], TFm = LG_TF[lgset().tf], slowM = TFm ? TFm.slow || 0 : 0;
+    var newsOpt = slowM ? ["News or the rollover is coming", "HOLD THROUGH IT", "On your " + TFm.n.toLowerCase() + " chart an open trade stays open through news and through the 23:00 rollover, with its stop on the order. Do not add to it and do not move the stop just before a release. Two things to know: on a very big release the stop can be filled a little worse than its price, and every night you hold, swap is charged or paid. If the trade is nearly at its target just before an interest-rate decision or the US jobs report, taking the profit there is fine."]
+      : null;
     if (k === "x") return [
       ["Neither limit is filled yet", "WAIT", "Leave both orders where they are. Cancel them both if two or three big bars close on their extremes toward the edge: that is a breakout starting, not a drift, and limits get run over."],
       ["Only entry 1 is filled", "HOLD", "The target is the <b>middle of the range</b>; if the bars toward it are strong, the other side. The stop stays a full range height beyond the edge. Entry 2 stays in the market."],
       ["Both entries are filled", "GET OUT AT ENTRY 1", "Move the target for <b>both</b> positions to the price of entry 1. Entry 2 then makes money and entry 1 breaks even. The stop does not move."],
       ["A strong breakout through the edge", "LET THE STOP WORK", "The stop a full range height beyond the edge is the plan. Do not add a third entry and do not move the stop further away. After a stop-out here: only stop-order entries in this area until a new edge has turned price at least twice."],
-      ["News or the rollover is coming", "GET FLAT", "Close the trade and cancel the unfilled limit five minutes before a high-impact release from step 1. Flat before 23:00 as well, or look up the swap first."]];
+      newsOpt || ["News or the rollover is coming", "GET FLAT", "Close the trade and cancel the unfilled limit five minutes before a high-impact release from step 1. Flat before 23:00 as well, or look up the swap first."]];
     o.push(ch === "late" ? ["I have not entered yet", "ENTER OR SKIP", "This entry is at market on the bar's close. If the next bar has already moved away, the entry is gone: do not chase it. Wait for the next strong close or the next pullback."]
       : ["My order is not filled yet", "WAIT ONE BAR", "Leave the stop order for <b>one more bar</b>. If that bar closes without filling it, cancel: the signal is used up and you need a new signal bar. Cancel at once if price trades through your planned stop before the entry fills."]);
     o.push(["Filled, and nothing has changed", "HOLD", k === "t"
@@ -12190,7 +12219,7 @@ var PROG = (function () {
     o.push(["A normal pullback against me", "HOLD", "Small bars, overlapping, not closing on their extremes, and the stop is not hit: this is the market breathing. Nothing is broken. Do not move the stop closer and do not get out."]);
     o.push(["Rejected at one of my lines", "TAKE HALF OFF", "Price reached a line from step 3, a prior high or low, or stopped just short of the target, and printed a reversal bar or a long tail. Put a stop order to close <b>half</b> one tick beyond that bar. If it fills, move the stop for the rest to your entry price. No rejection bar: no partial; 1R and 2R are not reasons."]);
     o.push(["A strong bar against me", "GET OUT NOW", "A big bar closing on its extreme against you that breaks the last swing, or a strong signal the other way: the reason for the trade is gone. Close at market; do not wait for the stop. One big bar that does not break anything is a pullback: hold."]);
-    o.push(["News or the rollover is coming", "GET FLAT", "Close five minutes before a high-impact release from step 1, in profit or not. Before the 23:00 rollover: close, or look up the swap in cTrader's symbol info first and decide to pay it."]);
+    o.push(newsOpt || ["News or the rollover is coming", "GET FLAT", "Close five minutes before a high-impact release from step 1, in profit or not. Before the 23:00 rollover: close, or look up the swap in cTrader's symbol info first and decide to pay it."]);
     return o;
   }
   /** today's count from the guide's log, and whether the daily stop is reached */
@@ -12240,7 +12269,7 @@ var PROG = (function () {
       box.hidden = true; box.innerHTML = "";
     }
     var LGHI = {
-      1: ["<b>How to read it.</b> Each line is one market: its name, the verdict, the reason. <b>Trade</b>: busy hours and no news close by. <b>Wait</b>: an open or a release is minutes away; the line says when to look again. <b>Leave it</b>: quiet hours, when most moves fail. <b>Be flat by</b> a time means: have no open trade at that time. Not sure about a release that is not listed? Add its time yourself under the list."],
+      1: ["<b>How to read it.</b> Each line is one market: its name, the verdict, the reason. <b>Trade</b>: busy hours and no news close by. <b>Wait</b>: an open or a release is minutes away; the line says when to look again. <b>Leave it</b>: quiet hours, when most moves fail. <b>Be flat by</b> a time means: have no open trade at that time. Not sure about a release that is not listed? Add its time yourself under the list. This step changes with the chart you choose in step 2: on the 1-hour chart quiet hours are allowed, and on the 4-hour and daily charts the time of day does not count at all."],
       2: ["<b>Not sure which market?</b> Take one that says Trade and that you have watched before. One market for the whole session: every market moves differently, and you learn one at a time.<br><b>Not sure which chart?</b> Start on the <b>15-minute</b>: fewer decisions and more time to think per bar. Take the 5-minute when reading a bar no longer takes effort. Take the 4-hour or daily if you cannot watch during the day. The smaller the chart, the smaller the stop and the more the spread costs you per trade."],
       3: ["<b>What is a level?</b> A price where the market clearly turned, or broke through and came back. Other traders have their orders there, so price often stops or turns there again. You draw them as horizontal lines on the higher chart, and they stay visible on your trading chart. Every tick below has its own <b>i</b> with a picture of that line.", "levels", "Keep five", "All the lines of this step on one 1-hour chart: five are left, the ones nearest to price."],
       4: ["<b>Not sure what you see?</b> Press <b>Not sure: help me decide</b>. It asks four checks, one at a time, each with pictures, and sorts your chart into one of the other choices. Still not sure after that: no trade on this bar, and that is a correct answer. Press only after a bar has <b>closed</b>; a bar that is still moving can change completely."],
@@ -12268,7 +12297,7 @@ var PROG = (function () {
       if (G.mk && G.tf && !setEdit) {
         var v = verdict();
         o.push('<div class="lgdone"><span><b>' + G.mk + '</b> on the <b>' + LG_TF[G.tf].n + '</b> chart' + (LG_TF[G.tf].slow === 2 ? '' : ' <em class="lgv ' + v.k + '">' + v.tag + '</em>') + '</span><button class="btn sm" data-a="setchg">Change</button></div>' +
-          '<div class="mu lgnote">' + (LG_TF[G.tf].slow === 2 ? "On this chart the hour of the day matters little: the clock in step 1 is for the short charts. What still counts is the bar close, and no new entry just before a high-impact release. " : v.k === "go" ? "" : "The clock in step 1 does not say Trade for " + G.mk + " right now. ") + 'Chart setup: candles and the 20-bar EMA, nothing else. ' + LG_TF[G.tf].hold + '</div>');
+          '<div class="mu lgnote">' + (LG_TF[G.tf].slow === 2 ? "On this chart the hour of the day matters little: the clock in step 1 is for the short charts. What still counts is the bar close, and no new entry just before a high-impact release. " : v.k === "go" ? "" : LG_TF[G.tf].slow === 1 ? (v.k === "wait" ? "Step 1 says Wait for " + G.mk + ": no new entry right now. " : "Quiet hours for " + G.mk + ": allowed on this chart, but expect slow bars and a wider spread. ") : "The clock in step 1 does not say Trade for " + G.mk + " right now. ") + 'Chart setup: candles and the 20-bar EMA, nothing else. ' + LG_TF[G.tf].hold + '</div>');
       } else {
         o.push('<div class="ltq">Which market do you trade this session?</div><div class="mu lgnote">One market, and stay with it. The tag is what the clock says right now.</div><div class="lta lgopts lgmks">' + LG_MK.map(function (m) {
           var v = lguideRow(LTL_ROWS[m[1]], t, news);
@@ -12277,7 +12306,7 @@ var PROG = (function () {
           LG_TFS.map(function (k) { return '<button data-tf="' + k + '"' + (G.tf === k ? ' class="on"' : '') + '><b>' + LG_TF[k].n + '</b><small>' + LG_TF[k].sub + ' Levels come from the ' + LG_TF[k].htf + ' chart.</small></button>'; }).join("") + '</div>');
       }
       setEl.innerHTML = o.join("");
-      var pickd = function (close) { if (G.mk && G.tf && close) setEdit = false; else setEdit = true; var m = lgmk(G); if (m) ltcState().mk = m[2]; learnSave(); paintSet(); paintLv(); render(); };
+      var pickd = function (close) { if (G.mk && G.tf && close) setEdit = false; else setEdit = true; var m = lgmk(G); if (m) ltcState().mk = m[2]; learnSave(); paintNow(); paintSet(); paintLv(); render(); paintLog(); };
       [].forEach.call(setEl.querySelectorAll("[data-mk]"), function (b) { b.onclick = function () { G.mk = b.dataset.mk; pickd(false); }; });
       [].forEach.call(setEl.querySelectorAll("[data-tf]"), function (b) { b.onclick = function () { G.tf = b.dataset.tf; pickd(true); }; });
       var c = setEl.querySelector('[data-a="setchg"]'); if (c) c.onclick = function () { setEdit = true; paintSet(); };
@@ -12305,7 +12334,7 @@ var PROG = (function () {
         ["back", "Go back to your <b>" + T.n + "</b> chart. The lines come with you. Say it out loud: the nearest line above price, and the nearest line below."]];
       var other = T.slow ? " <span class=\"mu\">The picture shows the idea on a 1-hour chart with days; on your " + T.htf + " chart you do the same with the periods this tick names.</span>" : "";
       var LVI = {
-        open: ["<b>How.</b> In cTrader, switch the timeframe of your " + G.mk + " chart to " + (T.htf === "1-hour" ? "h1" : T.htf === "daily" ? "D1" : "W1") + " and pinch or scroll out until " + T.back + " fit on the screen. You should see the whole shape at once: the big up and down moves, not single bars." + other, "levels", "The three days", "A 1-hour chart zoomed out to three days. That is how much you need to see."],
+        open: ["<b>How.</b> In cTrader, switch the timeframe of your " + G.mk + " chart to " + (T.htf === "1-hour" ? "h1" : T.htf === "daily" ? "D1" : "W1") + " and pinch or scroll out until " + T.back + " fit on the screen. You should see the whole shape at once: the big up and down moves, not single bars." + other, "levels", "The three days", "A 1-hour chart zoomed out to three days, with the lines you will have at the end of this step: yesterday's high and low, today's high and low, and one price where the market turned twice. The ticks below take them one at a time."],
         yest: ["<b>How.</b> Find the highest and the lowest price of that period and draw a horizontal line at each, at the very tip of the wick. Many traders watch exactly these two prices, so price often reacts there." + other, "levels", "Yesterday", "Yesterday is shaded. Its highest wick and its lowest wick each get a line."],
         today: ["<b>How.</b> The same for the most recent period: its high and its low so far. These two move during the session: when price makes a new high or low, move the line." + other, "levels", "Today", "Today so far is shaded, with a line at its high and at its low."],
         swing: ["<b>How.</b> Look for a price where the market turned <b>at least twice</b>: two tops at the same height, two bottoms at the same height, or an old top that later held as a bottom. That gets a line. A single small dip or bump does not. If you are not sure it is a level, it is not one." + other, "levels", "Swings", "Two turns at the same price: a line. The single small dip on the left: no line."],
@@ -12352,7 +12381,7 @@ var PROG = (function () {
         '<li><b>Order:</b> ' + w(E[1]) + '</li>' +
         '<li><b>Stop:</b> ' + w(E[2]) + '</li>' +
         '<li><b>Target:</b> ' + w(E[3]) + '</li>' +
-        '<li><b>Check before you send it:</b> the distance to the target is at least <b>' + r[3].replace(/,.*$/, "") + '</b> (R = the distance from entry to stop), and the clock in step 1 says Trade for your market (on a 4-hour or daily chart: no high-impact release in the next hours). Then look at your lines from step 3: a line between the entry and the target <b>is</b> the target, and the reward is measured to that line. If either check fails, skip this one.</li>' +
+        '<li><b>Check before you send it:</b> the distance to the target is at least <b>' + r[3].replace(/,.*$/, "") + '</b> (R = the distance from entry to stop), and ' + (LG_TF[G.tf] && LG_TF[G.tf].slow === 2 ? 'step 1 shows no release that stops a new entry' : LG_TF[G.tf] && LG_TF[G.tf].slow === 1 ? 'step 1 does not say Wait for your market (Leave it is allowed on the 1-hour chart)' : 'the clock in step 1 says Trade for your market') + '. Then look at your lines from step 3: a line between the entry and the target <b>is</b> the target, and the reward is measured to that line. If either check fails, skip this one.</li>' +
         '<li><b>Place it in cTrader:</b> New Order, type <b>' + (ch === "late" ? "Market" : ch === "limits" ? "Limit (two orders)" : "Stop") + '</b>. Fill in ' + (ch === "late" ? "" : "the entry price and ") + 'the lots from the size line, switch on <b>Stop Loss</b> and <b>Take Profit</b> and type both prices from your chart. An order without its stop on it is not this plan.</li>' +
         '<li><b>Size:</b> ' + (ch === "limits" ? 'both orders together risk one normal trade (half while this entry is advanced). Work it out in the calculator in the full plan below.'
           : (adv ? '<b>half your normal risk</b>, because this entry is advanced until you have logged twenty of them.' : 'your normal risk.') + ' Type your stop distance:') + '</li>' +
