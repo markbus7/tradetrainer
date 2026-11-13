@@ -740,7 +740,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.93.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.93.1", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -12091,13 +12091,23 @@ var PROG = (function () {
   var LG_MK = [["Gold", 0, "XAUUSD", "the whole 50s and 100s of dollars"], ["US100", 1, "NQ", "the whole hundreds"], ["US500", 1, "ES", "the whole 50s and 100s"],
     ["GER40", 2, "GER40", "the whole hundreds"], ["EURUSD", 3, "EURUSD", "the 00 and 50 levels, such as 1.1500 and 1.1550"],
     ["USDJPY", 4, "USDJPY", "the whole and half yen, such as 154.00 and 154.50"], ["UKOIL", 5, "CL", "the whole dollars"], ["BTCUSD", 6, "BTCUSD", "the whole thousands"]];
+  var LG_SWAP = "Every night at 23:00 the broker charges or pays <b>swap</b>, and one weekday counts three times, so on a trade held for days the swap becomes a real cost. How to count it: if cTrader's symbol info showed −0.80 per lot per night (an example to show the sum, not your broker's figure), 0.05 lots held two nights costs 0.05 × 0.80 × 2 = 0.08. Look up the real figure for your market before you hold.";
+  var LG_TFS = ["5", "15", "60", "240", "1440"];
+  /* the two fixed pairs of lines per trading chart */
+  var LG_LINES = { "5": ["yesterday's high</b> and <b>yesterday's low", "today's high and low so far"], "15": ["yesterday's high</b> and <b>yesterday's low", "today's high and low so far"],
+    "60": ["last week's high</b> and <b>last week's low", "yesterday's high and low"], "240": ["last month's high</b> and <b>last month's low", "last week's high and low"],
+    "1440": ["last year's high</b> and <b>last year's low", "last month's high and low"] };
   var LG_TF = {
     "5": { n: "5-minute", sub: "Many signals, small stops. You watch every bar.", htf: "1-hour", back: "the last two days", b20: "the last hour and 40 minutes",
       hold: "A 5-minute trade usually lasts from about twenty minutes to two hours (a rule of thumb). Check every bar close: every 5 minutes." },
     "15": { n: "15-minute", sub: "Fewer signals, calmer. Wider stops, so smaller size.", htf: "1-hour", back: "the last three to five days", b20: "the last five hours",
       hold: "A 15-minute trade usually lasts from an hour to most of a session (a rule of thumb), so the stop is wider and the size smaller. If step 1 shows a \"be flat by\" time less than an hour away, skip the trade: it has no room to work." },
-    "60": { n: "1-hour", sub: "Swing trades held one or two days.", htf: "daily", back: "the last two to three months", b20: "the last 20 hours",
-      hold: "A 1-hour trade is usually held one or two days, so it stays open overnight. Every night at 23:00 the broker charges or pays <b>swap</b>, and one weekday counts three times. How to count it: if cTrader's symbol info showed −0.80 per lot per night (an example to show the sum, not your broker's figure), 0.05 lots held two nights costs 0.05 × 0.80 × 2 = 0.08. Look up the real figure for your market before you hold." }
+    "60": { n: "1-hour", sub: "Swing trades held one or two days.", htf: "daily", back: "the last two to three months", b20: "the last 20 hours", slow: 1,
+      hold: "A 1-hour trade is usually held one or two days (a rule of thumb), so it stays open overnight. " + LG_SWAP },
+    "240": { n: "4-hour", sub: "Swing trades held several days. Six bar closes a day.", htf: "daily", back: "the last three to six months", b20: "the last three to four trading days", slow: 2,
+      hold: "A 4-hour trade is usually held several days (a rule of thumb). You only need to look when a 4-hour bar closes; the timer on the chart shows when. The stop is wide in pips, so the size is small: on a small account check that 0.01 lots still fits your risk. " + LG_SWAP },
+    "1440": { n: "Daily", sub: "Position trades held days to weeks. One bar close a day.", htf: "weekly", back: "the last one to two years", b20: "the last four weeks", slow: 2,
+      hold: "A daily trade is usually held from several days to a few weeks (a rule of thumb). One look a day is enough, after the daily bar closes (around the 23:00 rollover; the timer on the chart shows it). The stop is very wide in pips, so the size is very small: on a small account 0.01 lots may already be more than your risk, and then this chart is not for that account yet. " + LG_SWAP }
   };
   function lgset() { var G = LSt.gset || (LSt.gset = {}); if (!LG_TF[G.tf]) G.tf = ""; if (!LG_MK.some(function (m) { return m[0] === G.mk; })) G.mk = ""; G.lv = G.lv || {}; return G; }
   function lgmk(G) { for (var i = 0; i < LG_MK.length; i++) if (LG_MK[i][0] === G.mk) return LG_MK[i]; return null; }
@@ -12170,14 +12180,14 @@ var PROG = (function () {
       var t = lNow(), news = lnewsToday(t), o = [];
       if (G.mk && G.tf && !setEdit) {
         var v = verdict();
-        o.push('<div class="lgdone"><span><b>' + G.mk + '</b> on the <b>' + LG_TF[G.tf].n + '</b> chart <em class="lgv ' + v.k + '">' + v.tag + '</em></span><button class="btn sm" data-a="setchg">Change</button></div>' +
-          '<div class="mu lgnote">' + (v.k === "go" ? "" : "The clock in step 1 does not say Trade for " + G.mk + " right now. ") + 'Chart setup: candles and the 20-bar EMA, nothing else. ' + LG_TF[G.tf].hold + '</div>');
+        o.push('<div class="lgdone"><span><b>' + G.mk + '</b> on the <b>' + LG_TF[G.tf].n + '</b> chart' + (LG_TF[G.tf].slow === 2 ? '' : ' <em class="lgv ' + v.k + '">' + v.tag + '</em>') + '</span><button class="btn sm" data-a="setchg">Change</button></div>' +
+          '<div class="mu lgnote">' + (LG_TF[G.tf].slow === 2 ? "On this chart the hour of the day matters little: the clock in step 1 is for the short charts. What still counts is the bar close, and no new entry just before a high-impact release. " : v.k === "go" ? "" : "The clock in step 1 does not say Trade for " + G.mk + " right now. ") + 'Chart setup: candles and the 20-bar EMA, nothing else. ' + LG_TF[G.tf].hold + '</div>');
       } else {
         o.push('<div class="ltq">Which market do you trade this session?</div><div class="mu lgnote">One market, and stay with it. The tag is what the clock says right now.</div><div class="lta lgopts lgmks">' + LG_MK.map(function (m) {
           var v = lguideRow(LTL_ROWS[m[1]], t, news);
           return '<button data-mk="' + m[0] + '"' + (G.mk === m[0] ? ' class="on"' : '') + '><b>' + m[0] + '</b> <em class="lgv ' + v.k + '">' + v.tag + '</em></button>';
         }).join("") + '</div><div class="ltq">Which chart do you trade on?</div><div class="mu lgnote">' + (G.mk ? '' : 'Choose the market first. ') + 'The chart you take entries and stops from. Pick one and keep it for the whole session: switching timeframes in a trade is how a plan gets lost.</div><div class="lta lgopts">' +
-          ["5", "15", "60"].map(function (k) { return '<button data-tf="' + k + '"' + (G.tf === k ? ' class="on"' : '') + '><b>' + LG_TF[k].n + '</b><small>' + LG_TF[k].sub + ' Levels come from the ' + LG_TF[k].htf + ' chart.</small></button>'; }).join("") + '</div>');
+          LG_TFS.map(function (k) { return '<button data-tf="' + k + '"' + (G.tf === k ? ' class="on"' : '') + '><b>' + LG_TF[k].n + '</b><small>' + LG_TF[k].sub + ' Levels come from the ' + LG_TF[k].htf + ' chart.</small></button>'; }).join("") + '</div>');
       }
       setEl.innerHTML = o.join("");
       var pickd = function (close) { if (G.mk && G.tf && close) setEdit = false; else setEdit = true; var m = lgmk(G); if (m) ltcState().mk = m[2]; learnSave(); paintSet(); paintLv(); render(); };
@@ -12199,10 +12209,11 @@ var PROG = (function () {
       G.lv.ticks = G.lv.ticks || {};
       var items = [
         ["open", "Open the <b>" + T.htf + "</b> chart of " + G.mk + " and zoom out until you see <b>" + T.back + "</b>. You are not looking for a trade here, only for prices that matter."],
-        ["yest", G.tf === "60" ? "A line at <b>last week's high</b> and <b>last week's low</b>." : "A line at <b>yesterday's high</b> and <b>yesterday's low</b>."],
-        ["today", G.tf === "60" ? "A line at <b>yesterday's high and low</b>." : "A line at <b>today's high and low so far</b>" + (m[1] === 1 || m[1] === 2 ? "" : " (that includes the night session)") + "."],
+        ["yest", "A line at <b>" + LG_LINES[G.tf][0] + "</b>."],
+        ["today", "A line at <b>" + LG_LINES[G.tf][1] + "</b>" + (T.slow || m[1] === 1 || m[1] === 2 ? "" : " (that includes the night session)") + "."],
         ["swing", "A line at each <b>clear swing high or low</b> in between: a price where the market turned at least twice, or broke through and came back to test. Two or three, not every wiggle."],
         ["round", "The nearest <b>big round number</b> above and below price: for " + G.mk + ", " + m[3] + "."],
+        ["dir", "Write down the <b>direction on the " + T.htf + " chart</b>: up, down or sideways (highs and lows stepping up, stepping down, or overlapping). A trade with it has room to run. A trade against it: only the best signal, and the first line in the way is the target."],
         ["prune", "<b>Keep at most five lines</b>, the ones nearest to price. Delete the rest: a chart full of lines says nothing."],
         ["back", "Go back to your <b>" + T.n + "</b> chart. The lines come with you. Say it out loud: the nearest line above price, and the nearest line below."]];
       lvEl.innerHTML = '<div class="lticks">' + items.map(function (it) { return '<label class="ltick"><input type="checkbox" data-lvt="' + it[0] + '"' + (G.lv.ticks[it[0]] ? " checked" : "") + '> <span>' + it[1] + '</span></label>'; }).join("") + '</div>' +
@@ -12238,7 +12249,8 @@ var PROG = (function () {
         '<li><b>Order:</b> ' + w(E[1]) + '</li>' +
         '<li><b>Stop:</b> ' + w(E[2]) + '</li>' +
         '<li><b>Target:</b> ' + w(E[3]) + '</li>' +
-        '<li><b>Check before you send it:</b> the distance to the target is at least <b>' + r[3].replace(/,.*$/, "") + '</b> (R = the distance from entry to stop), and the clock in step 1 says Trade for your market. Then look at your lines from step 3: a line between the entry and the target <b>is</b> the target, and the reward is measured to that line. If either check fails, skip this one.</li>' +
+        '<li><b>Check before you send it:</b> the distance to the target is at least <b>' + r[3].replace(/,.*$/, "") + '</b> (R = the distance from entry to stop), and the clock in step 1 says Trade for your market (on a 4-hour or daily chart: no high-impact release in the next hours). Then look at your lines from step 3: a line between the entry and the target <b>is</b> the target, and the reward is measured to that line. If either check fails, skip this one.</li>' +
+        '<li><b>Place it in cTrader:</b> New Order, type <b>' + (ch === "late" ? "Market" : ch === "limits" ? "Limit (two orders)" : "Stop") + '</b>. Fill in ' + (ch === "late" ? "" : "the entry price and ") + 'the lots from the size line, switch on <b>Stop Loss</b> and <b>Take Profit</b> and type both prices from your chart. An order without its stop on it is not this plan.</li>' +
         '<li><b>Size:</b> ' + (ch === "limits" ? 'both orders together risk one normal trade (half while this entry is advanced). Work it out in the calculator in the full plan below.'
           : (adv ? '<b>half your normal risk</b>, because this entry is advanced until you have logged twenty of them.' : 'your normal risk.') + ' Type your stop distance:') + '</li>' +
         '</ol>' +
