@@ -108,6 +108,17 @@ static class Tests
         var mix = Analyzer.Build(new[] { plan[0], st }, 240, 3).Single();
         Ok(!mix.ScaleIn, "limit + stop order is not a scale-in");
 
+        // weekend swap: tonight is the triple day
+        var sw = Eur(true, true, 21, 0.02, 1.08500, 1.08300, 1.08700); sw.SwapPerNight = -0.16; sw.SwapMultTonight = 3; sw.TripleDay = "Fri";
+        var swS = Analyzer.Build(new[] { sw }, 240, 3).Single();
+        Ok(Near(swS.SwapTonight, -0.48) && swS.TripleTonight && Has(swS, "swap_triple"), "triple swap tonight: -0.48 and a note");
+        Ok(swS.Notes.Single(n => n.Code == "swap_triple").Level == Lvl.Info, "weekend swap is information, not a broken rule");
+        var swCard = PanelBuilder.Build(new List<Setup> { swS }, new List<Note>(), 240, 240, 3, DayRules.Evaluate(new List<TradeGroup>(), DayRule.Day_down_in_R, 7.2, 2, 2, 1.44), "", Lvl.Info, "x").Cards.Single();
+        Ok(swCard.Costs.Contains("tonight ×3 = -€0.48"), "cost line shows tonight's triple (" + swCard.Costs + ")");
+        sw.SwapMultTonight = 1; sw.TripleDay = "Wed";
+        var swW = Analyzer.Build(new[] { sw }, 240, 3).Single();
+        Ok(!Has(swW, "swap_triple") && PanelBuilder.Build(new List<Setup> { swW }, new List<Note>(), 240, 240, 3, DayRules.Evaluate(new List<TradeGroup>(), DayRule.Day_down_in_R, 7.2, 2, 2, 1.44), "", Lvl.Info, "x").Cards.Single().Costs.Contains("(×3 on Wed)"), "other days: shows which day is triple");
+
         // spread wide against a tiny stop
         var sp = Eur(true, false, 1, 0.02, 1.08500, 1.08480, 1.08540); sp.SpreadPips = 0.5;
         Ok(Has(Analyzer.Build(new[] { sp }, 240, 3).Single(), "spread"), "0.5-pip spread on a 2-pip stop");
@@ -262,7 +273,7 @@ static class Tests
         var t9 = new DateTime(2026, 11, 13, 9, 30, 0);
         var dayGroups = new List<TradeGroup> { new TradeGroup { Symbol = "EURUSD", Buy = true, Close = t9, Net = -3.70 }, new TradeGroup { Symbol = "EURUSD", Buy = false, Close = t9.AddHours(2), Net = 1.10 }, new TradeGroup { Symbol = "GBPUSD", Buy = true, Close = t9.AddHours(3), Net = -0.40 } };
         var dst = DayRules.Evaluate(dayGroups, DayRule.Day_down_in_R, 7.2, 2, 2, 1.44);
-        var pm = PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, "Journal: 12 trades  ·  58% won  ·  avg +0.21R  ·  net +€9.40  ·  report.html", Lvl.Info, "1.2.1");
+        var pm = PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, "Journal: 12 trades  ·  58% won  ·  avg +0.21R  ·  net +€9.40  ·  report.html", Lvl.Info, "1.3.0");
         var ec = pm.Cards.Single(c => c.Symbol == "EURUSD");
         Ok(ec.Rows.Count == 2 && ec.Rows[0].Name == "E1" && ec.Rows[0].Filled && !ec.Rows[1].Filled, "card rows: E1 filled, E2 pending");
         var slm = ec.Marks.Single(x => x.Kind == "sl"); var tpm = ec.Marks.Where(x => x.Kind == "tp").ToList(); var e2m = ec.Marks.Single(x => x.Label == "E2");
@@ -271,7 +282,7 @@ static class Tests
         var gsl = gc.Marks.Single(x => x.Kind == "sl"); var gnow = gc.Marks.Single(x => x.Kind == "now");
         Ok(gsl.Pos < gc.ZoneEntry && gnow.Pos > gc.ZoneEntry, "sell ladder is flipped: SL still on the left, price below entry on the right");
         Ok(gc.RiskLvl == Lvl.Bad && gc.Status == Lvl.Bad && gc.Reward == "no TP", "GBPUSD: risk too high, no TP");
-        Ok(pm.Signature() == PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, pm.Footer, Lvl.Info, "1.2.1").Signature(), "same data, same picture (no redraw)");
+        Ok(pm.Signature() == PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, pm.Footer, Lvl.Info, "1.3.0").Signature(), "same data, same picture (no redraw)");
         System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "panel-preview.html"), Preview.Panel(pm));
 
         Console.WriteLine($"{pass} passed, {fail} failed");

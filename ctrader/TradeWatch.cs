@@ -70,6 +70,8 @@ namespace TradeWatchCore
         public bool CommKnown;
         public double NetProfit;         // filled only
         public double SwapPerNight;      // filled only, account money, negative = cost
+        public int SwapMultTonight = 1;  // 3 on the symbol's triple-swap day (the weekend's swap)
+        public string TripleDay = "";    // the symbol's triple-swap weekday, e.g. "Wed"
         public double SpreadPips;
         public double Current = double.NaN;   // price the position would close at now
 
@@ -91,7 +93,8 @@ namespace TradeWatchCore
         public bool ScaleIn;
         public string Stage = "";
         public double? FullRisk, FullReward, FilledRisk, FilledReward;
-        public double Floating, RiskPct, SpreadPips, SwapNight, CommRT;
+        public double Floating, RiskPct, SpreadPips, SwapNight, SwapTonight, CommRT;
+        public bool TripleTonight; public string TripleDay = "";
         public bool CommAllKnown = true;
         public double? FloatR;
         public List<Note> Notes = new List<Note>();
@@ -157,6 +160,9 @@ namespace TradeWatchCore
 
             s.SpreadPips = s.Items.Max(i => i.SpreadPips);
             s.SwapNight = s.Items.Where(i => i.Filled).Sum(i => i.SwapPerNight);
+            s.SwapTonight = s.Items.Where(i => i.Filled).Sum(i => i.SwapPerNight * i.SwapMultTonight);
+            s.TripleTonight = s.Items.Any(i => i.Filled && i.SwapMultTonight == 3);
+            s.TripleDay = s.Items.Select(i => i.TripleDay).FirstOrDefault(d => !string.IsNullOrEmpty(d)) ?? "";
             s.CommRT = s.Items.Sum(i => i.CommRT);
             s.CommAllKnown = s.Items.All(i => i.CommKnown);
             s.Floating = s.Items.Where(i => i.Filled).Sum(i => i.NetProfit);
@@ -273,7 +279,12 @@ namespace TradeWatchCore
                 s.Notes.Add(new Note(Lvl.Warn, "spread", k + "spread",
                     "Spread " + Fmt.N(s.SpreadPips) + " pips is " + Fmt.N(s.SpreadPips / stops.Min() * 100, "0") + "% of your " + Fmt.N(stops.Min()) + "-pip stop."));
 
-            // 6. orders left after the trade closed
+            // 6. weekend swap: tonight the symbol charges three nights
+            if (s.TripleTonight && s.SwapTonight < 0)
+                s.Notes.Add(new Note(Lvl.Info, "swap_triple", k + "swap3",
+                    "Tonight is triple swap (the weekend's swap): holding costs about " + Fmt.SM(s.SwapTonight) + " instead of " + Fmt.SM(s.SwapNight) + "."));
+
+            // 7. orders left after the trade closed
             if (filled.Count == 0 && justClosed != null && justClosed.Contains(s.Key))
                 s.Notes.Add(new Note(Lvl.Bad, "orphan", k + "orphan", "This trade just closed but these orders are still pending. Cancel them?"));
         }
@@ -919,7 +930,7 @@ namespace TradeWatchCore
                     Pnl = it.Filled ? Fmt.SM(it.NetProfit) : "", PnlVal = it.NetProfit, Filled = it.Filled
                 });
             c.Costs = "Spread " + Fmt.N(s.SpreadPips) + "p  ·  commission " + Fmt.M(s.CommRT) + (s.CommAllKnown ? "" : " (estimate)") +
-                      (c.HasNow ? "  ·  swap " + Fmt.SM(s.SwapNight) + "/night" : "");
+                      (c.HasNow ? "  ·  swap " + Fmt.SM(s.SwapNight) + "/night" + (s.TripleTonight ? ", tonight ×3 = " + Fmt.SM(s.SwapTonight) : s.TripleDay != "" ? " (×3 on " + s.TripleDay + ")" : "") : "");
 
             // price ladder: stop on the left, target on the right, whatever the direction
             var prices = new List<double>();
@@ -1098,7 +1109,7 @@ namespace cAlgo.Robots
     [Robot(TimeZone = TimeZones.WEuropeStandardTime, AccessRights = AccessRights.FullAccess)]
     public class TradeWatch : Robot
     {
-        public const string Version = "1.2.1";
+        public const string Version = "1.3.0";
 
         [Parameter("Risk target per trade (% of balance)", Group = "Plan", DefaultValue = 3.0, MinValue = 0.1, MaxValue = 10, Step = 0.1)]
         public double RiskTarget { get; set; }
@@ -1222,7 +1233,7 @@ namespace cAlgo.Robots
                     Symbol = p.SymbolName, Buy = buy, Filled = true, Id = p.Id, Units = p.VolumeInUnits, Lots = s.VolumeInUnitsToQuantity(p.VolumeInUnits),
                     Entry = p.EntryPrice, Sl = p.StopLoss, Tp = p.TakeProfit, PipSize = s.PipSize, PipValue = s.PipValue, Digits = s.Digits,
                     StepLots = s.VolumeInUnitsToQuantity(s.VolumeInUnitsStep), CommRT = 2 * Math.Abs(p.Commissions), CommKnown = true,
-                    NetProfit = p.NetProfit, SwapPerNight = SwapNight(s, buy, p.VolumeInUnits, p.EntryPrice), SpreadPips = s.Spread / s.PipSize, OrderType = "filled", Current = buy ? s.Bid : s.Ask
+                    NetProfit = p.NetProfit, SwapPerNight = SwapNight(s, buy, p.VolumeInUnits, p.EntryPrice), SwapMultTonight = TripleTonight(s) ? 3 : 1, TripleDay = TripleDayName(s), SpreadPips = s.Spread / s.PipSize, OrderType = "filled", Current = buy ? s.Bid : s.Ask
                 });
             }
             foreach (var o in PendingOrders)
@@ -1306,30 +1317,39 @@ namespace cAlgo.Robots
             var filled = items.Where(i => i.Filled).ToList();
             if (filled.Count > 0 && RolloverWarnMin > 0)
             {
-                var (mins, triple) = MinutesToRollover();
+                var (mins, _) = NextRollover();
                 if (mins >= 0 && mins <= RolloverWarnMin)
                 {
-                    double swap = filled.Sum(i => i.SwapPerNight) * (triple ? 3 : 1);
+                    double swap = filled.Sum(i => i.SwapPerNight * i.SwapMultTonight);
+                    bool triple = filled.Any(i => i.SwapMultTonight == 3);
                     g.Add(new Note(swap < 0 ? Lvl.Warn : Lvl.Info, "rollover", "day|roll|" + d,
-                        "Rollover in " + mins.ToString("0", Fmt.C) + " min: swap about " + Fmt.SM(swap) + (triple ? " (triple tonight)" : "") + " on what is open."));
+                        "Rollover in " + mins.ToString("0", Fmt.C) + " min: swap about " + Fmt.SM(swap) + (triple ? " (triple swap tonight: the weekend)" : "") + " on what is open."));
                 }
             }
             return g;
         }
 
-        (double, bool) MinutesToRollover()
+        /// Minutes to the next rollover (17:00 New York time, weekdays) and the New York weekday it falls on.
+        (double, DayOfWeek) NextRollover()
         {
-            // swap is charged at 17:00 New York time
             TimeZoneInfo ny = null;
             foreach (var id in new[] { "America/New_York", "Eastern Standard Time" })
                 try { ny = TimeZoneInfo.FindSystemTimeZoneById(id); break; } catch { }
             DateTime utc = Server.TimeInUtc;
-            if (ny == null) { var r = utc.Date.AddHours(22); if (r < utc) r = r.AddDays(1); return ((r - utc).TotalMinutes, false); }
-            var local = TimeZoneInfo.ConvertTimeFromUtc(utc, ny);
-            var roll = local.Date.AddHours(17); if (roll < local) roll = roll.AddDays(1);
-            bool triple = false;
-            try { var sym3 = Symbol.Swap3DaysRollover; triple = sym3.HasValue && roll.DayOfWeek == sym3.Value; } catch { }
-            return ((roll - local).TotalMinutes, triple);
+            DateTime local = ny == null ? utc.AddHours(-5) : TimeZoneInfo.ConvertTimeFromUtc(utc, ny);
+            var roll = local.Date.AddHours(17); if (roll <= local) roll = roll.AddDays(1);
+            while (roll.DayOfWeek == DayOfWeek.Saturday || roll.DayOfWeek == DayOfWeek.Sunday) roll = roll.AddDays(1);
+            return ((roll - local).TotalMinutes, roll.DayOfWeek);
+        }
+
+        bool TripleTonight(Symbol s)
+        {
+            try { var d3 = s.Swap3DaysRollover; return d3.HasValue && d3.Value == NextRollover().Item2; } catch { return false; }
+        }
+
+        static string TripleDayName(Symbol s)
+        {
+            try { var d3 = s.Swap3DaysRollover; return d3.HasValue ? d3.Value.ToString().Substring(0, 3) : ""; } catch { return ""; }
         }
 
         void Alert(List<Note> notes)

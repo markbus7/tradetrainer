@@ -66,7 +66,7 @@ A new yellow or red check plays a sound, shows a popup and is written to the cBo
 - Pip value comes from cTrader at the moment the bot starts. Restart the bot once a day if the rate moves a lot.
 - Commission: for open positions it's cTrader's own figure. For pending orders it's an **estimate**
   from your last trade on that symbol, and the panel says so if there was none.
-- Swap per night uses the symbol's swap rates from cTrader (triple on the triple-swap day).
+- Swap per night uses the symbol's swap rates and triple-swap day from cTrader itself. On that day the card shows "tonight ×3" plus a blue note (the weekend's swap is charged in one go). Other days the cost line shows which day is triple, e.g. "(×3 on Wed)". FX pairs are usually Wednesday, some CFDs Friday: the bot reads it per symbol.
 - Daily stop (default **Day down in R**): the day ends when its closed results add up to 2 risks down
   (1R = your risk % of the balance the day started with; at 3% of EUR 240 that's EUR 7.21, so the stop is at -EUR 14.42).
   Wins in between give room back, and there's no limit on the number of trades. The header shows a chip like "day -1.2R / -2R".
