@@ -21,19 +21,26 @@ symbols, and checks them against your plan. It never places, moves or closes any
 One instance is enough. It covers every symbol and both directions.
 
 ## What you see
-A panel in the corner of the chart (the **–** button folds it away). At the top:
-balance, your 3% in money, today's trades and losses against your daily stop, and any day-level warnings.
+![Trade Watch panel](trade-watch-panel.png)
 
-Then one block per **setup**. A setup is one symbol plus one direction: EURUSD buys, EURUSD sells and
-GBPUSD buys are three separate blocks, so numbers never get mixed. Each block shows:
+*Preview drawn from the same panel data with made-up orders; in cTrader it looks the same apart from fonts.*
 
-- every order and position with lot size, entry, SL and TP (with the distance in pips)
-- **Plan, all filled**: what you lose if everything fills and the stop is hit, in money and % of balance,
-  and what you make at TP (and that in R)
-- **Now**: P/L of what's filled, also in R, and the risk and reward of only the filled part
+The header always shows your **daily stop as dots** (red = a loss today) and how many things are
+**to fix** (red) or **to check** (yellow), also when the panel is folded with the **–** button.
+Below it: balance, your 3% in money, and today's losses, trades and P/L.
+
+Then one **card per setup**. A setup is one symbol plus one direction: EURUSD buys, EURUSD sells and
+GBPUSD buys are three separate cards, so numbers never get mixed. The card's left edge is green, yellow or red
+for its worst check. Each card shows:
+
+- **RISK / AT TP / NOW** in big numbers: what you lose if everything fills and the stop is hit (money and % of balance),
+  what you make at TP (and in R), and the P/L of what is filled (and in R)
+- a **risk bar**: green up to your target, red above it; the white line is your target
+- a **price ladder**: stop always on the left, TP on the right, red zone = risk, green zone = reward,
+  open circle = pending entry, white dot = filled entry, blue dot = price now
+- every order and position: lots, entry, filled or limit, SL, TP, P/L
 - spread, commission (round trip) and swap per night
-
-and a list of checks: green ✓ is fine, blue i is a reminder, yellow ! is worth a look, red ✗ means act now.
+- the checks as coloured lines: green ✓ fine, blue i reminder, yellow ! worth a look, red ✗ act now
 
 | Check | When |
 |---|---|
@@ -70,11 +77,14 @@ The files go in **Documents/TradeWatch** (you can pick another folder in the set
   planned risk, result in money and R, commission, swap, how far the trade went your way at best (best R),
   how you exited (TP, SL, manual), and which rules were broken for more than a minute while it was open.
 - `cancelled.csv`: orders you cancelled or that expired, and what they would have done.
+- `report.html`: the same report as a coloured page with tiles, a balance curve and a bar per trade in R. Double-click it to open it in your browser.
 - `report.md`: rewritten after every trade. It covers performance (win rate, average R, profit factor, losing streak),
   **what to work on** (the 3 things that cost you most), what went well,
   **what you missed out on**, rules broken, and results by setup type, symbol, hour, weekday and exit.
 
-**Send `report.md` (and `journal.csv` if you like) to Claude** to go through it together.
+**Send `report.md` (and `journal.csv` if you like) to Claude** to go through it together. `report.html` is the one to read yourself.
+
+![Report page](trade-watch-report.png)
 
 What "missed out" means:
 - **Closed early, then TP**: after a manual exit, price reached your original TP before your stop (checked over 24 hours).

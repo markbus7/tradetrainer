@@ -14,5 +14,6 @@
   <ItemGroup>
     <Compile Include="../TradeWatch.cs" />
     <Compile Include="Tests.cs" />
+    <Compile Include="Preview.cs" />
   </ItemGroup>
 </Project>

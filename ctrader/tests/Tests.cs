@@ -221,6 +221,29 @@ static class Tests
         Ok(!rep.Contains(",00"), "no Dutch decimal commas in the report");
         Ok(Report.Build(new List<TradeRow>(), new List<CancelRow>(), 3, t0).Contains("No finished trades"), "empty report");
         System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "sample-report.md"), rep);
+        var html = ReportHtml.Build(trades, new List<CancelRow> { cr, cr2 }, 3, t0.AddDays(1));
+        Ok(html.Contains("<h2>What to work on</h2>") && html.Contains("class=tile") && html.Contains("<polyline"), "report page has tiles, curve and sections");
+        Ok(html.Contains("<span class=neg>-€") && html.Contains("<span class=pos>+€"), "money coloured red and green");
+        Ok(!html.Contains("<h2>Overview</h2>"), "overview shown as tiles, not twice");
+        System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "sample-report.html"), html);
+
+        // ---- panel model
+        var pi1 = Eur(true, true, 11, 0.02, 1.08502, 1.08300, 1.08700, 0.12); pi1.NetProfit = 0.55; pi1.Current = 1.08535; pi1.SwapPerNight = -0.04;
+        var pi2 = Eur(true, false, 12, 0.02, 1.08400, 1.08300, 1.08500, 0.12); pi2.Current = 1.08535;
+        var gb = Eur(false, false, 13, 0.08, 1.27000, 1.27250, null, 0, "GBPUSD"); gb.Current = 1.26930; gb.PipValue = 0.0001 / 1.085; gb.CommKnown = false;
+        var ps = Analyzer.Build(new[] { pi1, pi2, gb }, 240, 3);
+        var gl = new List<Note> { new Note(Lvl.Warn, "daily_last", "day|last", "One more loss ends your day (1 of 2).") };
+        var pm = PanelBuilder.Build(ps, gl, 240, 240.55, 3, 1, 1, 2, -3.70, "Journal: 12 trades  ·  58% won  ·  avg +0.21R  ·  net +€9.40  ·  report.html", Lvl.Info, "1.1.0");
+        var ec = pm.Cards.Single(c => c.Symbol == "EURUSD");
+        Ok(ec.Rows.Count == 2 && ec.Rows[0].Name == "E1" && ec.Rows[0].Filled && !ec.Rows[1].Filled, "card rows: E1 filled, E2 pending");
+        var slm = ec.Marks.Single(x => x.Kind == "sl"); var tpm = ec.Marks.Where(x => x.Kind == "tp").ToList(); var e2m = ec.Marks.Single(x => x.Label == "E2");
+        Ok(slm.Pos < e2m.Pos && e2m.Pos < ec.ZoneEntry && tpm.Max(x => x.Pos) > ec.ZoneEntry && tpm.Min(x => x.Pos) >= e2m.Pos, "buy ladder: SL left, E2, E1, TP right");
+        var gc = pm.Cards.Single(c => c.Symbol == "GBPUSD");
+        var gsl = gc.Marks.Single(x => x.Kind == "sl"); var gnow = gc.Marks.Single(x => x.Kind == "now");
+        Ok(gsl.Pos < gc.ZoneEntry && gnow.Pos > gc.ZoneEntry, "sell ladder is flipped: SL still on the left, price below entry on the right");
+        Ok(gc.RiskLvl == Lvl.Bad && gc.Status == Lvl.Bad && gc.Reward == "no TP", "GBPUSD: risk too high, no TP");
+        Ok(pm.Signature() == PanelBuilder.Build(ps, gl, 240, 240.55, 3, 1, 1, 2, -3.70, pm.Footer, Lvl.Info, "1.1.0").Signature(), "same data, same picture (no redraw)");
+        System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "panel-preview.html"), Preview.Panel(pm));
 
         Console.WriteLine($"{pass} passed, {fail} failed");
         return fail == 0 ? 0 : 1;

@@ -71,6 +71,7 @@ namespace TradeWatchCore
         public double NetProfit;         // filled only
         public double SwapPerNight;      // filled only, account money, negative = cost
         public double SpreadPips;
+        public double Current = double.NaN;   // price the position would close at now
 
         public double Sign => Buy ? 1 : -1;
         public double? SlPips => Sl.HasValue ? (Entry - Sl.Value) * Sign / PipSize : (double?)null;   // > 0 = risk
@@ -551,7 +552,7 @@ namespace TradeWatchCore
             sb.AppendLine("| Period | " + t.First().Open.ToString("yyyy-MM-dd", Fmt.C) + " to " + t.Last().Close.ToString("yyyy-MM-dd", Fmt.C) + " |");
             sb.AppendLine("| Trades | " + t.Count + " (" + wins + " won, " + losses + " lost, " + (t.Count - wins - losses) + " flat) |");
             sb.AppendLine("| Win rate | " + Pct(wins, t.Count) + " |");
-            sb.AppendLine("| Net result | " + M(net) + " |");
+            sb.AppendLine("| Net result | " + Fmt.SM(net) + " |");
             sb.AppendLine("| Average R | " + (rs.Count > 0 ? Fmt.R(rs.Average()) : "-") + " |");
             sb.AppendLine("| Average win / loss | " + (wins > 0 ? M(grossWin / wins) : "-") + " / " + (losses > 0 ? M(-grossLoss / losses) : "-") + " |");
             sb.AppendLine("| Profit factor | " + (grossLoss > 0 ? (grossWin / grossLoss).ToString("0.00", Fmt.C) : "-") + " |");
@@ -680,7 +681,7 @@ namespace TradeWatchCore
                 if (x.AfterStop) notes = (notes == "" ? "" : notes + "; ") + "after daily stop";
                 if (!string.IsNullOrEmpty(x.FollowText)) notes = (notes == "" ? "" : notes + "; ") + x.FollowText;
                 sb.AppendLine("| " + x.Close.ToString("MM-dd HH:mm", Fmt.C) + " | " + x.Symbol + " " + x.Dir.ToLowerInvariant() + " " + x.Kind +
-                    " | " + x.Entries + " | " + (double.IsNaN(x.PlanRisk) ? "no stop" : M(x.PlanRisk) + " (" + Fmt.N(x.PlanRiskPct) + "%)") + " | " + M(x.Net) +
+                    " | " + x.Entries + " | " + (double.IsNaN(x.PlanRisk) ? "no stop" : M(x.PlanRisk) + " (" + Fmt.N(x.PlanRiskPct) + "%)") + " | " + Fmt.SM(x.Net) +
                     " | " + (double.IsNaN(x.R) ? "-" : Fmt.R(x.R)) + " | " + (double.IsNaN(x.BestR) ? "-" : Fmt.R(x.BestR)) +
                     " | " + x.ExitType + " | " + notes.Replace("|", "/") + " |");
             }
@@ -707,7 +708,7 @@ namespace TradeWatchCore
             foreach (var g in gs)
             {
                 var r = g.Where(x => !double.IsNaN(x.R)).Select(x => x.R).ToList();
-                sb.AppendLine("| " + g.Key + " | " + g.Count() + " | " + Pct(g.Count(x => x.Net > 0), g.Count()) + " | " + M(g.Sum(x => x.Net)) + " | " + (r.Count > 0 ? Fmt.R(r.Average()) : "-") + " |");
+                sb.AppendLine("| " + g.Key + " | " + g.Count() + " | " + Pct(g.Count(x => x.Net > 0), g.Count()) + " | " + Fmt.SM(g.Sum(x => x.Net)) + " | " + (r.Count > 0 ? Fmt.R(r.Average()) : "-") + " |");
             }
             sb.AppendLine();
         }
@@ -769,6 +770,258 @@ namespace TradeWatchCore
             return s.Items.Count == 1 ? "single" : "multi";
         }
     }
+
+    // ---------------------------------------------------------------- panel model
+    // What the chart panel shows, as plain data. The bot draws it with cTrader controls;
+    // the tests draw the same model as HTML for a preview.
+    public sealed class PMark { public double Pos; public string Label; public string Kind; }   // sl, tp, fill, pend, now
+    public sealed class PRow { public string Name, Lots, Entry, Status, Sl, Tp, Pnl; public bool Filled; public double PnlVal; }
+    public sealed class PCard
+    {
+        public string Symbol, Kind, Stage; public bool Buy; public Lvl Status;
+        public string Risk, RiskSub, Reward, RewardSub, Now, NowSub;
+        public Lvl RiskLvl; public double NowVal; public bool HasNow, HasReward;
+        public double MeterFill, MeterTarget;            // 0..1 of the bar width
+        public double ZoneSl = double.NaN, ZoneEntry = double.NaN, ZoneTp = double.NaN;   // 0..1 on the price ladder (stop always left)
+        public List<PMark> Marks = new List<PMark>();
+        public List<PRow> Rows = new List<PRow>();
+        public string Costs;
+        public List<Note> Notes = new List<Note>();
+    }
+    public sealed class PanelModel
+    {
+        public string Title, Balance, Target, DayPnl, AllRisk, Footer;
+        public int Losses, MaxLosses, Trades; public double DayPnlVal; public Lvl FooterLvl;
+        public List<Note> Global = new List<Note>();
+        public List<PCard> Cards = new List<PCard>();
+        static readonly JsonSerializerOptions SigOpt = new JsonSerializerOptions { IncludeFields = true,
+            NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals };
+        public string Signature() => JsonSerializer.Serialize(this, SigOpt);
+    }
+
+    public static class PanelBuilder
+    {
+        public static PanelModel Build(List<Setup> setups, List<Note> global, double balance, double equity, double target,
+                                       int trades, int losses, int maxLosses, double dayPnl, string footer, Lvl footerLvl, string version)
+        {
+            var m = new PanelModel
+            {
+                Title = "TRADE WATCH " + version,
+                Balance = "Balance " + Fmt.M(balance) + "  ·  equity " + Fmt.M(equity),
+                Target = "Risk per trade " + Fmt.N(target) + "% = " + Fmt.M(balance * target / 100),
+                Trades = trades, Losses = losses, MaxLosses = maxLosses, DayPnlVal = dayPnl, DayPnl = Fmt.SM(dayPnl),
+                Global = global.OrderByDescending(n => n.Level).ToList(), Footer = footer, FooterLvl = footerLvl
+            };
+            if (setups.Count > 1)
+            {
+                double all = setups.Where(x => x.FullRisk.HasValue).Sum(x => x.FullRisk.Value);
+                m.AllRisk = "All setups, if every order fills and stops: " + Fmt.M(all) + " (" + Fmt.N(balance > 0 ? all / balance * 100 : 0) + "%)" +
+                            (setups.Any(x => !x.FullRisk.HasValue) ? " + unlimited (no SL)" : "");
+            }
+            foreach (var s in setups) m.Cards.Add(Card(s, target));
+            return m;
+        }
+
+        static PCard Card(Setup s, double target)
+        {
+            int dg = s.Digits;
+            var c = new PCard { Symbol = s.Symbol, Buy = s.Buy, Kind = TradeBuilder.Kind(s), Stage = s.Stage,
+                                Status = s.Worst == Lvl.Info ? Lvl.Ok : s.Worst, Notes = s.Notes };
+            if (s.FullRisk.HasValue)
+            {
+                c.Risk = s.FullRisk.Value <= 0 ? "none" : Fmt.M(s.FullRisk.Value);
+                c.RiskSub = s.FullRisk.Value <= 0 ? "stop locks " + Fmt.SM(-s.FullRisk.Value) : Fmt.N(s.RiskPct) + "% of balance";
+                c.RiskLvl = s.RiskPct > target * 1.10 ? Lvl.Bad : Lvl.Ok;
+                c.MeterFill = Math.Max(0, Math.Min(1, s.RiskPct / (target * 1.5)));
+            }
+            else { c.Risk = "NO STOP"; c.RiskSub = "unlimited"; c.RiskLvl = Lvl.Bad; c.MeterFill = 1; }
+            c.MeterTarget = 1 / 1.5;
+            c.HasReward = s.FullReward.HasValue;
+            c.Reward = s.FullReward.HasValue ? Fmt.SM(s.FullReward.Value) : "no TP";
+            c.RewardSub = s.FullReward.HasValue && s.FullRisk.HasValue && s.FullRisk.Value > 0 ? Fmt.N(s.FullReward.Value / s.FullRisk.Value, "0.00") + "R" : "";
+            c.HasNow = s.Items.Any(i => i.Filled);
+            c.NowVal = s.Floating;
+            c.Now = c.HasNow ? Fmt.SM(s.Floating) : "not filled";
+            c.NowSub = c.HasNow && s.FloatR.HasValue ? Fmt.R(s.FloatR.Value) : "";
+
+            foreach (var it in s.Levels.SelectMany(l => l))
+                c.Rows.Add(new PRow
+                {
+                    Name = s.LevelName(it), Lots = Fmt.Lots(it.Lots), Entry = Fmt.P(it.Entry, dg), Status = it.Filled ? "filled" : it.OrderType,
+                    Sl = it.Sl.HasValue ? Fmt.P(it.Sl.Value, dg) : "none", Tp = it.Tp.HasValue ? Fmt.P(it.Tp.Value, dg) : "none",
+                    Pnl = it.Filled ? Fmt.SM(it.NetProfit) : "", PnlVal = it.NetProfit, Filled = it.Filled
+                });
+            c.Costs = "Spread " + Fmt.N(s.SpreadPips) + "p  ·  commission " + Fmt.M(s.CommRT) + (s.CommAllKnown ? "" : " (estimate)") +
+                      (c.HasNow ? "  ·  swap " + Fmt.SM(s.SwapNight) + "/night" : "");
+
+            // price ladder: stop on the left, target on the right, whatever the direction
+            var prices = new List<double>();
+            foreach (var it in s.Items) { prices.Add(it.Entry); if (it.Sl.HasValue) prices.Add(it.Sl.Value); if (it.Tp.HasValue) prices.Add(it.Tp.Value); }
+            double now = s.Items.Select(i => i.Current).FirstOrDefault(v => !double.IsNaN(v) && v > 0);
+            if (now > 0) prices.Add(now); else now = double.NaN;
+            double lo = prices.Min(), hi = prices.Max();
+            if (hi - lo < s.PipSize) { lo -= s.PipSize; hi += s.PipSize; }
+            double pad = (hi - lo) * 0.04; lo -= pad; hi += pad;
+            Func<double, double> X = v => s.Buy ? (v - lo) / (hi - lo) : (hi - v) / (hi - lo);
+            var sls = s.Items.Where(i => i.Sl.HasValue).Select(i => i.Sl.Value).Distinct().ToList();
+            var tps = s.Items.Where(i => i.Tp.HasValue).Select(i => i.Tp.Value).Distinct().OrderBy(v => X(v)).ToList();
+            foreach (var v in sls) c.Marks.Add(new PMark { Pos = X(v), Label = "SL", Kind = "sl" });
+            for (int i = 0; i < tps.Count; i++) c.Marks.Add(new PMark { Pos = X(tps[i]), Label = tps.Count > 1 ? "TP" + (i + 1) : "TP", Kind = "tp" });
+            for (int i = 0; i < s.Levels.Count; i++)
+            {
+                var l = s.Levels[i];
+                c.Marks.Add(new PMark { Pos = X(l.Average(x => x.Entry)), Label = (s.ScaleIn ? "E" : "#") + (i + 1), Kind = l.Any(x => x.Filled) ? "fill" : "pend" });
+            }
+            if (!double.IsNaN(now)) c.Marks.Add(new PMark { Pos = X(now), Label = "now", Kind = "now" });
+            if (sls.Count > 0) c.ZoneSl = sls.Min(X);
+            c.ZoneEntry = X(s.Levels[0].Average(x => x.Entry));
+            if (tps.Count > 0) c.ZoneTp = tps.Max(X);
+            return c;
+        }
+    }
+
+    // ---------------------------------------------------------------- report as a web page
+    public static class ReportHtml
+    {
+        static string H(string t) => System.Net.WebUtility.HtmlEncode(t ?? "");
+
+        static string Inline(string t)
+        {
+            var e = H(t);
+            e = System.Text.RegularExpressions.Regex.Replace(e, @"(?<![\w.])(-€[\d.]+|-[\d.]+R)(?!\w)", "<span class=neg>$1</span>");
+            e = System.Text.RegularExpressions.Regex.Replace(e, @"(?<![\w.])(\+€[\d.]+|\+[\d.]+R)(?!\w)", "<span class=pos>$1</span>");
+            return e;
+        }
+
+        /// The markdown report as a coloured page, with tiles and charts on top. Opens in any browser.
+        public static string Build(List<TradeRow> trades, List<CancelRow> cancels, double target, DateTime now)
+        {
+            string md = Report.Build(trades, cancels, target, now);
+            var t = trades.OrderBy(x => x.Close).ToList();
+            var sb = new StringBuilder();
+            sb.Append("<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>Trade Watch report</title><style>");
+            sb.Append(@":root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--dim:#6b7383;--line:#e3e6eb;--pos:#16a34a;--neg:#dc2626;--warn:#d97706;--acc:#2563eb}
+@media (prefers-color-scheme:dark){:root{--bg:#12151b;--card:#1b1f27;--ink:#e6e9ef;--dim:#9aa4b2;--line:#2c323d;--pos:#4cc38a;--neg:#ff6b6b;--warn:#f2b84b;--acc:#7fb3ff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px 60px}h1{font-size:26px;margin:4px 0}h2{font-size:18px;margin:28px 0 10px}
+.sub{color:var(--dim);font-size:13px}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}.tile b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+.tile span{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.04em}.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--dim);font-weight:600;font-size:12px;text-transform:uppercase}.pos{color:var(--pos);font-weight:600}.neg{color:var(--neg);font-weight:600}
+ol.work{padding:0;list-style:none;counter-reset:w}ol.work li{counter-increment:w;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--warn);border-radius:10px;padding:12px 14px 12px 48px;margin:8px 0;position:relative}
+ol.work li:before{content:counter(w);position:absolute;left:14px;top:11px;width:24px;height:24px;border-radius:50%;background:var(--warn);color:#fff;font-weight:700;text-align:center;line-height:24px}
+ul.good{border:1px solid var(--line);border-left:5px solid var(--pos);background:var(--card);border-radius:10px;padding:10px 14px 10px 34px}ul.good li{margin:4px 0}
+svg text{fill:var(--dim);font-size:11px}</style></head><body><main>");
+
+            sb.Append("<h1>Trade Watch report</h1><div class=sub>Made " + H(now.ToString("yyyy-MM-dd HH:mm", Fmt.C)) + " (Amsterdam time) · risk target " + H(Fmt.N(target)) + "% per trade · R = result ÷ planned risk</div>");
+            if (t.Count > 0)
+            {
+                int wins = t.Count(x => x.Net > 0); double net = t.Sum(x => x.Net);
+                var rs = t.Where(x => !double.IsNaN(x.R)).Select(x => x.R).ToList();
+                double gw = t.Where(x => x.Net > 0).Sum(x => x.Net), gl = -t.Where(x => x.Net < 0).Sum(x => x.Net);
+                string Tile(string label, string val, string cls) => "<div class=tile><span>" + H(label) + "</span><b class=\"" + cls + "\">" + H(val) + "</b></div>";
+                sb.Append("<div class=tiles>");
+                sb.Append(Tile("Net result", Fmt.SM(net), net >= 0 ? "pos" : "neg"));
+                sb.Append(Tile("Trades", t.Count.ToString(Fmt.C), ""));
+                sb.Append(Tile("Win rate", (100.0 * wins / t.Count).ToString("0", Fmt.C) + "%", ""));
+                sb.Append(Tile("Average R", rs.Count > 0 ? Fmt.R(rs.Average()) : "-", rs.Count > 0 && rs.Average() >= 0 ? "pos" : "neg"));
+                sb.Append(Tile("Profit factor", gl > 0 ? (gw / gl).ToString("0.00", Fmt.C) : "-", gl > 0 && gw / gl >= 1 ? "pos" : "neg"));
+                double missed = t.Where(x => x.Follow == "tp_after").Sum(x => x.Missed) + cancels.Where(c => c.Follow == "tp").Sum(c => c.Result);
+                sb.Append(Tile("Missed out", Fmt.M(missed), missed > 0 ? "neg" : ""));
+                sb.Append("</div>");
+                sb.Append("<div class=card><div class=sub>Balance curve: your results added up, trade by trade</div>" + Curve(t) + "</div>");
+                sb.Append("<div class=card><div class=sub>Result per trade in R (green won, red lost)</div>" + RBars(t) + "</div>");
+            }
+            sb.Append(Md(md));
+            sb.Append("</main></body></html>");
+            return sb.ToString();
+        }
+
+        static string F(double v) => v.ToString("0.0", Fmt.C);
+
+        static string Curve(List<TradeRow> t)
+        {
+            const double W = 920, Hh = 170, P = 60;
+            var pts = new List<double> { 0 }; double acc = 0;
+            foreach (var x in t) { acc += x.Net; pts.Add(acc); }
+            double lo = Math.Min(0, pts.Min()), hi = Math.Max(0, pts.Max()); if (hi - lo < 1e-9) hi = lo + 1;
+            Func<int, double> X = i => P + (W - P - 10) * i / Math.Max(1, pts.Count - 1);
+            Func<double, double> Y = v => 10 + (Hh - 30) * (hi - v) / (hi - lo);
+            var sb = new StringBuilder("<svg viewBox=\"0 0 920 170\" width=\"100%\" role=img aria-label=\"balance curve\">");
+            sb.Append("<line x1=\"" + P + "\" x2=\"" + (W - 10) + "\" y1=\"" + F(Y(0)) + "\" y2=\"" + F(Y(0)) + "\" stroke=\"currentColor\" stroke-opacity=\".25\" stroke-dasharray=\"4\"/>");
+            sb.Append("<polyline fill=\"none\" stroke-width=\"2.5\" stroke=\"" + (acc >= 0 ? "var(--pos)" : "var(--neg)") + "\" points=\"" +
+                      string.Join(" ", pts.Select((v, i) => F(X(i)) + "," + F(Y(v)))) + "\"/>");
+            sb.Append("<text x=\"4\" y=\"" + F(Y(hi) + 4) + "\">" + H(Fmt.SM(hi)) + "</text><text x=\"4\" y=\"" + F(Y(lo) + 4) + "\">" + H(Fmt.SM(lo)) + "</text>");
+            if (lo < 0 && hi > 0) sb.Append("<text x=\"4\" y=\"" + F(Y(0) + 4) + "\">" + H(Fmt.M(0)) + "</text>");
+            sb.Append("</svg>");
+            return sb.ToString();
+        }
+
+        static string RBars(List<TradeRow> t)
+        {
+            var r = t.Select(x => double.IsNaN(x.R) ? 0 : Math.Max(-3, Math.Min(3, x.R))).ToList();
+            const double W = 920, Hh = 140, P = 40;
+            double max = Math.Max(1, r.Select(Math.Abs).DefaultIfEmpty(1).Max());
+            double bw = (W - P - 10) / Math.Max(1, r.Count), mid = Hh / 2;
+            var sb = new StringBuilder("<svg viewBox=\"0 0 920 140\" width=\"100%\" role=img aria-label=\"R per trade\">");
+            sb.Append("<line x1=\"" + P + "\" x2=\"" + (W - 10) + "\" y1=\"" + mid + "\" y2=\"" + mid + "\" stroke=\"currentColor\" stroke-opacity=\".25\"/>");
+            for (int i = 0; i < r.Count; i++)
+            {
+                double h = Math.Abs(r[i]) / max * (mid - 12), x = P + i * bw + bw * 0.15;
+                sb.Append("<rect x=\"" + F(x) + "\" width=\"" + F(Math.Min(40, bw * 0.7)) + "\" y=\"" + F(r[i] >= 0 ? mid - h : mid) +
+                          "\" height=\"" + F(Math.Max(1, h)) + "\" rx=\"2\" fill=\"" + (r[i] >= 0 ? "var(--pos)" : "var(--neg)") + "\"><title>" + H(t[i].Symbol + " " + Fmt.R(r[i])) + "</title></rect>");
+            }
+            sb.Append("<text x=\"4\" y=\"16\">+" + max.ToString("0.#", Fmt.C) + "R</text><text x=\"4\" y=\"" + (mid + 4) + "\">0</text><text x=\"4\" y=\"134\">-" + max.ToString("0.#", Fmt.C) + "R</text></svg>");
+            return sb.ToString();
+        }
+
+        // the small markdown subset Report.Build writes: headings, tables, numbered and bullet lists, paragraphs
+        static string Md(string md)
+        {
+            var sb = new StringBuilder();
+            var lines = md.Replace("\r", "").Split('\n');
+            string section = ""; bool skip = false;
+            var num = new System.Text.RegularExpressions.Regex(@"^\d+\. ");
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string l = lines[i];
+                if (l.StartsWith("# ")) { skip = true; continue; }
+                if (l.StartsWith("## ")) { section = l.Substring(3); skip = section == "Overview"; if (!skip) sb.Append("<h2>" + H(section) + "</h2>"); continue; }
+                if (skip) continue;
+                if (l.StartsWith("|"))
+                {
+                    var rows = new List<string>();
+                    while (i < lines.Length && lines[i].StartsWith("|")) rows.Add(lines[i++]);
+                    i--;
+                    sb.Append("<div class=card><table>");
+                    for (int r = 0; r < rows.Count; r++)
+                    {
+                        if (r == 1) continue;   // the |---| line
+                        var cells = rows[r].Trim().Trim('|').Split('|');
+                        string tag = r == 0 ? "th" : "td";
+                        sb.Append("<tr>" + string.Concat(cells.Select(c => "<" + tag + ">" + Inline(c.Trim()) + "</" + tag + ">")) + "</tr>");
+                    }
+                    sb.Append("</table></div>");
+                    continue;
+                }
+                if (num.IsMatch(l))
+                {
+                    sb.Append("<ol class=work>");
+                    while (i < lines.Length && num.IsMatch(lines[i])) { sb.Append("<li>" + Inline(num.Replace(lines[i], "")) + "</li>"); i++; }
+                    i--; sb.Append("</ol>"); continue;
+                }
+                if (l.StartsWith("- "))
+                {
+                    sb.Append("<ul class=\"" + (section == "What went well" ? "good" : "") + "\">");
+                    while (i < lines.Length && lines[i].StartsWith("- ")) { sb.Append("<li>" + Inline(lines[i].Substring(2)) + "</li>"); i++; }
+                    i--; sb.Append("</ul>"); continue;
+                }
+                if (l.Trim() != "") sb.Append("<p>" + Inline(l) + "</p>");
+            }
+            return sb.ToString();
+        }
+    }
 }
 
 namespace cAlgo.Robots
@@ -778,7 +1031,7 @@ namespace cAlgo.Robots
     [Robot(TimeZone = TimeZones.WEuropeStandardTime, AccessRights = AccessRights.FullAccess)]
     public class TradeWatch : Robot
     {
-        public const string Version = "1.0.0";
+        public const string Version = "1.1.0";
 
         [Parameter("Risk target per trade (% of balance)", Group = "Plan", DefaultValue = 3.0, MinValue = 0.1, MaxValue = 10, Step = 0.1)]
         public double RiskTarget { get; set; }
@@ -808,7 +1061,7 @@ namespace cAlgo.Robots
         public int FontSize { get; set; }
 
         // panel
-        Border box; StackPanel body; Button toggle; bool collapsed; string lastSig = "";
+        Border box; StackPanel body, head, headStatus; Button toggle; bool collapsed; string lastSig = "";
         static readonly Color CText = Color.FromHex("#FFE6E9EF"), CDim = Color.FromHex("#FF9AA4B2"), COk = Color.FromHex("#FF4CC38A"),
                               CWarn = Color.FromHex("#FFF2B84B"), CBad = Color.FromHex("#FFFF6B6B"), CInfo = Color.FromHex("#FF7FB3FF");
 
@@ -890,7 +1143,7 @@ namespace cAlgo.Robots
                     Symbol = p.SymbolName, Buy = buy, Filled = true, Id = p.Id, Units = p.VolumeInUnits, Lots = s.VolumeInUnitsToQuantity(p.VolumeInUnits),
                     Entry = p.EntryPrice, Sl = p.StopLoss, Tp = p.TakeProfit, PipSize = s.PipSize, PipValue = s.PipValue, Digits = s.Digits,
                     StepLots = s.VolumeInUnitsToQuantity(s.VolumeInUnitsStep), CommRT = 2 * Math.Abs(p.Commissions), CommKnown = true,
-                    NetProfit = p.NetProfit, SwapPerNight = SwapNight(s, buy, p.VolumeInUnits, p.EntryPrice), SpreadPips = s.Spread / s.PipSize, OrderType = "filled"
+                    NetProfit = p.NetProfit, SwapPerNight = SwapNight(s, buy, p.VolumeInUnits, p.EntryPrice), SpreadPips = s.Spread / s.PipSize, OrderType = "filled", Current = buy ? s.Bid : s.Ask
                 });
             }
             foreach (var o in PendingOrders)
@@ -901,7 +1154,7 @@ namespace cAlgo.Robots
                     Symbol = o.SymbolName, Buy = buy, Filled = false, Id = o.Id, Units = o.VolumeInUnits, Lots = s.VolumeInUnitsToQuantity(o.VolumeInUnits),
                     Entry = o.TargetPrice, Sl = o.StopLoss, Tp = o.TakeProfit, PipSize = s.PipSize, PipValue = s.PipValue, Digits = s.Digits,
                     StepLots = s.VolumeInUnitsToQuantity(s.VolumeInUnitsStep), CommRT = double.IsNaN(c) ? 0 : c * o.VolumeInUnits, CommKnown = !double.IsNaN(c),
-                    SpreadPips = s.Spread / s.PipSize, IsLimit = o.OrderType == PendingOrderType.Limit,
+                    SpreadPips = s.Spread / s.PipSize, IsLimit = o.OrderType == PendingOrderType.Limit, Current = buy ? s.Bid : s.Ask,
                     OrderType = o.OrderType == PendingOrderType.Limit ? "limit" : o.OrderType == PendingOrderType.Stop ? "stop" : "stop-limit"
                 });
             }
@@ -1178,27 +1431,34 @@ namespace cAlgo.Robots
                 System.IO.File.WriteAllText(Path.Combine(dir, "journal.csv"), string.Join(",", TradeRow.Cols) + "\n" + string.Concat(journal.Select(r => r.ToCsv() + "\n")));
                 System.IO.File.WriteAllText(Path.Combine(dir, "cancelled.csv"), string.Join(",", CancelRow.Cols) + "\n" + string.Concat(cancelled.Select(r => r.ToCsv() + "\n")));
                 System.IO.File.WriteAllText(Path.Combine(dir, "report.md"), Report.Build(journal, cancelled, RiskTarget, Server.Time));
+                System.IO.File.WriteAllText(Path.Combine(dir, "report.html"), ReportHtml.Build(journal, cancelled, RiskTarget, Server.Time));
                 SaveState();
             }
             catch (Exception e) { Print("Trade Watch: can't write the journal: " + e.Message); }
         }
 
         // ------------------------------------------------------------ panel
+        const double CardW = 430;   // panel content width in pixels
+
         void BuildPanel()
         {
             body = new StackPanel { Orientation = Orientation.Vertical };
-            toggle = new Button { Text = "–", Width = 24, Height = 20, Padding = new Thickness(0), Margin = new Thickness(0, 0, 6, 0),
-                                  BackgroundColor = Color.FromHex("#33FFFFFF"), ForegroundColor = CText };
+            toggle = new Button { Text = "–", Width = 26, Height = 22, Padding = new Thickness(0), Margin = new Thickness(0, 0, 8, 0),
+                                  BackgroundColor = Color.FromHex("#33FFFFFF"), ForegroundColor = CText, CornerRadius = new CornerRadius(4) };
             toggle.Click += _ => { collapsed = !collapsed; toggle.Text = collapsed ? "+" : "–"; lastSig = ""; Refresh(); };
-            var head = new StackPanel { Orientation = Orientation.Horizontal };
+            head = new StackPanel { Orientation = Orientation.Horizontal };
             head.AddChild(toggle);
-            head.AddChild(new TextBlock { Text = "TRADE WATCH " + Version, ForegroundColor = CText, FontSize = FontSize, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center });
+            head.AddChild(new TextBlock { Text = "TRADE WATCH", ForegroundColor = CText, FontSize = FontSize + 2, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center });
+            head.AddChild(new TextBlock { Text = "  v" + Version, ForegroundColor = CDim, FontSize = FontSize - 1, VerticalAlignment = VerticalAlignment.Center });
+            headStatus = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            head.AddChild(headStatus);
             var outer = new StackPanel { Orientation = Orientation.Vertical };
             outer.AddChild(head); outer.AddChild(body);
+            var scroll = new ScrollViewer { Content = outer, MaxHeight = 900, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
             box = new Border
             {
-                Child = outer, BackgroundColor = Color.FromHex("#E6161A22"), BorderColor = Color.FromHex("#FF39404D"), BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6), Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(8), MaxWidth = 640,
+                Child = scroll, BackgroundColor = Color.FromHex("#F0121620"), BorderColor = Color.FromHex("#FF2E3542"), BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 8, 10, 10), Margin = new Thickness(8),
                 HorizontalAlignment = Corner == PanelCorner.Top_left || Corner == PanelCorner.Bottom_left ? HorizontalAlignment.Left : HorizontalAlignment.Right,
                 VerticalAlignment = Corner == PanelCorner.Top_left || Corner == PanelCorner.Top_right ? VerticalAlignment.Top : VerticalAlignment.Bottom
             };
@@ -1206,67 +1466,174 @@ namespace cAlgo.Robots
         }
 
         static Color LvlColor(Lvl l) => l == Lvl.Bad ? CBad : l == Lvl.Warn ? CWarn : l == Lvl.Info ? CInfo : COk;
-        static string LvlMark(Lvl l) => l == Lvl.Bad ? "✗ " : l == Lvl.Warn ? "! " : l == Lvl.Info ? "i " : "✓ ";
+        static Color LvlTint(Lvl l) => Color.FromHex(l == Lvl.Bad ? "#FF3B1F25" : l == Lvl.Warn ? "#FF3A3120" : l == Lvl.Info ? "#FF1C2A3D" : "#FF17322A");
+        static string LvlMark(Lvl l) => l == Lvl.Bad ? "✗" : l == Lvl.Warn ? "!" : l == Lvl.Info ? "i" : "✓";
+
+        TextBlock Txt(string t, Color c, double size, bool bold = false, double top = 0) =>
+            new TextBlock { Text = t, ForegroundColor = c, FontSize = size, FontWeight = bold ? FontWeight.Bold : FontWeight.Normal,
+                            Margin = new Thickness(0, top, 0, 0), TextWrapping = TextWrapping.Wrap };
+
+        Border Chip(string t, Color bg, Color fg, double size) =>
+            new Border { BackgroundColor = bg, CornerRadius = new CornerRadius(4), Padding = new Thickness(6, 1, 6, 1), Margin = new Thickness(0, 0, 6, 0),
+                         VerticalAlignment = VerticalAlignment.Center, Child = new TextBlock { Text = t, ForegroundColor = fg, FontSize = size, FontWeight = FontWeight.Bold } };
+
+        Border Pill(Note n)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            var dot = new Border { Width = 18, Height = 18, CornerRadius = new CornerRadius(9), BackgroundColor = LvlColor(n.Level), Margin = new Thickness(0, 0, 8, 0),
+                                   VerticalAlignment = VerticalAlignment.Top,
+                                   Child = new TextBlock { Text = LvlMark(n.Level), ForegroundColor = Color.FromHex("#FF101318"), FontSize = FontSize - 1, FontWeight = FontWeight.Bold,
+                                                           HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } };
+            row.AddChild(dot);
+            row.AddChild(new TextBlock { Text = n.Text, ForegroundColor = n.Level == Lvl.Ok ? CText : LvlColor(n.Level), FontSize = FontSize, TextWrapping = TextWrapping.Wrap,
+                                         Width = CardW - 50, FontWeight = n.Level == Lvl.Bad ? FontWeight.Bold : FontWeight.Normal });
+            return new Border { BackgroundColor = LvlTint(n.Level), CornerRadius = new CornerRadius(5), Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 4, 0, 0), Child = row };
+        }
+
+        StackPanel Stat(string caption, string value, string sub, Color c)
+        {
+            var p = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0, 0, 8, 0) };
+            p.AddChild(Txt(caption, CDim, FontSize - 2, true));
+            p.AddChild(Txt(value, c, FontSize + 5, true));
+            if (!string.IsNullOrEmpty(sub)) p.AddChild(Txt(sub, CDim, FontSize - 1));
+            return p;
+        }
+
+        Canvas Meter(double fill, double target, Color c)
+        {
+            double w = CardW - 24;
+            var cv = new Canvas { Width = w, Height = 14, Margin = new Thickness(0, 6, 0, 0) };
+            cv.AddChild(new Rectangle { Width = w, Height = 6, Top = 4, Left = 0, FillColor = Color.FromHex("#FF2A303B"), RadiusX = 3, RadiusY = 3 });
+            cv.AddChild(new Rectangle { Width = Math.Max(2, w * fill), Height = 6, Top = 4, Left = 0, FillColor = c, RadiusX = 3, RadiusY = 3 });
+            cv.AddChild(new Rectangle { Width = 2, Height = 14, Top = 0, Left = w * target - 1, FillColor = CText });
+            return cv;
+        }
+
+        Canvas Ladder(PCard c)
+        {
+            double w = CardW - 24, x0 = 10, span = w - 20;
+            double X(double p) => x0 + span * Math.Max(0, Math.Min(1, p));
+            var cv = new Canvas { Width = w, Height = 44, Margin = new Thickness(0, 8, 0, 0) };
+            cv.AddChild(new Rectangle { Width = span, Height = 4, Top = 19, Left = x0, FillColor = Color.FromHex("#FF2A303B") });
+            if (!double.IsNaN(c.ZoneSl) && c.ZoneEntry > c.ZoneSl)
+                cv.AddChild(new Rectangle { Width = X(c.ZoneEntry) - X(c.ZoneSl), Height = 8, Top = 17, Left = X(c.ZoneSl), FillColor = Color.FromHex("#AAFF6B6B") });
+            if (!double.IsNaN(c.ZoneTp) && c.ZoneTp > c.ZoneEntry)
+                cv.AddChild(new Rectangle { Width = X(c.ZoneTp) - X(c.ZoneEntry), Height = 8, Top = 17, Left = X(c.ZoneEntry), FillColor = Color.FromHex("#AA4CC38A") });
+            foreach (var m in c.Marks)
+            {
+                double x = X(m.Pos);
+                bool top = m.Kind == "fill" || m.Kind == "pend" || m.Kind == "now";
+                Color col = m.Kind == "sl" ? CBad : m.Kind == "tp" ? COk : m.Kind == "now" ? CInfo : CText;
+                if (m.Kind == "now")
+                    cv.AddChild(new Ellipse { Width = 10, Height = 10, Left = x - 5, Top = 16, FillColor = CInfo, StrokeColor = Color.FromHex("#FF121620"), StrokeThickness = 2 });
+                else if (m.Kind == "pend")
+                    cv.AddChild(new Ellipse { Width = 10, Height = 10, Left = x - 5, Top = 16, FillColor = Color.FromHex("#FF121620"), StrokeColor = CText, StrokeThickness = 2 });
+                else if (m.Kind == "fill")
+                    cv.AddChild(new Ellipse { Width = 10, Height = 10, Left = x - 5, Top = 16, FillColor = CText });
+                else
+                    cv.AddChild(new Rectangle { Width = 3, Height = 16, Left = x - 1.5, Top = 13, FillColor = col });
+                cv.AddChild(new TextBlock { Text = m.Label, ForegroundColor = col, FontSize = FontSize - 3, FontWeight = FontWeight.Bold,
+                                            Left = Math.Max(0, Math.Min(w - 26, x - 9)), Top = top ? 0 : 30 });
+            }
+            return cv;
+        }
+
+        Grid Rows(PCard c)
+        {
+            var g = new Grid(c.Rows.Count + 1, 7) { Margin = new Thickness(0, 6, 0, 0) };
+            string[] hd = { "", "LOTS", "ENTRY", "", "SL", "TP", "P/L" };
+            for (int i = 0; i < hd.Length; i++) g.AddChild(Txt(hd[i], CDim, FontSize - 3, true), 0, i);
+            for (int r = 0; r < c.Rows.Count; r++)
+            {
+                var x = c.Rows[r];
+                g.AddChild(Txt(x.Name, CText, FontSize - 1, true), r + 1, 0);
+                g.AddChild(Txt(x.Lots, CText, FontSize - 1), r + 1, 1);
+                g.AddChild(Txt(x.Entry, CText, FontSize - 1), r + 1, 2);
+                g.AddChild(Txt(x.Status, x.Filled ? CInfo : CDim, FontSize - 2), r + 1, 3);
+                g.AddChild(Txt(x.Sl, x.Sl == "none" ? CBad : Color.FromHex("#FFFF9B9B"), FontSize - 1), r + 1, 4);
+                g.AddChild(Txt(x.Tp, x.Tp == "none" ? CWarn : Color.FromHex("#FF8FE0B5"), FontSize - 1), r + 1, 5);
+                g.AddChild(Txt(x.Pnl, x.PnlVal >= 0 ? COk : CBad, FontSize - 1, true), r + 1, 6);
+            }
+            return g;
+        }
+
+        Border CardView(PCard c)
+        {
+            var p = new StackPanel { Orientation = Orientation.Vertical };
+            var hd = new StackPanel { Orientation = Orientation.Horizontal };
+            hd.AddChild(new TextBlock { Text = c.Symbol, ForegroundColor = CText, FontSize = FontSize + 3, FontWeight = FontWeight.Bold, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center });
+            hd.AddChild(Chip(c.Buy ? "BUY" : "SELL", c.Buy ? Color.FromHex("#FF1F8A5B") : Color.FromHex("#FFC2414B"), Color.White, FontSize - 1));
+            hd.AddChild(Chip(c.Kind.ToUpperInvariant(), Color.FromHex("#FF2A303B"), CText, FontSize - 2));
+            hd.AddChild(new TextBlock { Text = c.Stage, ForegroundColor = CDim, FontSize = FontSize - 1, VerticalAlignment = VerticalAlignment.Center });
+            p.AddChild(hd);
+
+            var stats = new Grid(1, 3) { Margin = new Thickness(0, 8, 0, 0) };
+            stats.AddChild(Stat("RISK", c.Risk, c.RiskSub, c.RiskLvl == Lvl.Bad ? CBad : CText), 0, 0);
+            stats.AddChild(Stat("AT TP", c.Reward, c.RewardSub, c.HasReward ? COk : CWarn), 0, 1);
+            stats.AddChild(Stat("NOW", c.Now, c.NowSub, !c.HasNow ? CDim : c.NowVal >= 0 ? COk : CBad), 0, 2);
+            p.AddChild(stats);
+            p.AddChild(Meter(c.MeterFill, c.MeterTarget, c.RiskLvl == Lvl.Bad ? CBad : c.MeterFill > c.MeterTarget * 0.5 ? COk : CInfo));
+            p.AddChild(Txt("risk if all fill and stop  ·  white line = your target", CDim, FontSize - 3));
+            p.AddChild(Ladder(c));
+            p.AddChild(Rows(c));
+            p.AddChild(Txt(c.Costs, CDim, FontSize - 2, false, 6));
+            foreach (var n in c.Notes) p.AddChild(Pill(n));
+            return new Border { Child = p, Width = CardW, Margin = new Thickness(0, 10, 0, 0), Padding = new Thickness(10, 8, 10, 10), CornerRadius = new CornerRadius(6),
+                                BackgroundColor = Color.FromHex("#FF1A1F29"), BorderColor = LvlColor(c.Status), BorderThickness = new Thickness(4, 1, 1, 1) };
+        }
 
         void Draw(List<Note> global)
         {
-            var lines = new List<(string t, Color c, bool b, double gap)>();
-            void L(string t, Color c, bool b = false, double gap = 0) => lines.Add((t, c, b, gap));
-
-            if (!collapsed)
+            int max = Day.MaxLosses(RiskTarget, DailyStopOverride), losses = today.Count(t => t.Net < 0);
+            string footer = ""; Lvl fl = Lvl.Info;
+            if (Journal)
             {
-                double bal = Account.Balance;
-                L("Balance " + Fmt.M(bal) + " · equity " + Fmt.M(Account.Equity) + " · target " + Fmt.N(RiskTarget) + "% = " + Fmt.M(bal * RiskTarget / 100), CDim, false, 4);
-                int max = Day.MaxLosses(RiskTarget, DailyStopOverride), losses = today.Count(t => t.Net < 0);
-                L("Today: " + today.Count + " trade" + (today.Count == 1 ? "" : "s") + " · " + losses + " of " + max + " losses · " + Fmt.SM(today.Sum(t => t.Net)),
-                  losses >= max ? CBad : losses == max - 1 ? CWarn : CDim);
-                var risks = setups.Where(s => s.FullRisk.HasValue).Sum(s => s.FullRisk.Value);
-                if (setups.Count > 1) L("All setups if every order fills and stops: " + Fmt.M(risks) + " (" + Fmt.N(bal > 0 ? risks / bal * 100 : 0) + "%)" + (setups.Any(s => !s.FullRisk.HasValue) ? " + unlimited (no SL)" : ""), CDim);
-                foreach (var n in global.OrderByDescending(n => n.Level)) L(LvlMark(n.Level) + n.Text, LvlColor(n.Level), n.Level == Lvl.Bad);
-
-                if (setups.Count == 0) L("No pending orders or open positions.", CDim, false, 8);
-                foreach (var s in setups)
+                if (!fileOk) { footer = "Journal off: " + fileErr; fl = Lvl.Warn; }
+                else if (journal.Count == 0) footer = "Journal: no finished trades yet  ·  " + dir;
+                else
                 {
-                    int dg = s.Digits;
-                    L(s.Symbol + " " + (s.Buy ? "BUY" : "SELL") + " · " + TradeBuilder.Kind(s) + " · " + s.Stage, LvlColor(s.Worst == Lvl.Info ? Lvl.Ok : s.Worst), true, 8);
-                    foreach (var it in s.Levels.SelectMany(l => l))
-                        L("  " + s.LevelName(it) + "  " + Fmt.Lots(it.Lots) + " @ " + Fmt.P(it.Entry, dg) + "  " + (it.Filled ? "filled" : it.OrderType) +
-                          "   SL " + (it.Sl.HasValue ? Fmt.P(it.Sl.Value, dg) + " (" + Fmt.N(it.SlPips.Value) + "p)" : "none") +
-                          "   TP " + (it.Tp.HasValue ? Fmt.P(it.Tp.Value, dg) + " (" + Fmt.N(it.TpPips.Value) + "p)" : "none") +
-                          (it.Filled ? "   " + Fmt.SM(it.NetProfit) : ""), CText);
-                    string full = s.FullRisk.HasValue ? "risk " + Fmt.M(s.FullRisk.Value) + " (" + Fmt.N(s.RiskPct) + "%)" : "risk unlimited (no SL)";
-                    string rew = s.FullReward.HasValue ? " · at TP " + Fmt.SM(s.FullReward.Value) + (s.FullRisk.HasValue && s.FullRisk.Value > 0 ? " (" + Fmt.N(s.FullReward.Value / s.FullRisk.Value, "0.00") + "R)" : "") : " · no TP";
-                    L("  Plan, all filled: " + full + rew, CText);
-                    if (s.Items.Any(i => i.Filled))
-                        L("  Now: P/L " + Fmt.SM(s.Floating) + (s.FloatR.HasValue ? " (" + Fmt.R(s.FloatR.Value) + ")" : "") +
-                          " · filled risk " + (s.FilledRisk.HasValue ? Fmt.M(s.FilledRisk.Value) : "unlimited") +
-                          (s.FilledReward.HasValue ? " · filled at TP " + Fmt.SM(s.FilledReward.Value) : ""), CText);
-                    L("  Spread " + Fmt.N(s.SpreadPips) + "p · commission " + Fmt.M(s.CommRT) + (s.CommAllKnown ? "" : " (estimate: no earlier trade on this symbol)") +
-                      (s.Items.Any(i => i.Filled) ? " · swap " + Fmt.SM(s.SwapNight) + "/night" : ""), CDim);
-                    foreach (var n in s.Notes) L("  " + LvlMark(n.Level) + n.Text, LvlColor(n.Level), n.Level == Lvl.Bad);
-                }
-
-                if (Journal)
-                {
-                    if (!fileOk) L("Journal off: " + fileErr, CWarn, false, 8);
-                    else if (journal.Count == 0) L("Journal: no finished trades yet · " + dir, CDim, false, 8);
-                    else
-                    {
-                        int w = journal.Count(t => t.Net > 0);
-                        var rs = journal.Where(t => !double.IsNaN(t.R)).Select(t => t.R).ToList();
-                        L("Journal: " + journal.Count + " trades · " + (100.0 * w / journal.Count).ToString("0", Fmt.C) + "% won · avg " + (rs.Count > 0 ? Fmt.R(rs.Average()) : "-") +
-                          " · net " + Fmt.SM(journal.Sum(t => t.Net)) + " · report.md", CDim, false, 8);
-                    }
+                    int w = journal.Count(t => t.Net > 0);
+                    var rs = journal.Where(t => !double.IsNaN(t.R)).Select(t => t.R).ToList();
+                    footer = "Journal: " + journal.Count + " trades  ·  " + (100.0 * w / journal.Count).ToString("0", Fmt.C) + "% won  ·  avg " +
+                             (rs.Count > 0 ? Fmt.R(rs.Average()) : "-") + "  ·  net " + Fmt.SM(journal.Sum(t => t.Net)) + "  ·  report.html";
                 }
             }
+            var m = PanelBuilder.Build(setups, global, Account.Balance, Account.Equity, RiskTarget, today.Count, losses, max, today.Sum(t => t.Net), footer, fl, Version);
 
-            string sig = string.Join("\n", lines.Select(l => l.t + l.c.ToHexString() + l.b));
+            string sig = m.Signature() + collapsed;
             if (sig == lastSig) return;
             lastSig = sig;
+
+            // header: loss dots stay visible even when folded
+            foreach (var ch in headStatus.Children.ToList()) headStatus.RemoveChild(ch);
+            for (int i = 0; i < m.MaxLosses; i++)
+                headStatus.AddChild(new Ellipse { Width = 11, Height = 11, Margin = new Thickness(0, 0, 4, 0), StrokeThickness = 2,
+                                                  StrokeColor = i < m.Losses ? CBad : CDim, FillColor = i < m.Losses ? CBad : Color.FromHex("#00000000") });
+            int reds = m.Cards.Sum(c => c.Notes.Count(n => n.Level == Lvl.Bad)) + m.Global.Count(n => n.Level == Lvl.Bad);
+            int yellows = m.Cards.Sum(c => c.Notes.Count(n => n.Level == Lvl.Warn)) + m.Global.Count(n => n.Level == Lvl.Warn);
+            if (reds > 0) headStatus.AddChild(Chip(reds + " to fix", CBad, Color.FromHex("#FF101318"), FontSize - 2));
+            if (yellows > 0) headStatus.AddChild(Chip(yellows + " to check", CWarn, Color.FromHex("#FF101318"), FontSize - 2));
+            if (reds == 0 && yellows == 0) headStatus.AddChild(Chip("all good", COk, Color.FromHex("#FF101318"), FontSize - 2));
+
             foreach (var ch in body.Children.ToList()) body.RemoveChild(ch);
-            foreach (var l in lines)
-                body.AddChild(new TextBlock { Text = l.t, ForegroundColor = l.c, FontSize = FontSize, FontWeight = l.b ? FontWeight.Bold : FontWeight.Normal,
-                                              Margin = new Thickness(0, l.gap, 0, 0), TextWrapping = TextWrapping.Wrap });
+            if (collapsed) return;
+
+            body.AddChild(Txt(m.Balance, CDim, FontSize - 1, false, 6));
+            body.AddChild(Txt(m.Target, CDim, FontSize - 1));
+            var day = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0) };
+            day.AddChild(Txt("TODAY  ", CDim, FontSize - 2, true));
+            day.AddChild(Txt(m.Losses + " of " + m.MaxLosses + " losses  ·  " + m.Trades + " trade" + (m.Trades == 1 ? "" : "s") + "  ·  ",
+                             m.Losses >= m.MaxLosses ? CBad : m.Losses == m.MaxLosses - 1 ? CWarn : CText, FontSize, true));
+            day.AddChild(Txt(m.DayPnl, m.DayPnlVal >= 0 ? COk : CBad, FontSize, true));
+            body.AddChild(day);
+            if (!string.IsNullOrEmpty(m.AllRisk)) body.AddChild(Txt(m.AllRisk, CDim, FontSize - 1, false, 2));
+            foreach (var n in m.Global) body.AddChild(Pill(n));
+
+            if (m.Cards.Count == 0)
+                body.AddChild(new Border { Width = CardW, Margin = new Thickness(0, 10, 0, 0), Padding = new Thickness(10), CornerRadius = new CornerRadius(6),
+                                           BackgroundColor = Color.FromHex("#FF1A1F29"), Child = Txt("No pending orders or open positions.", CDim, FontSize) });
+            foreach (var c in m.Cards) body.AddChild(CardView(c));
+            if (!string.IsNullOrEmpty(m.Footer)) body.AddChild(Txt(m.Footer, m.FooterLvl == Lvl.Warn ? CWarn : CDim, FontSize - 2, false, 10));
         }
     }
 }
