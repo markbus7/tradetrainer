@@ -72,7 +72,7 @@ A new yellow or red check plays a sound, shows a popup and is written to the cBo
   Wins in between give room back, and there's no limit on the number of trades. The header shows a chip like "day -1.2R / -2R".
   The other rule, **Count losses**, stops after 2 losses (above 1% risk, else 3). A **scratch**, meaning a loss smaller than 20% of your
   risk per trade, never counts as a loss. Positions on the same symbol and direction that close within 5 minutes of each other
-  count as one trade. The trading day runs on Amsterdam time from midnight, and you can set another start hour.
+  count as one trade. Under the day line, each of today's trades is shown as a chip marked loss, scratch or win (and written to the Log). The trading day runs on Amsterdam time from midnight, and you can set another start hour.
   Positions on the same symbol and direction that close within 5 minutes of each other count as one trade.
 
 ## Journal and report

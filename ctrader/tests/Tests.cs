@@ -151,6 +151,7 @@ static class Tests
         var rm = DayRules.Evaluate(many, DayRule.Day_down_in_R, 7.2, 2, 2, 1.44);
         Ok(!rm.Stopped && rm.Losses == 5, "10 trades, 5 full losses, day only -1R: R mode lets you trade on");
         Ok(DayRules.Evaluate(many, DayRule.Count_losses, 7.2, 2, 2, 1.44).Stopped, "same day in count mode would have stopped");
+        Ok(cnt.Items.Count == 4 && cnt.Items.Count(i => i.Level == Lvl.Bad) == 2 && cnt.Items.Single(i => i.Level == Lvl.Info).Text.Contains("-€0.45 · scratch"), "today's list marks each trade");
         Ok(r2.Line.Contains("stop at -€14.42") && r2.Chip.StartsWith("day -2.3R"), "day line text (" + r2.Line + " | " + r2.Chip + ")");
         Ok(Day.MaxLosses(3, 0) == 2 && Day.MaxLosses(1, 0) == 3 && Day.MaxLosses(3, 4) == 4, "daily stop: 2 above 1% risk, 3 otherwise, override wins");
 
@@ -258,9 +259,10 @@ static class Tests
         var gb = Eur(false, false, 13, 0.08, 1.27000, 1.27250, null, 0, "GBPUSD"); gb.Current = 1.26930; gb.PipValue = 0.0001 / 1.085; gb.CommKnown = false;
         var ps = Analyzer.Build(new[] { pi1, pi2, gb }, 240, 3);
         var gl = new List<Note> { new Note(Lvl.Warn, "daily_last", "day|last", "One more loss ends your day (1 of 2).") };
-        var dayGroups = new List<TradeGroup> { new TradeGroup { Net = -3.70 }, new TradeGroup { Net = 1.10 } };
+        var t9 = new DateTime(2026, 11, 13, 9, 30, 0);
+        var dayGroups = new List<TradeGroup> { new TradeGroup { Symbol = "EURUSD", Buy = true, Close = t9, Net = -3.70 }, new TradeGroup { Symbol = "EURUSD", Buy = false, Close = t9.AddHours(2), Net = 1.10 }, new TradeGroup { Symbol = "GBPUSD", Buy = true, Close = t9.AddHours(3), Net = -0.40 } };
         var dst = DayRules.Evaluate(dayGroups, DayRule.Day_down_in_R, 7.2, 2, 2, 1.44);
-        var pm = PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, "Journal: 12 trades  ·  58% won  ·  avg +0.21R  ·  net +€9.40  ·  report.html", Lvl.Info, "1.2.0");
+        var pm = PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, "Journal: 12 trades  ·  58% won  ·  avg +0.21R  ·  net +€9.40  ·  report.html", Lvl.Info, "1.2.1");
         var ec = pm.Cards.Single(c => c.Symbol == "EURUSD");
         Ok(ec.Rows.Count == 2 && ec.Rows[0].Name == "E1" && ec.Rows[0].Filled && !ec.Rows[1].Filled, "card rows: E1 filled, E2 pending");
         var slm = ec.Marks.Single(x => x.Kind == "sl"); var tpm = ec.Marks.Where(x => x.Kind == "tp").ToList(); var e2m = ec.Marks.Single(x => x.Label == "E2");
@@ -269,7 +271,7 @@ static class Tests
         var gsl = gc.Marks.Single(x => x.Kind == "sl"); var gnow = gc.Marks.Single(x => x.Kind == "now");
         Ok(gsl.Pos < gc.ZoneEntry && gnow.Pos > gc.ZoneEntry, "sell ladder is flipped: SL still on the left, price below entry on the right");
         Ok(gc.RiskLvl == Lvl.Bad && gc.Status == Lvl.Bad && gc.Reward == "no TP", "GBPUSD: risk too high, no TP");
-        Ok(pm.Signature() == PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, pm.Footer, Lvl.Info, "1.2.0").Signature(), "same data, same picture (no redraw)");
+        Ok(pm.Signature() == PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, pm.Footer, Lvl.Info, "1.2.1").Signature(), "same data, same picture (no redraw)");
         System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "panel-preview.html"), Preview.Panel(pm));
 
         Console.WriteLine($"{pass} passed, {fail} failed");

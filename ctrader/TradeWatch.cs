@@ -326,8 +326,11 @@ namespace TradeWatchCore
         public bool Stopped, OneLeft; public int Trades, Losses, Scratches, MaxLosses;
         public double Net, OneR, LimitMoney, Used;   // Used: 0..1 of the limit
         public string Line, Chip, StopText, LastText;
+        public List<DayItem> Items = new List<DayItem>();   // today's trades, each marked loss / scratch / win
         public Lvl Level => Stopped ? Lvl.Bad : OneLeft ? Lvl.Warn : Lvl.Ok;
     }
+
+    public sealed class DayItem { public string Text; public Lvl Level; }
 
     public static class DayRules
     {
@@ -337,6 +340,13 @@ namespace TradeWatchCore
             var d = new DayState { Trades = today.Count, Net = today.Sum(t => t.Net), OneR = oneR, MaxLosses = maxLosses,
                                    Losses = today.Count(t => Day.IsLoss(t.Net, scratchMoney)),
                                    Scratches = today.Count(t => t.Net < 0 && !Day.IsLoss(t.Net, scratchMoney)) };
+            foreach (var t in today.OrderBy(x => x.Close))
+            {
+                bool loss = Day.IsLoss(t.Net, scratchMoney), scratch = t.Net < 0 && !loss;
+                d.Items.Add(new DayItem { Level = loss ? Lvl.Bad : scratch ? Lvl.Info : Lvl.Ok,
+                    Text = t.Close.ToString("HH:mm", Fmt.C) + " " + (t.Symbol ?? "") + " " + (t.Buy ? "buy" : "sell") + " " + Fmt.SM(t.Net) +
+                           (t.Parts.Count > 1 ? " (" + t.Parts.Count + " positions)" : "") + (loss ? " · loss" : scratch ? " · scratch" : t.Net > 0 ? " · win" : "") });
+            }
             string trades = d.Trades + " trade" + (d.Trades == 1 ? "" : "s") + (d.Scratches > 0 ? " (" + d.Scratches + " scratch)" : "");
             if (rule == DayRule.Day_down_in_R)
             {
@@ -848,7 +858,7 @@ namespace TradeWatchCore
     public sealed class PanelModel
     {
         public string Title, Balance, Target, AllRisk, Footer;
-        public string DayLine, DayChip; public int Losses, MaxLosses; public double DayUsed; public Lvl DayLvl, FooterLvl;
+        public string DayLine, DayChip; public List<DayItem> DayItems = new List<DayItem>(); public int Losses, MaxLosses; public double DayUsed; public Lvl DayLvl, FooterLvl;
         public List<Note> Global = new List<Note>();
         public List<PCard> Cards = new List<PCard>();
         static readonly JsonSerializerOptions SigOpt = new JsonSerializerOptions { IncludeFields = true,
@@ -866,7 +876,7 @@ namespace TradeWatchCore
                 Title = "TRADE WATCH " + version,
                 Balance = "Balance " + Fmt.M(balance) + "  ·  equity " + Fmt.M(equity),
                 Target = "Risk per trade " + Fmt.N(target) + "% = " + Fmt.M(balance * target / 100),
-                DayLine = day.Line, DayChip = day.Chip, Losses = day.Losses, MaxLosses = day.Chip == null ? day.MaxLosses : 0, DayUsed = day.Used, DayLvl = day.Level,
+                DayLine = day.Line, DayChip = day.Chip, DayItems = day.Items, Losses = day.Losses, MaxLosses = day.Chip == null ? day.MaxLosses : 0, DayUsed = day.Used, DayLvl = day.Level,
                 Global = global.OrderByDescending(n => n.Level).ToList(), Footer = footer, FooterLvl = footerLvl
             };
             if (setups.Count > 1)
@@ -1088,7 +1098,7 @@ namespace cAlgo.Robots
     [Robot(TimeZone = TimeZones.WEuropeStandardTime, AccessRights = AccessRights.FullAccess)]
     public class TradeWatch : Robot
     {
-        public const string Version = "1.2.0";
+        public const string Version = "1.2.1";
 
         [Parameter("Risk target per trade (% of balance)", Group = "Plan", DefaultValue = 3.0, MinValue = 0.1, MaxValue = 10, Step = 0.1)]
         public double RiskTarget { get; set; }
@@ -1144,7 +1154,7 @@ namespace cAlgo.Robots
         List<CancelRow> cancelled = new List<CancelRow>();
         string dir; bool fileOk; string fileErr = "";
         List<TradeGroup> today = new List<TradeGroup>(); DateTime todayFor = DateTime.MinValue; bool historyDirty = true;
-        DateTime lastFollow = DateTime.MinValue;
+        DateTime lastFollow = DateTime.MinValue; string lastDayList = null;
         List<Setup> setups = new List<Setup>();
 
         protected override void OnStart()
@@ -1245,6 +1255,8 @@ namespace cAlgo.Robots
             var merged = closed.GroupBy(c => c.PositionId).Select(g => new ClosedPos
             { PositionId = g.Key, Symbol = g.First().Symbol, Buy = g.First().Buy, Open = g.Min(x => x.Open), Close = g.Max(x => x.Close), Net = g.Sum(x => x.Net) });
             today = Day.Group(merged);
+            string list = string.Join(" | ", DayNow().Items.Select(i => i.Text));
+            if (list != lastDayList) { lastDayList = list; Print("Today's trades: " + (list == "" ? "none" : list)); }
         }
 
         // ------------------------------------------------------------ main loop
@@ -1701,6 +1713,14 @@ namespace cAlgo.Robots
             day.AddChild(Txt(m.DayLine, m.DayLvl == Lvl.Ok ? CText : LvlColor(m.DayLvl), FontSize, true));
             body.AddChild(day);
             if (m.DayChip != null) body.AddChild(Meter(m.DayUsed, 1.0, m.DayLvl == Lvl.Ok ? CInfo : LvlColor(m.DayLvl)));
+            if (m.DayItems.Count > 0)
+            {
+                var wrap = new WrapPanel { Orientation = Orientation.Horizontal, Width = CardW, Margin = new Thickness(0, 4, 0, 0) };
+                foreach (var it in m.DayItems)
+                    wrap.AddChild(new Border { BackgroundColor = LvlTint(it.Level), CornerRadius = new CornerRadius(4), Padding = new Thickness(6, 1, 6, 1), Margin = new Thickness(0, 3, 5, 0),
+                                               Child = new TextBlock { Text = it.Text, ForegroundColor = LvlColor(it.Level), FontSize = FontSize - 2, FontWeight = FontWeight.Bold } });
+                body.AddChild(wrap);
+            }
             if (!string.IsNullOrEmpty(m.AllRisk)) body.AddChild(Txt(m.AllRisk, CDim, FontSize - 1, false, 2));
             foreach (var n in m.Global) body.AddChild(Pill(n));
 

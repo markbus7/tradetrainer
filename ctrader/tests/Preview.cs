@@ -54,6 +54,7 @@ table{width:100%;margin-top:6px;border-collapse:collapse;font-size:11px;table-la
         string dayCol = m.DayLvl == Lvl.Ok ? "#E6E9EF" : Col(m.DayLvl);
         sb.Append($"<div style='margin-top:6px'><span class='dim b' style='font-size:10px'>TODAY &nbsp;</span><span class=b style='color:{dayCol}'>{H(m.DayLine)}</span></div>");
         if (m.DayChip != null) sb.Append($"<div class=meter style='width:406px'><i style='width:100%;background:#2A303B'></i><i style='width:{m.DayUsed * 100:0.0}%;background:{(m.DayLvl == Lvl.Ok ? "#7FB3FF" : Col(m.DayLvl))}'></i><i style='left:100%;width:2px;height:14px;top:0;border-radius:0;background:#E6E9EF'></i></div>");
+        if (m.DayItems.Count > 0) sb.Append("<div style='width:430px;display:flex;flex-wrap:wrap'>" + string.Concat(m.DayItems.Select(i => $"<span class=chip style='margin-top:3px;margin-right:5px;background:{Tint(i.Level)};color:{Col(i.Level)};font-size:10px'>{H(i.Text)}</span>")) + "</div>");
         if (!string.IsNullOrEmpty(m.AllRisk)) sb.Append($"<div class=dim style='font-size:11px;margin-top:2px'>{H(m.AllRisk)}</div>");
         foreach (var n in m.Global) sb.Append("<div style='width:430px'>" + Pill(n) + "</div>");
         foreach (var c in m.Cards)
