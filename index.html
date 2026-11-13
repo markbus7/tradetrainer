@@ -425,6 +425,33 @@
   .lta button.on{border-color:var(--amber);background:#1d1709}
   .lgslow{margin:8px 0 4px;padding-left:18px;font-size:13.5px;line-height:1.55}.lgslow li{margin-bottom:5px}
   .lgslow1{border-left:3px solid var(--amber-dim);padding-left:9px;margin-top:10px;font-size:13px}
+  .lgbar{position:sticky;top:0;z-index:5;background:var(--bg2);margin:-12px -12px 14px;padding:10px 12px 8px;border-bottom:1px solid var(--amber-dim);border-radius:12px 12px 0 0}
+  .lgbarc{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+  .lgst{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border:1px solid var(--line);border-radius:8px;background:var(--bg3);color:var(--muted);cursor:pointer;font:600 12px Inter,sans-serif;min-width:0}
+  .lgst span{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#2a3140;color:#c9ced8;font:700 11px Archivo,sans-serif}
+  .lgst b{font-weight:600;white-space:nowrap}.lgst i{font-style:normal;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .lgst i.go{color:#7fdca4}.lgst i.wait{color:#ffd27a}
+  .lgst.done span{background:#1c4a30;color:#b9f0cf}.lgst.done{color:#c9ced8}
+  .lgst.on{border-color:var(--amber);background:#1d1709;color:#fff}.lgst.on span{background:var(--amber);color:#14100a}
+  .lgst.live i{color:#ffd27a}
+  .lgbarw{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:7px;font-size:12px;color:var(--muted)}.lgbarw b{color:var(--amber)}
+  .lgall{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:12px;cursor:pointer;padding:0}
+  .lgdir{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13.5px;margin:4px 0 10px}.lgdir .btn.on{border-color:var(--amber);color:var(--amber);background:#1d1709}
+  .lghtf{font-size:13.5px;line-height:1.5;border-left:3px solid var(--amber);padding:6px 0 6px 10px;margin:8px 0}.lghtf.with{border-color:#2f8f5b}
+  .lgbarb{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.lgbarw{flex-wrap:wrap}
+  .lgbarb .btn.on{border-color:var(--amber);color:var(--amber)}
+  .lgready{border:1px solid var(--amber);border-radius:10px;background:#15120a;padding:10px 12px;margin-bottom:14px}.lgready[hidden]{display:none}
+  .lgrch{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:14px}.lgrch .lgall{margin-left:auto}
+  .lgrcin{background:transparent;border:0;padding:0}.lgrchalf{flex-direction:row!important;align-items:center;gap:6px;font-size:12.5px}
+  .lgrc{width:100%;border-collapse:collapse;font:14.5px Inter,sans-serif;margin-top:4px}.lgready{scroll-margin-top:170px}
+  @media(max-width:560px){.lgst i{display:none}.lgst{padding:4px 1px;font-size:11px}.lgbar{padding:8px 8px 6px}}.lgrc td,.lgrc th{padding:7px 6px;border-top:1px solid var(--line);text-align:left;vertical-align:baseline}
+  .lgrc th{width:22px;color:var(--amber);font:700 12px Archivo,sans-serif}.lgrc td:nth-child(3){font:600 16px "JetBrains Mono",monospace;white-space:nowrap}.lgrc td:nth-child(4){white-space:nowrap;color:#d6dae2}
+  .lgrcif td{color:#ffe2a8}
+  .lgsec[hidden]{display:none}.lgnav{margin-top:12px}
+  .lgsec .lgh3{margin-top:0;padding-top:0;border-top:0}.lgsec .lgstep,.lgsec .lgnow,.lgsec .lgmy{border-bottom:0;margin-bottom:0;padding-bottom:0}
+  .lgallon .lgsec+.lgsec{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+  .lgacct{margin:0 0 12px}
+  .lgacctw{display:block;font-size:13px;color:#ffe2a8;border-left:3px solid var(--amber);padding:2px 0 2px 9px}
   .lgneed{font-size:13px;color:#ffe2a8;border-left:3px solid var(--amber);padding:2px 0 2px 9px;margin-bottom:10px}
   .lgh u{text-decoration:none}
   .lgi{flex:none;width:24px;height:24px;border-radius:50%;border:1px solid var(--amber-dim);background:transparent;color:var(--amber);font:italic 700 13px Georgia,serif;line-height:1;cursor:pointer;padding:0;margin-left:8px;vertical-align:1px}
@@ -747,7 +774,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.94.2", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.95.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -8905,7 +8932,7 @@ var PROG = (function () {
      ===================================================================== */
   var LEARN_KEY = "tt_learn_v1";
   var LSt = (function () {
-    var d = { seen: {}, done: {}, last: null, calc: {}, quiz: {}, ccalc: {}, tcalc: {}, ticks: {} };
+    var d = { seen: {}, done: {}, last: null, calc: {}, quiz: {}, ccalc: {}, tcalc: {}, ticks: {}, gset: {} };
     try {
       var v = JSON.parse(localStorage.getItem(LEARN_KEY) || "null");
       if (v && typeof v === "object") Object.keys(d).forEach(function (k) { if (v[k] != null) d[k] = v[k]; });
@@ -12265,6 +12292,40 @@ var PROG = (function () {
     return '<div class="lgday"><b>Today:</b> ' + (D.n ? D.n + ' taken · ' + D.w + ' won · ' + D.l + ' lost · ' + D.s + ' near the entry' + (D.open ? ' · ' + D.open + ' open' : '') : 'no trades yet') + '. ' + rule +
       (D.open ? ' Finish the open trade in step 5 before you look for another.' : D.n ? ' You may take the next trade: back to step 4.' : '') + '</div>';
   }
+  /** the range scale-in on one screen: both limits, the stop, both targets and the size.
+      R = {side: 1 buy at the bottom | -1 sell at the top, top, bot, e1, half} */
+  /** a range trade weighed against the direction noted on the higher chart in step 3 */
+  function lgHtfNote(d) {
+    var G = lgset(), T = LG_TF[G.tf]; if (!T || !G.lv || G.lv.day !== new Date().toDateString() || !G.lv.dir || G.lv.dir === "s") return "";
+    var up = G.lv.dir === "u", withT = up === (d > 0), nm = "the " + T.htf + " trend (" + (up ? "up" : "down") + ")";
+    return '<div class="lghtf ' + (withT ? "with" : "against") + '">' + (withT
+      ? "<b>With " + nm + ": the stronger side of this range.</b> A range inside a trend often breaks the trend's way, so this " + (d > 0 ? "buy" : "sell") + " may aim for the other side of the range, not only the middle."
+      : "<b>Against " + nm + ": the weaker side of this range.</b> Allowed, but take the profit at the <b>middle</b>, not the other side, and expect entry 2 to fill. A range inside a trend is often a flag: when a strong bar closes " + (d > 0 ? "below" : "above") + " the range and the next bar follows, the range is over and you stop " + (d > 0 ? "buying" : "selling") + " here.") + '</div>';
+  }
+  function lgReadyCalc(R) {
+    var C = ltcState(), ch = lcostCh(C.mk), dec = Math.max(ch.dec || 2, 0), top = +R.top, bot = +R.bot, H = top - bot, d = R.side < 0 ? -1 : 1;
+    if (!(top > 0 && bot > 0 && H > 0)) return null;
+    var edge = d > 0 ? bot : top, e1 = +R.e1 > 0 ? +R.e1 : edge + d * H / 6, e2 = edge - d * H / 2, stop = edge - d * H, mid = bot + H / 2;
+    var inThird = d > 0 ? (e1 >= bot && e1 <= bot + H / 3 + 1e-9) : (e1 <= top && e1 >= top - H / 3 - 1e-9);
+    var perMove = lotUnits(ch) * qRate(ch), d1 = Math.abs(e1 - stop), d2 = Math.abs(e2 - stop), money = C.bal * (R.half ? C.risk / 2 : C.risk) / 100;
+    var lots = Math.floor(money / ((d1 + d2) * perMove) * 100 + 1e-9) / 100, minRisk = 0.01 * (d1 + d2) * perMove;
+    return { d: d, dec: dec, e1: e1, e2: e2, stop: stop, mid: mid, inThird: inThird, lots: lots, money: money, minRisk: minRisk, bal: C.bal,
+      loss: lots * (d1 + d2) * perMove, win1: lots * Math.abs(mid - e1) * perMove, win2: lots * Math.abs(e1 - e2) * perMove, mk: C.mk };
+  }
+  function lgReadyOut(R) {
+    var X = lgReadyCalc(R); if (!X) return '<div class="mu lgnote">Type the top and the bottom of the range. The rest is worked out.</div>';
+    var f = function (p) { return (+p).toFixed(X.dec); }, B = X.d > 0 ? "Buy" : "Sell", m = function (x) { return "$" + x.toFixed(2); };
+    var small = !(X.lots > 0), L = small ? "–" : X.lots.toFixed(2) + " lots";
+    return (X.inThird ? '' : '<div class="lwarn" style="margin:0 0 8px">Entry 1 is not in the ' + (X.d > 0 ? "bottom" : "top") + ' third of this range. The plan needs it there.</div>') +
+      '<table class="lgrc"><tr><th>1</th><td>' + B + ' limit 1</td><td><b>' + f(X.e1) + '</b></td><td>' + L + '</td></tr>' +
+      '<tr><th>2</th><td>' + B + ' limit 2</td><td><b>' + f(X.e2) + '</b></td><td>' + L + '</td></tr>' +
+      '<tr><th>3</th><td>Stop loss, on both</td><td><b class="dn">' + f(X.stop) + '</b></td><td></td></tr>' +
+      '<tr><th>4</th><td>Take profit on both: the middle</td><td><b class="up">' + f(X.mid) + '</b></td><td></td></tr>' +
+      '<tr class="lgrcif"><th>5</th><td>If limit 2 fills: <b>both</b> take profits to</td><td><b class="up">' + f(X.e1) + '</b></td><td></td></tr></table>' +
+      (small ? '<div class="lwarn" style="margin:8px 0 0"><b>Below 0.01 lots.</b> You may risk ' + m(X.money) + ', and the smallest size (0.01 on each limit) risks ' + m(X.minRisk) + ' with this stop: ' + (X.minRisk / X.bal * 100).toFixed(1) + '% of the account. Skip it, or take a narrower range.</div>'
+        : '<div class="lgnote">Only limit 1 fills and the middle is reached: <b class="up">+' + m(X.win1) + '</b>. Both fill and price comes back to limit 1: <b class="up">+' + m(X.win2) + '</b>. Both fill and the stop is hit: <b class="dn">−' + m(X.loss) + '</b> (' + (X.loss / X.bal * 100).toFixed(1) + '% of the account). Before spread and commission.</div>') +
+      lgHtfNote(X.d) + '<div class="mu lgnote">Cancel both limits if two or three big bars close on their extremes toward the edge: that is a breakout, not a drift. The stop never moves further away.</div>';
+  }
   function mountGuide(el) {
     var figs = [], timer = null;
     var nowEl = document.createElement("div"), askEl = document.createElement("div");
@@ -12307,19 +12368,69 @@ var PROG = (function () {
       6: ["<b>The three results.</b> <b>Target hit</b>: the take-profit was filled. <b>Stopped</b>: the stop loss was filled. <b>Out near the entry</b>: you closed it yourself for a small plus or minus, or the stop was at your entry price. Skipped trades count too: they show which entries you avoid. The table needs about 20 trades per entry before the win rate says anything."]
     };
     var mkh = function (n, txt, cls) {
-      var h = document.createElement("div"); h.className = "lgh" + (cls ? " " + cls : ""); h.innerHTML = '<span>' + n + '</span> <u>' + txt + '</u>'; el.appendChild(h);
+      var h = document.createElement("div"); h.className = "lgh" + (cls ? " " + cls : ""); h.innerHTML = '<span>' + n + '</span> <u>' + txt + '</u>';
+      cur = document.createElement("section"); cur.className = "lgsec"; cur.dataset.step = n; secs[n] = cur; el.appendChild(cur); cur.appendChild(h);
       if (LGHI[n]) {
         var b = document.createElement("button"); b.className = "lgi"; b.type = "button"; b.textContent = "i"; b.title = "Not sure? Explain this step"; b.setAttribute("aria-label", "Explain step " + n); h.appendChild(b);
-        var box = document.createElement("div"); box.className = "lginfo"; box.hidden = true; el.appendChild(box);
+        var box = document.createElement("div"); box.className = "lginfo"; box.hidden = true; cur.appendChild(box);
         b.onclick = function () { if (box.hidden) { infoOpen(box, LGHI[n]); b.classList.add("on"); } else { infoClose(box); b.classList.remove("on"); } };
       }
       return h;
     };
-    var mkd = function (cls) { var d = document.createElement("div"); d.className = cls; el.appendChild(d); return d; };
-    mkh(1, "Right now: what the clock allows"); el.appendChild(nowEl); el.appendChild(myEl);
+    var mkd = function (cls) { var d = document.createElement("div"); d.className = cls; cur.appendChild(d); return d; };
+    /* one step at a time: a bar that says where you are, and only that step on the page */
+    var secs = {}, cur = el, active = 0, ALL = false, today = function () { return new Date().toDateString(); };
+    try { ALL = localStorage.getItem("tt_gall") === "1"; } catch (e) { }
+    var barEl = document.createElement("div"); barEl.className = "lgbar"; el.appendChild(barEl);
+    var LGSTEP = ["", "Clock", "Chart", "Levels", "Read", "Trade", "Log"];
+    function openIdx() { var L = lglogGet(), idx = -1; L.forEach(function (x, i) { if (x.took && !x.res) idx = i; }); return idx; }
+    function autoStep() { return openIdx() >= 0 ? 5 : G.seen1 !== today() ? 1 : !(G.mk && G.tf) ? 2 : !lgLevelsDone(G) ? 3 : 4; }
+    function paintBar() {
+      var C = ltcState(), D = lgDay(), v = verdict(), slow = G.tf && LG_TF[G.tf].slow === 2;
+      var done = { 1: G.seen1 === today(), 2: !!(G.mk && G.tf && C.set), 3: lgLevelsDone(G), 4: false, 5: false, 6: false };
+      var sub = { 1: v && !slow ? v.tag : "", 2: G.mk && G.tf ? G.mk + " · " + LG_TF[G.tf].n : "", 3: lgLevelsDone(G) ? "marked" : "", 4: "", 5: openIdx() >= 0 ? "open" : "", 6: D.stop ? "done for today" : D.n ? D.n + " today" : "" };
+      barEl.innerHTML = '<div class="lgbarc">' + [1, 2, 3, 4, 5, 6].map(function (n) {
+        return '<button type="button" class="lgst' + (n === active ? " on" : "") + (done[n] ? " done" : "") + (n === 5 && sub[5] ? " live" : "") + '" data-go="' + n + '"' + (n === active ? ' aria-current="step"' : '') + '><span>' + (done[n] ? "&#10003;" : n) + '</span><b>' + LGSTEP[n] + '</b>' +
+          (sub[n] ? '<i' + (n === 1 && v ? ' class="' + v.k + '"' : '') + '>' + sub[n] + '</i>' : '') + '</button>';
+      }).join("") + '</div><div class="lgbarw"><span>You are at <b>step ' + active + ' of 6</b>' + (C.set ? ' · risk ' + C.risk + '% per trade' : '') + '</span>' +
+        '<span class="lgbarb"><button type="button" class="btn sm' + (rcEl.hidden ? '' : ' on') + '" data-a="rc">&#9889; Ready card: range scale-in</button>' +
+        '<button type="button" class="lgall" data-a="all">' + (ALL ? "Show one step at a time" : "Show all steps") + '</button></span></div>';
+      barEl.querySelector('[data-a="rc"]').onclick = function () { readyShow(rcEl.hidden); };
+      [].forEach.call(barEl.querySelectorAll("[data-go]"), function (b) { b.onclick = function () { go(+b.dataset.go); }; });
+      barEl.querySelector('[data-a="all"]').onclick = function () { ALL = !ALL; try { localStorage.setItem("tt_gall", ALL ? "1" : "0"); } catch (e) { } go(active); };
+    }
+    function go(n, scroll) {
+      active = n;
+      el.classList.toggle("lgallon", ALL);
+      for (var k in secs) { secs[k].hidden = !ALL && +k !== n; secs[k].classList.toggle("here", +k === n); }
+      paintBar();
+      if (scroll) (ALL ? secs[n] : barEl).scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    var rcEl = document.createElement("div"); rcEl.className = "lgready"; rcEl.hidden = true; el.appendChild(rcEl);
+    function paintReady() {
+      var R = G.rc || (G.rc = { side: 1, top: "", bot: "", e1: "", half: true }), C = ltcState();
+      rcEl.innerHTML = '<div class="lgrch"><b>Ready card: range scale-in</b> <span class="mu">' + (G.mk || C.mk) + ' · $' + C.bal + ' · ' + C.risk + '%' + (R.half ? ' halved' : '') + '</span><button type="button" class="lgall" data-a="rcx">Close</button></div>' +
+        '<div class="mu lgnote">Fill it in <b>before</b> price reaches the edge, and place all orders at once. Then you only wait.</div>' +
+        '<div class="lgsize lgrcin"><label>Side<select data-rc="side"><option value="1">Buy at the bottom</option><option value="-1">Sell at the top</option></select></label>' +
+        '<label>Range top<input data-rc="top" inputmode="decimal"></label><label>Range bottom<input data-rc="bot" inputmode="decimal"></label>' +
+        '<label>Entry 1 <span class="mu">(optional)</span><input data-rc="e1" inputmode="decimal" placeholder="in the outer third"></label>' +
+        '<label class="lgrchalf"><input type="checkbox" data-rc="half"> Half risk <span class="mu">(advanced entry, until 20 logged)</span></label></div><div class="lgrcout"></div>';
+      var q = function (k) { return rcEl.querySelector('[data-rc="' + k + '"]'); }, num = function (v) { return parseFloat(String(v).replace(",", ".")) || ""; };
+      q("side").value = String(R.side); q("top").value = R.top; q("bot").value = R.bot; q("e1").value = R.e1; q("half").checked = !!R.half;
+      var out = function () { rcEl.querySelector(".lgrcout").innerHTML = lgReadyOut(R); };
+      ["top", "bot", "e1"].forEach(function (k) { q(k).oninput = function () { R[k] = num(q(k).value); learnSave(); out(); }; });
+      q("side").onchange = function () { R.side = +q("side").value; learnSave(); out(); };
+      q("half").onchange = function () { R.half = q("half").checked; learnSave(); paintReady(); };
+      rcEl.querySelector('[data-a="rcx"]').onclick = function () { readyShow(false); };
+      out();
+    }
+    function readyShow(on) { rcEl.hidden = !on; if (on) { paintReady(); rcEl.scrollIntoView({ behavior: "smooth", block: "nearest" }); } paintBar(); }
+    mkh(1, "Right now: what the clock allows"); cur.appendChild(nowEl); cur.appendChild(myEl);
+    var nav1 = mkd("ltbar lgnav"); nav1.innerHTML = '<button class="btn sm primary" data-a="n1">Seen it &#8594; step 2: your chart</button>';
+    nav1.firstChild.onclick = function () { G.seen1 = today(); learnSave(); go(autoStep() === 1 ? 2 : autoStep(), true); };
     mkh(2, "Your chart: the market and the timeframe"); var setEl = mkd("lgstep lgset");
     mkh(3, "Mark your levels on the higher timeframe"); var lvEl = mkd("lgstep lglv");
-    var h2 = mkh(4, ""); el.appendChild(askEl);
+    var h2 = mkh(4, ""); cur.appendChild(askEl);
     var G = lgset(), setEdit = false, lvEdit = false;
     function verdict() { var m = lgmk(G), t = lNow(); return m ? lguideRow(LTL_ROWS[m[1]], t, lnewsToday(t)) : null; }
     function paintSet() {
@@ -12327,8 +12438,12 @@ var PROG = (function () {
       if (G.mk && G.tf && !setEdit) {
         var v = verdict();
         o.push('<div class="lgdone"><span><b>' + G.mk + '</b> on the <b>' + LG_TF[G.tf].n + '</b> chart' + (LG_TF[G.tf].slow === 2 ? '' : ' <em class="lgv ' + v.k + '">' + v.tag + '</em>') + '</span><button class="btn sm" data-a="setchg">Change</button></div>' +
+          '<div class="lgnote">' + (ltcState().set ? 'Account $' + ltcState().bal + ', risk <b>' + ltcState().risk + '%</b> per trade.' : '<span class="lgacctw">Balance and risk are still the app\'s example figures ($' + ltcState().bal + ', ' + ltcState().risk + '%). Press Change and type your own, or the sizes and the daily stop will be wrong.</span>') + '</div>' +
           '<div class="mu lgnote">' + (LG_TF[G.tf].slow === 2 ? "On this chart the hour of the day matters little: the clock in step 1 is for the short charts. What still counts is the bar close, and no new entry just before a high-impact release. " : v.k === "go" ? "" : LG_TF[G.tf].slow === 1 ? (v.k === "wait" ? "Step 1 says Wait for " + G.mk + ": no new entry right now. " : "Quiet hours for " + G.mk + ": allowed on this chart, but expect slow bars and a wider spread. ") : "The clock in step 1 does not say Trade for " + G.mk + " right now. ") + 'Chart setup: candles and the 20-bar EMA, nothing else. ' + LG_TF[G.tf].hold + '</div>');
       } else {
+        var C2 = ltcState();
+        o.push('<div class="ltq">Your account</div><div class="mu lgnote">Filled in once. It sets the size on every instruction card and the daily stop in step 6.' + (C2.set ? '' : ' <b>These are still the app\'s example figures: type your own.</b>') + '</div>' +
+          '<div class="lgsize lgacct"><label>Balance ($)<input data-ga="bal" inputmode="decimal" value="' + C2.bal + '"></label><label>Risk per trade (%)<input data-ga="risk" inputmode="decimal" value="' + C2.risk + '"></label></div>');
         o.push('<div class="ltq">Which market do you trade this session?</div><div class="mu lgnote">One market, and stay with it. The tag is what the clock says right now.</div><div class="lta lgopts lgmks">' + LG_MK.map(function (m) {
           var v = lguideRow(LTL_ROWS[m[1]], t, news);
           return '<button data-mk="' + m[0] + '"' + (G.mk === m[0] ? ' class="on"' : '') + '><b>' + m[0] + '</b> <em class="lgv ' + v.k + '">' + v.tag + '</em></button>';
@@ -12336,7 +12451,10 @@ var PROG = (function () {
           LG_TFS.map(function (k) { return '<button data-tf="' + k + '"' + (G.tf === k ? ' class="on"' : '') + '><b>' + LG_TF[k].n + '</b><small>' + LG_TF[k].sub + ' Levels come from the ' + LG_TF[k].htf + ' chart.</small></button>'; }).join("") + '</div>');
       }
       setEl.innerHTML = o.join("");
-      var pickd = function (close) { if (G.mk && G.tf && close) setEdit = false; else setEdit = true; var m = lgmk(G); if (m) ltcState().mk = m[2]; learnSave(); paintNow(); paintSet(); paintLv(); render(); paintLog(); };
+      var pickd = function (close) { if (G.mk && G.tf && close) setEdit = false; else setEdit = true; var m = lgmk(G); if (m) ltcState().mk = m[2]; learnSave(); paintNow(); paintSet(); paintLv(); render(); paintLog(); if (close && G.mk && G.tf) go(autoStep() < 3 ? 3 : autoStep(), true); else paintBar(); };
+      [].forEach.call(setEl.querySelectorAll("[data-ga]"), function (inp) {
+        inp.oninput = function () { var x = parseFloat(String(inp.value).replace(",", ".")), C = ltcState(); if (x > 0) { C[inp.dataset.ga] = x; C.set = true; learnSave(); paintBar(); } };
+      });
       [].forEach.call(setEl.querySelectorAll("[data-mk]"), function (b) { b.onclick = function () { G.mk = b.dataset.mk; pickd(false); }; });
       [].forEach.call(setEl.querySelectorAll("[data-tf]"), function (b) { b.onclick = function () { G.tf = b.dataset.tf; pickd(true); }; });
       var c = setEl.querySelector('[data-a="setchg"]'); if (c) c.onclick = function () { setEdit = true; paintSet(); };
@@ -12346,7 +12464,7 @@ var PROG = (function () {
       if (!(G.mk && G.tf)) { lvEl.innerHTML = '<div class="mu lgnote">Choose the market and the chart in step 2 first.</div>'; return; }
       var T = LG_TF[G.tf], m = lgmk(G), done = lgLevelsDone(G);
       if (done && !lvEdit) {
-        lvEl.innerHTML = '<div class="lgdone"><span>Levels marked today on the <b>' + T.htf + '</b> chart of ' + G.mk + (G.lv.at ? ' at ' + G.lv.at : '') + '.</span><button class="btn sm" data-a="lvchg">Redo</button></div>' +
+        lvEl.innerHTML = '<div class="lgdone"><span>Levels marked today on the <b>' + T.htf + '</b> chart of ' + G.mk + (G.lv.at ? ' at ' + G.lv.at : '') + '.' + (G.lv.dir ? ' Direction there: <b>' + { u: "up", d: "down", s: "sideways" }[G.lv.dir] + '</b>.' : '') + '</span><button class="btn sm" data-a="lvchg">Redo</button></div>' +
           '<div class="mu lgnote">How you use them: a signal at a line is better than one in the middle of nowhere, and a line between your entry and your target <b>is</b> the target. Add a line when today makes a new clear high or low.</div>';
         lvEl.querySelector('[data-a="lvchg"]').onclick = function () { lvEdit = true; paintLv(); };
         return;
@@ -12377,9 +12495,11 @@ var PROG = (function () {
         return '<div class="lgtk"><label class="ltick"><input type="checkbox" data-lvt="' + it[0] + '"' + (G.lv.ticks[it[0]] ? " checked" : "") + '> <span>' + it[1] + '</span></label>' +
           '<button type="button" class="lgi" data-lvi="' + it[0] + '" title="Not sure? Show an example" aria-label="Show an example">i</button></div><div class="lginfo" data-lvbox="' + it[0] + '" hidden></div>';
       }).join("") + '</div>' +
+        '<div class="lgdir"><span>Direction on the ' + T.htf + ' chart:</span>' + [["u", "Up"], ["d", "Down"], ["s", "Sideways"]].map(function (x) { return '<button type="button" class="btn sm' + (G.lv.dir === x[0] ? ' on' : '') + '" data-lvd="' + x[0] + '">' + x[1] + '</button>'; }).join("") + '</div>' +
         '<div class="mu lgnote">Not sure about a tick? Press its <b>i</b> for an example. Why you do this: these are the prices where other traders have orders. They become your targets, and the places where a signal bar counts for more. Once before the session; it takes five minutes.</div>' +
         '<div class="ltbar"><button class="btn sm primary" data-a="lvdone">My levels are marked &#8594; step 4</button></div>';
       [].forEach.call(lvEl.querySelectorAll("[data-lvt]"), function (c) { c.onchange = function () { G.lv.ticks[c.dataset.lvt] = c.checked; learnSave(); }; });
+      [].forEach.call(lvEl.querySelectorAll("[data-lvd]"), function (b) { b.onclick = function () { G.lv.dir = b.dataset.lvd; G.lv.ticks.dir = true; learnSave(); paintLv(); }; });
       [].forEach.call(lvEl.querySelectorAll("[data-lvi]"), function (b) {
         b.onclick = function () {
           var box = lvEl.querySelector('[data-lvbox="' + b.dataset.lvi + '"]'), was = !box.hidden;
@@ -12387,9 +12507,9 @@ var PROG = (function () {
           if (!was) { infoOpen(box, LVI[b.dataset.lvi]); b.classList.add("on"); }
         };
       });
-      lvEl.querySelector('[data-a="lvdone"]').onclick = function () { G.lv.done = true; G.lv.at = lhm(lNow().H); lvEdit = false; learnSave(); paintLv(); render(); h2.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      lvEl.querySelector('[data-a="lvdone"]').onclick = function () { G.lv.done = true; G.lv.at = lhm(lNow().H); lvEdit = false; learnSave(); paintLv(); render(); go(4, true); };
     }
-    var paintNow = function () { nowEl.innerHTML = lguideNow(lNow()); if (!setEl.querySelector(":focus")) paintSet(); };
+    var paintNow = function () { nowEl.innerHTML = lguideNow(lNow()); if (!setEl.querySelector(":focus")) paintSet(); if (active) paintBar(); };
     function fig(f, cap, extra) {
       return '<figure class="lfig ltfig" data-gfig="' + f[0] + '" data-title="' + f[1] + '"' + (extra ? ' data-extra="1"' : '') + '><div class="lfscr"></div>' + (cap ? '<figcaption>' + cap + '</figcaption>' : '') + '</figure>';
     }
@@ -12421,13 +12541,14 @@ var PROG = (function () {
           '<label>Market<select data-gs="mk">' + COST_MK.map(function (m) { return '<option value="' + m[0] + '">' + m[1] + '</option>'; }).join("") + '</select></label>' +
           '<label><span data-gs="lab">Stop distance</span><input data-gs="stop" inputmode="decimal"></label>' +
           '<div class="lgsout"></div></div>') +
+        (ch === "range" || ch === "fbo" || ch === "limits" ? lgHtfNote(d) : '') +
         (ch === "limits" ? '<div class="lwarn" style="margin:8px 0 0">The wide stop makes the risk in pips large, so the size is small. About three in four of these must end at break-even or better for the plan to pay; that is a figure to measure in your own log, not a promise.</div>' : '') +
         '<p class="mu" style="margin-top:8px;font-size:12.5px">Taught win rate: ' + (odds === "–" ? "none given for this entry" : "about " + odds) + '. It is a teaching figure, not a measured result. Tag the trade "' + nm + '" in your log, so your own numbers decide.</p></div>' +
         '<div class="ltbar lglog1"><button class="btn sm" data-log="1">I took this trade</button><button class="btn sm" data-log="0">I skipped it</button><span class="mu" data-logmsg></span></div>' +
         (mirror && LVID["x_" + (ch === "late" ? "tight" : ch) + (d > 0 ? 0 : 2)]
           ? fig(["x_" + (ch === "late" ? "tight" : ch) + (d > 0 ? 0 : 2), "Example"], '<b>A ' + (d > 0 ? "buy" : "sell") + ' that worked.</b> The orange box is the signal bar, the shaded box is the trade from the entry to the target; the red line is the stop.', true)
           : fig(E[7] || r[7], (E[7] || r[7])[2] + (mirror ? ' <b>The picture shows the ' + (E[4] > 0 ? "buy" : "sell") + '; yours is the mirror image.</b>' : ''), ch === "late")) +
-        '<div class="ltbar">' + (ch === "limits" ? '<button class="btn sm" data-a="calc" data-adv="' + (adv ? 1 : 0) + '">Work out the size &#8595;</button>' : '') +
+        '<div class="ltbar">' + (ch === "limits" ? '<button class="btn sm primary" data-a="rcopen">&#9889; Open the ready card: prices and size</button><button class="btn sm" data-a="calc" data-adv="' + (adv ? 1 : 0) + '">Work out the size &#8595;</button>' : '') +
         '<button class="btn sm" data-ggo="' + r[5] + '">Why: ' + r[6] + '</button></div>';
     }
     function render() {
@@ -12481,6 +12602,7 @@ var PROG = (function () {
         };
         var show = function () {
           var b = numv("bal"), rk = numv("risk"); if (b > 0) C.bal = b; if (rk > 0) C.risk = rk;
+          if (document.activeElement === q("bal") || document.activeElement === q("risk")) C.set = true;
           if (q("stop").value !== "") C.stopU[C.mk] = q("stop").value;
           sz.querySelector(".lgsout").innerHTML = ltcLine(numv("stop"), sz.dataset.adv === "1"); learnSave();
         };
@@ -12491,11 +12613,12 @@ var PROG = (function () {
       [].forEach.call(askEl.querySelectorAll("[data-log]"), function (b) {
         b.onclick = function () {
           var L = lglogGet(); L.push({ t: Date.now(), ch: cardNow.ch, nm: cardNow.nm, d: cardNow.d, took: b.dataset.log === "1", res: "" }); lglogSet(L);
-          askEl.querySelector("[data-logmsg]").textContent = b.dataset.log === "1" ? "Logged. Now step 5 below: in the trade." : "Logged as skipped.";
+          askEl.querySelector("[data-logmsg]").textContent = b.dataset.log === "1" ? "Logged. Now step 5: in the trade." : "Logged as skipped.";
           [].forEach.call(askEl.querySelectorAll("[data-log]"), function (x) { x.disabled = true; });
-          paintLog();
+          paintLog(); if (b.dataset.log === "1") go(5, true); else paintBar();
         };
       });
+      var ro = askEl.querySelector('[data-a="rcopen"]'); if (ro) ro.onclick = function () { if (!G.rc) G.rc = { side: W.dir < 0 ? -1 : 1, top: "", bot: "", e1: "", half: true }; else G.rc.side = W.dir < 0 ? -1 : 1; readyShow(true); };
       var cb = askEl.querySelector('[data-a="calc"]'); if (cb) cb.onclick = function () {
         var full = $("ltFull"); if (full) full.open = true;
         var c = document.querySelector('[data-calc="today"]'), a = $("tcAdv");
@@ -12519,11 +12642,12 @@ var PROG = (function () {
     }
     function wireRes(root) {
       [].forEach.call(root.querySelectorAll("[data-lres]"), function (b) {
-        b.onclick = function () { var L = lglogGet(), i = +b.dataset.li; if (!L[i]) return; if (b.dataset.lres === "x") L.splice(i, 1); else L[i].res = b.dataset.lres; lglogSet(L); paintLog(); };
+        b.onclick = function () { var L = lglogGet(), i = +b.dataset.li; if (!L[i]) return; if (b.dataset.lres === "x") L.splice(i, 1); else L[i].res = b.dataset.lres; lglogSet(L); paintLog(); if (b.dataset.lres !== "x" && root === mgEl) go(6, true); else paintBar(); };
       });
     }
     var h3 = mkh(6, "After the trade: your log and your day", "lgh3");
-    var logEl = document.createElement("div"); logEl.className = "lglog"; el.appendChild(logEl);
+    var logEl = document.createElement("div"); logEl.className = "lglog"; cur.appendChild(logEl);
+    var nav6 = mkd("ltbar lgnav");
     var endEl = mkd("lgend");
     endEl.innerHTML = '<details class="lgmy"><summary>Ending the session: four ticks</summary><div class="lticks" style="margin-top:8px">' +
       ['<b>Every unfilled order is cancelled.</b> An order left behind fills while you are away.',
@@ -12533,11 +12657,11 @@ var PROG = (function () {
     function paintLog() {
       paintMg();
       logEl.innerHTML = lgDayHtml() + lglogHtml();
-      [].forEach.call(logEl.querySelectorAll("[data-lres]"), function (b) {
-        b.onclick = function () { var L = lglogGet(), i = +b.dataset.li; if (!L[i]) return; if (b.dataset.lres === "x") L.splice(i, 1); else L[i].res = b.dataset.lres; lglogSet(L); paintLog(); };
-      });
+      wireRes(logEl);
+      var D6 = lgDay(); nav6.innerHTML = D6.stop || D6.open ? '' : '<button class="btn sm primary" data-a="n6">Next trade &#8594; back to step 4</button>';
+      if (nav6.firstChild) nav6.firstChild.onclick = function () { LGUIDE_PATH = []; render(); go(autoStep(), true); };
     }
-    paintNow(); paintMy(); paintLv(); render(); paintLog();
+    paintNow(); paintMy(); paintLv(); render(); paintLog(); go(autoStep());
     lnewsLoad(paintNow);
     timer = setInterval(function () { lnewsLoad(paintNow); }, 30000);
     return { pause: function () { }, dispose: function () { clearInterval(timer); figs.forEach(function (f) { f.dispose(); }); figs = []; infoFigs.forEach(function (f) { f.dispose(); }); infoFigs = []; } };
@@ -12557,7 +12681,7 @@ var PROG = (function () {
         ltick("mk", "<b>One market</b>, in its busy hours (Amsterdam time): EURUSD 09:00–12:00, GER40 09:30–11:30 or US500 16:00–17:30. " + lgo("markets", "Your markets")) +
         ltick("news", "<b>News times</b> for today written down. Flat a few minutes before and after each.") +
         ltick("open", "<b>No trade in the first 15–30 minutes</b> after the open. " + lgo("open", "The open")) +
-        ltick("risk", "<b>Risk per trade</b>: 0.5% (1% at most); half of that on an advanced entry. " + lgo("sizing", "Position size")) +
+        ltick("risk", "<b>Risk per trade</b>: the percentage you set in step 2 of the guide; half of that on an advanced entry. Many start at 0.5 to 1%; a small account may need more before 0.01 lots fits the stop. " + lgo("sizing", "Position size")) +
         ltick("stop", "<b>Daily stop</b>: done for the day after three losses; after two when you risk more than 1% per trade.") +
         ltick("night", "<b>Flat before the 23:00 rollover</b>, or check the swap first: holding a CFD overnight costs (or pays) swap every night, and one weekday counts triple for the weekend (on FX, usually Wednesday). " + lgo("ccomm", "Swap")) +
         '</div>' +
