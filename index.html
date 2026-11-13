@@ -424,7 +424,12 @@
   .lta.lgmks{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-bottom:12px}
   .lta button.on{border-color:var(--amber);background:#1d1709}
   .lgneed{font-size:13px;color:#ffe2a8;border-left:3px solid var(--amber);padding:2px 0 2px 9px;margin-bottom:10px}
-  .lgex{font-size:13px;margin:6px 0}.lgex summary{cursor:pointer;color:var(--muted)}
+  .lgh u{text-decoration:none}
+  .lgi{flex:none;width:24px;height:24px;border-radius:50%;border:1px solid var(--amber-dim);background:transparent;color:var(--amber);font:italic 700 13px Georgia,serif;line-height:1;cursor:pointer;padding:0;margin-left:8px;vertical-align:1px}
+  .lgi:hover,.lgi.on{background:var(--amber);color:#14100a}
+  .lgtk{display:flex;gap:6px;align-items:flex-start;justify-content:space-between}.lgtk .ltick{flex:1}.lgtk .lgi{margin:1px 0 0 4px}
+  .lginfo{border-left:3px solid var(--amber-dim);background:var(--bg3);border-radius:0 8px 8px 0;padding:9px 11px;margin:4px 0 10px;font-size:13.5px;line-height:1.55}
+  .lginfo .ltfig{margin:10px 0 0}.lgh+.lginfo{margin-top:-4px}
   .lgmg{margin-bottom:4px}.lgmgout{margin-top:10px}.lgmg .lgnh{margin-top:12px}
   .lgday{font-size:13.5px;line-height:1.5;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg3);margin-bottom:10px}
   .lgday.stop{border-color:#6a2a2a;background:#241212}
@@ -740,7 +745,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.93.1", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.94.0", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -10721,6 +10726,60 @@ var PROG = (function () {
       ];
     }
   };
+  /* three days of 1-hour EURUSD bars, built so every kind of level in step 3 of
+     the guide can be shown on one chart. Fixed seed: the same chart every time. */
+  var LVL_P = { yh: 1.1562, yl: 1.1508, th: 1.1546, tl: 1.1516, sw: 1.1532, low: 1.1478 };
+  function llevelsEx() {
+    var W = [[0, 1.1482], [3, 1.1481], [9, 1.1512], [13, 1.1498], [20, 1.1529], [23, 1.1518], [28, 1.1557], [33, 1.1520], [36, 1.1530], [42, 1.1511], [47, 1.1524],
+      [52, 1.1519], [58, 1.1543], [62, 1.1531], [65, 1.1536]];
+    var box = [[0, 23, 1.1479, 1.1531], [24, 29, 1.1514, 1.1561], [30, 47, 1.1509, 1.1532], [48, 65, 1.1517, 1.1545]];
+    var pin = { 3: ["l", LVL_P.low], 20: ["h", LVL_P.sw], 28: ["h", LVL_P.yh], 36: ["h", LVL_P.sw + 0.0001], 42: ["l", LVL_P.yl], 52: ["l", LVL_P.tl], 58: ["h", LVL_P.th] };
+    var seed = 4711, rnd = function () { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    var bars = [], prev = W[0][1], w = 0, t0 = Date.UTC(2026, 10, 10, 0, 0);
+    for (var i = 0; i <= 65; i++) {
+      while (w < W.length - 2 && i > W[w + 1][0]) w++;
+      var a = W[w], b = W[w + 1], path = a[1] + (b[1] - a[1]) * (i - a[0]) / (b[0] - a[0]);
+      var bx = box.filter(function (q) { return i >= q[0] && i <= q[1]; })[0], cl = function (x) { return Math.min(bx[3], Math.max(bx[2], x)); };
+      var c = cl(path + (rnd() - 0.5) * 0.0005), o = cl(prev), h = cl(Math.max(o, c) + rnd() * 0.0004), l = cl(Math.min(o, c) - rnd() * 0.0004);
+      if (pin[i]) { if (pin[i][0] === "h") { h = pin[i][1]; c = Math.min(c, h - 0.0003); } else { l = pin[i][1]; c = Math.max(c, l + 0.0003); } }
+      var r5 = function (x) { return Math.round(x * 1e5) / 1e5; };
+      bars.push({ t: t0 + i * 3600000, o: r5(o), h: r5(Math.max(h, o, c)), l: r5(Math.min(l, o, c)), c: r5(c), v: 800 + Math.round(rnd() * 600) }); prev = c;
+    }
+    return { bars: bars, sym: "EURUSD", alias: "EURUSD", tf: "1H", tfLbl: "1 hour", dec: 4, gt: null };
+  }
+  LVID.levels = {
+    title: "The levels of step 3, on a 1-hour chart",
+    example: llevelsEx,
+    check: function (ex) {
+      var B = ex.bars, mx = function (a, z) { var m = -1; for (var i = a; i <= z; i++) m = Math.max(m, B[i].h); return m; }, mn = function (a, z) { var m = 9; for (var i = a; i <= z; i++) m = Math.min(m, B[i].l); return m; };
+      return B.length === 66 && mx(24, 47) === LVL_P.yh && mn(24, 47) === LVL_P.yl && mx(48, 65) === LVL_P.th && mn(48, 65) === LVL_P.tl && mx(0, 23) === LVL_P.sw && mn(0, 65) === LVL_P.low &&
+        B.every(function (b) { return b.h >= Math.max(b.o, b.c) && b.l <= Math.min(b.o, b.c); });
+    },
+    extraPrices: function () { return [1.1500, 1.1565]; },
+    view: [0, 65],
+    scenes: function (ex) {
+      var P = LVL_P, f = function (p) { return p.toFixed(4); }, days = function () { return [N.band(0, 23, "two days ago", COL.txt), N.band(24, 47, "yesterday", COL.blue), N.band(48, 65, "today so far", COL.amber)]; };
+      return [
+        { title: "The three days", vis: 65, clear: true, add: days(), say: "A 1 hour chart of the last three days. Each candle is one hour." },
+        { title: "Yesterday", vis: 65, clear: true, add: [N.band(24, 47, "yesterday", COL.blue), N.hl(P.yh, 28, "yesterday's high " + f(P.yh), COL.violet, true, 0), N.hl(P.yl, 42, "yesterday's low " + f(P.yl), COL.violet, true, 2)],
+          say: "Yesterday's highest and lowest price. Two lines." },
+        { title: "Today", vis: 65, clear: true, add: [N.band(48, 65, "today so far", COL.amber), N.hl(P.th, 58, "today's high " + f(P.th), COL.amber, true, 0), N.hl(P.tl, 52, "today's low " + f(P.tl), COL.amber, true, 2)],
+          say: "Today's highest and lowest price so far." },
+        { title: "Swings", vis: 65, clear: true, add: [N.hl(P.sw, 20, "turned here twice: " + f(P.sw), COL.blue, true, 0), N.pt(20, P.sw, "turn 1", COL.blue, true), N.pt(36, P.sw + 0.0001, "turn 2", COL.blue, true),
+            N.pt(13, ex.bars[13].l, "one small dip: no line", COL.txt, false)],
+          say: "A price where the market turned twice gets a line. One small dip does not." },
+        { title: "Round numbers", vis: 65, clear: true, add: [N.hl(1.1550, 0, "round number 1.1550", COL.txt, true, 0), N.hl(1.1500, 0, "round number 1.1500", COL.txt, true, 2)],
+          say: "The big round numbers above and below price." },
+        { title: "Direction", vis: 65, clear: true, add: [N.seg({ i: 3, p: P.low }, { i: 42, p: P.yl }, "", COL.up, false), N.seg({ i: 42, p: P.yl }, { i: 52, p: P.tl }, "", COL.up, false),
+            N.pt(3, P.low, "low " + f(P.low), COL.up, false), N.pt(42, P.yl, "higher low " + f(P.yl), COL.up, false), N.pt(52, P.tl, "higher low " + f(P.tl), COL.up, false)],
+          say: "Each low is higher than the one before: the direction is up." },
+        { title: "Keep five", vis: 65, clear: true, add: [N.hl(P.yh, 28, "1 · yesterday's high", COL.violet, true, 0), N.hl(P.th, 58, "2 · today's high (and 1.1550 just above)", COL.amber, true, 0),
+            N.hl(P.sw, 20, "3 · turned twice", COL.blue, true, 0), N.hl(P.tl, 52, "4 · today's low", COL.amber, true, 2), N.hl(P.yl, 42, "5 · yesterday's low", COL.violet, true, 2),
+            N.pt(65, ex.bars[65].c, "price now", COL.paper, true)],
+          say: "Five lines are left, the ones nearest to price." }
+      ];
+    }
+  };
   LVID.plan = {
     title: "Today's plan: one trade, step by step",
     example: LVID.every.example,
@@ -12151,9 +12210,8 @@ var PROG = (function () {
     var figs = [], timer = null;
     var nowEl = document.createElement("div"), askEl = document.createElement("div");
     nowEl.className = "lgnow"; askEl.className = "lgask";
-    el.innerHTML = '<div class="lgh"><span>1</span> Right now: what the clock allows</div>';
-    el.appendChild(nowEl);
-    var myEl = document.createElement("details"); myEl.className = "lgmy"; el.appendChild(myEl);
+    el.innerHTML = "";
+    var myEl = document.createElement("details"); myEl.className = "lgmy";
     var paintMy = function () {
       var t = lNow(), list = lnewsMine(t), open = myEl.open;
       myEl.innerHTML = '<summary>Add a news time yourself' + (list.length ? ' (' + list.length + ' added today)' : '') + '</summary>' +
@@ -12169,12 +12227,41 @@ var PROG = (function () {
       };
       [].forEach.call(myEl.querySelectorAll("[data-myx]"), function (b) { b.onclick = function () { list.splice(+b.dataset.myx, 1); lnewsMineSave(t, list); paintMy(); paintNow(); }; });
     };
-    var mkh = function (n, txt, cls) { var h = document.createElement("div"); h.className = "lgh" + (cls ? " " + cls : ""); h.innerHTML = '<span>' + n + '</span> ' + txt; el.appendChild(h); return h; };
+    var infoFigs = [];
+    /* an "i" panel: text and, when there is one, an example chart. Drawn when opened. */
+    function infoOpen(box, inf) {
+      box.innerHTML = '<div class="lginft">' + inf[0] + '</div>' + (inf[1] ? '<figure class="lfig ltfig"><div class="lfscr"></div>' + (inf[3] ? '<figcaption>' + inf[3] + '</figcaption>' : '') + '</figure>' : '');
+      box.hidden = false;
+      if (inf[1]) { var fe = box.querySelector("figure");
+        try { var lf = new LessonFigure(fe, inf[1], inf[2], true); box._fig = lf; infoFigs.push(lf); learnPlayers.push(lf); } catch (e) { fe.querySelector(".lfscr").innerHTML = '<div class="hint">This chart could not be drawn (' + esc(e.message) + ').</div>'; } }
+    }
+    function infoClose(box) {
+      if (box._fig) { box._fig.dispose(); var i = infoFigs.indexOf(box._fig); if (i >= 0) infoFigs.splice(i, 1); i = learnPlayers.indexOf(box._fig); if (i >= 0) learnPlayers.splice(i, 1); box._fig = null; }
+      box.hidden = true; box.innerHTML = "";
+    }
+    var LGHI = {
+      1: ["<b>How to read it.</b> Each line is one market: its name, the verdict, the reason. <b>Trade</b>: busy hours and no news close by. <b>Wait</b>: an open or a release is minutes away; the line says when to look again. <b>Leave it</b>: quiet hours, when most moves fail. <b>Be flat by</b> a time means: have no open trade at that time. Not sure about a release that is not listed? Add its time yourself under the list."],
+      2: ["<b>Not sure which market?</b> Take one that says Trade and that you have watched before. One market for the whole session: every market moves differently, and you learn one at a time.<br><b>Not sure which chart?</b> Start on the <b>15-minute</b>: fewer decisions and more time to think per bar. Take the 5-minute when reading a bar no longer takes effort. Take the 4-hour or daily if you cannot watch during the day. The smaller the chart, the smaller the stop and the more the spread costs you per trade."],
+      3: ["<b>What is a level?</b> A price where the market clearly turned, or broke through and came back. Other traders have their orders there, so price often stops or turns there again. You draw them as horizontal lines on the higher chart, and they stay visible on your trading chart. Every tick below has its own <b>i</b> with a picture of that line.", "levels", "Keep five", "All the lines of this step on one 1-hour chart: five are left, the ones nearest to price."],
+      4: ["<b>Not sure what you see?</b> Press <b>Not sure: help me decide</b>. It asks four checks, one at a time, each with pictures, and sorts your chart into one of the other choices. Still not sure after that: no trade on this bar, and that is a correct answer. Press only after a bar has <b>closed</b>; a bar that is still moving can change completely."],
+      5: ["<b>What you do here.</b> Nothing new is decided in the trade: the stop and the target are already on the order. After each bar close you press what happened and do what it says. Most of the time the answer is Hold.", "plan", "In the trade: hold", "Price pauses and dips below the entry. Nothing is broken, so the stop stays and you hold."],
+      6: ["<b>The three results.</b> <b>Target hit</b>: the take-profit was filled. <b>Stopped</b>: the stop loss was filled. <b>Out near the entry</b>: you closed it yourself for a small plus or minus, or the stop was at your entry price. Skipped trades count too: they show which entries you avoid. The table needs about 20 trades per entry before the win rate says anything."]
+    };
+    var mkh = function (n, txt, cls) {
+      var h = document.createElement("div"); h.className = "lgh" + (cls ? " " + cls : ""); h.innerHTML = '<span>' + n + '</span> <u>' + txt + '</u>'; el.appendChild(h);
+      if (LGHI[n]) {
+        var b = document.createElement("button"); b.className = "lgi"; b.type = "button"; b.textContent = "i"; b.title = "Not sure? Explain this step"; b.setAttribute("aria-label", "Explain step " + n); h.appendChild(b);
+        var box = document.createElement("div"); box.className = "lginfo"; box.hidden = true; el.appendChild(box);
+        b.onclick = function () { if (box.hidden) { infoOpen(box, LGHI[n]); b.classList.add("on"); } else { infoClose(box); b.classList.remove("on"); } };
+      }
+      return h;
+    };
     var mkd = function (cls) { var d = document.createElement("div"); d.className = cls; el.appendChild(d); return d; };
+    mkh(1, "Right now: what the clock allows"); el.appendChild(nowEl); el.appendChild(myEl);
     mkh(2, "Your chart: the market and the timeframe"); var setEl = mkd("lgstep lgset");
     mkh(3, "Mark your levels on the higher timeframe"); var lvEl = mkd("lgstep lglv");
     var h2 = mkh(4, ""); el.appendChild(askEl);
-    var G = lgset(), setEdit = false, lvEdit = false, lvFig = null;
+    var G = lgset(), setEdit = false, lvEdit = false;
     function verdict() { var m = lgmk(G), t = lNow(); return m ? lguideRow(LTL_ROWS[m[1]], t, lnewsToday(t)) : null; }
     function paintSet() {
       var t = lNow(), news = lnewsToday(t), o = [];
@@ -12196,7 +12283,7 @@ var PROG = (function () {
       var c = setEl.querySelector('[data-a="setchg"]'); if (c) c.onclick = function () { setEdit = true; paintSet(); };
     }
     function paintLv() {
-      if (lvFig) { lvFig.dispose(); var ix = learnPlayers.indexOf(lvFig); if (ix >= 0) learnPlayers.splice(ix, 1); lvFig = null; }
+      [].forEach.call(lvEl.querySelectorAll(".lginfo"), infoClose);
       if (!(G.mk && G.tf)) { lvEl.innerHTML = '<div class="mu lgnote">Choose the market and the chart in step 2 first.</div>'; return; }
       var T = LG_TF[G.tf], m = lgmk(G), done = lgLevelsDone(G);
       if (done && !lvEdit) {
@@ -12216,15 +12303,31 @@ var PROG = (function () {
         ["dir", "Write down the <b>direction on the " + T.htf + " chart</b>: up, down or sideways (highs and lows stepping up, stepping down, or overlapping). A trade with it has room to run. A trade against it: only the best signal, and the first line in the way is the target."],
         ["prune", "<b>Keep at most five lines</b>, the ones nearest to price. Delete the rest: a chart full of lines says nothing."],
         ["back", "Go back to your <b>" + T.n + "</b> chart. The lines come with you. Say it out loud: the nearest line above price, and the nearest line below."]];
-      lvEl.innerHTML = '<div class="lticks">' + items.map(function (it) { return '<label class="ltick"><input type="checkbox" data-lvt="' + it[0] + '"' + (G.lv.ticks[it[0]] ? " checked" : "") + '> <span>' + it[1] + '</span></label>'; }).join("") + '</div>' +
-        '<div class="mu lgnote">Why: these are the prices where other traders have orders. They become your targets, and the places where a signal bar counts for more. Do this once before the session; it takes five minutes.</div>' +
-        '<details class="lgex"><summary>Show an example chart with the lines drawn</summary><figure class="lfig ltfig"><div class="lfscr"></div><figcaption>Three lines on a 1-hour chart: the low the move started from, the old high the market broke above (often support when price comes back), and the highest price so far (a magnet, where buyers take profits).</figcaption></figure></details>' +
+      var other = T.slow ? " <span class=\"mu\">The picture shows the idea on a 1-hour chart with days; on your " + T.htf + " chart you do the same with the periods this tick names.</span>" : "";
+      var LVI = {
+        open: ["<b>How.</b> In cTrader, switch the timeframe of your " + G.mk + " chart to " + (T.htf === "1-hour" ? "h1" : T.htf === "daily" ? "D1" : "W1") + " and pinch or scroll out until " + T.back + " fit on the screen. You should see the whole shape at once: the big up and down moves, not single bars." + other, "levels", "The three days", "A 1-hour chart zoomed out to three days. That is how much you need to see."],
+        yest: ["<b>How.</b> Find the highest and the lowest price of that period and draw a horizontal line at each, at the very tip of the wick. Many traders watch exactly these two prices, so price often reacts there." + other, "levels", "Yesterday", "Yesterday is shaded. Its highest wick and its lowest wick each get a line."],
+        today: ["<b>How.</b> The same for the most recent period: its high and its low so far. These two move during the session: when price makes a new high or low, move the line." + other, "levels", "Today", "Today so far is shaded, with a line at its high and at its low."],
+        swing: ["<b>How.</b> Look for a price where the market turned <b>at least twice</b>: two tops at the same height, two bottoms at the same height, or an old top that later held as a bottom. That gets a line. A single small dip or bump does not. If you are not sure it is a level, it is not one." + other, "levels", "Swings", "Two turns at the same price: a line. The single small dip on the left: no line."],
+        round: ["<b>How.</b> For " + G.mk + ": " + m[3] + ". Take only the nearest one above price and the nearest one below. They matter because many orders are placed at round prices; they are weaker than a price where the market really turned.", "levels", "Round numbers", "The nearest round number above price and the nearest below."],
+        dir: ["<b>How.</b> Mark the last three clear lows and the last three clear highs. Lows stepping up: <b>up</b>. Highs stepping down: <b>down</b>. Both overlapping: <b>sideways</b>. Write the one word down; it decides which trades in step 4 have room to run." + other, "levels", "Direction", "Three lows, each higher than the one before: the direction is up."],
+        prune: ["<b>How.</b> Two lines almost at the same price count as one: keep the one where price really turned. Lines far above or below, where price will not come today, go. What is left should be about five lines around the current price.", "levels", "Keep five", "Five lines left. Today's high and the round number just above it are one line; the far low and the far round number are gone."],
+        back: ["<b>How.</b> Switch the timeframe back. Horizontal lines stay on the chart in cTrader when you change timeframe. Now price sits between two of your lines: the one above is where a buy can run into trouble, the one below is where a sell can.", "plan", "The levels on your chart", "The same lines on the trading chart. Price is between the old high below and the high of the move above."]
+      };
+      lvEl.innerHTML = '<div class="lticks">' + items.map(function (it) {
+        return '<div class="lgtk"><label class="ltick"><input type="checkbox" data-lvt="' + it[0] + '"' + (G.lv.ticks[it[0]] ? " checked" : "") + '> <span>' + it[1] + '</span></label>' +
+          '<button type="button" class="lgi" data-lvi="' + it[0] + '" title="Not sure? Show an example" aria-label="Show an example">i</button></div><div class="lginfo" data-lvbox="' + it[0] + '" hidden></div>';
+      }).join("") + '</div>' +
+        '<div class="mu lgnote">Not sure about a tick? Press its <b>i</b> for an example. Why you do this: these are the prices where other traders have orders. They become your targets, and the places where a signal bar counts for more. Once before the session; it takes five minutes.</div>' +
         '<div class="ltbar"><button class="btn sm primary" data-a="lvdone">My levels are marked &#8594; step 4</button></div>';
       [].forEach.call(lvEl.querySelectorAll("[data-lvt]"), function (c) { c.onchange = function () { G.lv.ticks[c.dataset.lvt] = c.checked; learnSave(); }; });
-      var dx = lvEl.querySelector(".lgex"); dx.ontoggle = function () {
-        if (!dx.open || lvFig) return; var fe = dx.querySelector("figure");
-        try { lvFig = new LessonFigure(fe, "planHtf", "Mark the levels", true); learnPlayers.push(lvFig); } catch (e) { fe.querySelector(".lfscr").innerHTML = '<div class="hint">This chart could not be drawn (' + esc(e.message) + ').</div>'; }
-      };
+      [].forEach.call(lvEl.querySelectorAll("[data-lvi]"), function (b) {
+        b.onclick = function () {
+          var box = lvEl.querySelector('[data-lvbox="' + b.dataset.lvi + '"]'), was = !box.hidden;
+          [].forEach.call(lvEl.querySelectorAll(".lginfo"), infoClose); [].forEach.call(lvEl.querySelectorAll(".lgi"), function (x) { x.classList.remove("on"); });
+          if (!was) { infoOpen(box, LVI[b.dataset.lvi]); b.classList.add("on"); }
+        };
+      });
       lvEl.querySelector('[data-a="lvdone"]').onclick = function () { G.lv.done = true; G.lv.at = lhm(lNow().H); lvEdit = false; learnSave(); paintLv(); render(); h2.scrollIntoView({ behavior: "smooth", block: "start" }); };
     }
     var paintNow = function () { nowEl.innerHTML = lguideNow(lNow()); if (!setEl.querySelector(":focus")) paintSet(); };
@@ -12271,7 +12374,7 @@ var PROG = (function () {
     function render() {
       figs.forEach(function (f) { f.dispose(); var i = learnPlayers.indexOf(f); if (i >= 0) learnPlayers.splice(i, 1); }); figs = [];
       var W = where(), out = [], n = LGT[W.cur], TF = LG_TF[G.tf];
-      h2.innerHTML = '<span>4</span> What do you see' + (G.mk && TF ? ' on your ' + TF.n + ' ' + G.mk + ' chart' : '') + '? Press it, after every bar close';
+      h2.querySelector("u").textContent = 'What do you see' + (G.mk && TF ? ' on your ' + TF.n + ' ' + G.mk + ' chart' : '') + '? Press it, after every bar close';
       if (!lgLevelsDone(G)) out.push('<div class="lgneed">' + (G.mk && G.tf ? 'Step 3 is not done yet today: mark your levels first. They decide your targets.' : 'Steps 2 and 3 come first: choose your chart and mark your levels. They decide your targets.') + '</div>');
       var look = LGLOOK[W.cur]; if (look && W.cur === "start") look = "Look at the <b>last 20 bars</b>: the stretch the EMA covers. " + (TF ? "On your " + TF.n + " chart that is " + TF.b20 + "." : "On a 15-minute chart that is the last five hours; on a 5-minute chart, the last hour and 40 minutes.");
       out.push('<div class="ltpath">' + (LGUIDE_PATH.length ? LGUIDE_PATH.map(function (s, i) {
@@ -12378,7 +12481,7 @@ var PROG = (function () {
     paintNow(); paintMy(); paintLv(); render(); paintLog();
     lnewsLoad(paintNow);
     timer = setInterval(function () { lnewsLoad(paintNow); }, 30000);
-    return { pause: function () { }, dispose: function () { clearInterval(timer); figs.forEach(function (f) { f.dispose(); }); figs = []; if (lvFig) { lvFig.dispose(); lvFig = null; } } };
+    return { pause: function () { }, dispose: function () { clearInterval(timer); figs.forEach(function (f) { f.dispose(); }); figs = []; infoFigs.forEach(function (f) { f.dispose(); }); infoFigs = []; } };
   }
 
   lch({ id: "today", part: "Today", title: "Today's trade plan",
