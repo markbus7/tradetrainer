@@ -44,14 +44,16 @@ table{width:100%;margin-top:6px;border-collapse:collapse;font-size:11px;table-la
         int reds = m.Cards.Sum(c => c.Notes.Count(n => n.Level == Lvl.Bad)) + m.Global.Count(n => n.Level == Lvl.Bad);
         int yel = m.Cards.Sum(c => c.Notes.Count(n => n.Level == Lvl.Warn)) + m.Global.Count(n => n.Level == Lvl.Warn);
         sb.Append("<div class=head><span class=tg>–</span><span class=b style='font-size:14px'>TRADE WATCH</span><span class=dim style='font-size:11px'>&nbsp; v" + H(m.Title.Split(' ').Last()) + "</span><span style='margin-left:10px;display:flex;align-items:center'>");
+        if (m.DayChip != null) sb.Append($"<span class=chip style='background:{Tint(m.DayLvl)};color:{(m.DayLvl == Lvl.Ok ? "#E6E9EF" : Col(m.DayLvl))}'>{H(m.DayChip)}</span>");
         for (int i = 0; i < m.MaxLosses; i++) sb.Append(i < m.Losses ? "<span class=ld style='background:#FF6B6B;border-color:#FF6B6B'></span>" : "<span class=ld></span>");
         if (reds > 0) sb.Append($"<span class=chip style='background:#FF6B6B;margin-left:4px'>{reds} to fix</span>");
         if (yel > 0) sb.Append($"<span class=chip style='background:#F2B84B'>{yel} to check</span>");
         if (reds == 0 && yel == 0) sb.Append("<span class=chip style='background:#4CC38A;margin-left:4px'>all good</span>");
         sb.Append("</span></div>");
         sb.Append($"<div class=dim style='margin-top:6px;font-size:11px'>{H(m.Balance)}</div><div class=dim style='font-size:11px'>{H(m.Target)}</div>");
-        string dayCol = m.Losses >= m.MaxLosses ? "#FF6B6B" : m.Losses == m.MaxLosses - 1 ? "#F2B84B" : "#E6E9EF";
-        sb.Append($"<div style='margin-top:6px'><span class='dim b' style='font-size:10px'>TODAY &nbsp;</span><span class=b style='color:{dayCol}'>{m.Losses} of {m.MaxLosses} losses · {(m.Scratches > 0 ? m.Scratches + " scratch · " : "")}{m.Trades} trade{(m.Trades == 1 ? "" : "s")} · </span><span class=b style='color:{(m.DayPnlVal >= 0 ? "#4CC38A" : "#FF6B6B")}'>{H(m.DayPnl)}</span></div>");
+        string dayCol = m.DayLvl == Lvl.Ok ? "#E6E9EF" : Col(m.DayLvl);
+        sb.Append($"<div style='margin-top:6px'><span class='dim b' style='font-size:10px'>TODAY &nbsp;</span><span class=b style='color:{dayCol}'>{H(m.DayLine)}</span></div>");
+        if (m.DayChip != null) sb.Append($"<div class=meter style='width:406px'><i style='width:100%;background:#2A303B'></i><i style='width:{m.DayUsed * 100:0.0}%;background:{(m.DayLvl == Lvl.Ok ? "#7FB3FF" : Col(m.DayLvl))}'></i><i style='left:100%;width:2px;height:14px;top:0;border-radius:0;background:#E6E9EF'></i></div>");
         if (!string.IsNullOrEmpty(m.AllRisk)) sb.Append($"<div class=dim style='font-size:11px;margin-top:2px'>{H(m.AllRisk)}</div>");
         foreach (var n in m.Global) sb.Append("<div style='width:430px'>" + Pill(n) + "</div>");
         foreach (var c in m.Cards)

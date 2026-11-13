@@ -137,6 +137,21 @@ static class Tests
         Ok(mark.Count(n => Day.IsLoss(n, scr)) == 1 && mark.Count(n => Day.IsScratch(n, scr) && n < 0) == 1, "-0.45 is a scratch, only gold is a loss");
         Ok(Day.IsLoss(-1.5, scr) && !Day.IsLoss(-1.3, scr) && !Day.IsLoss(0.2, scr), "scratch edge");
         Ok(Day.IsLoss(-0.01, 0), "scratch off (0%): every loss counts");
+        // Mark's whole 13 Nov: gold -12.83, +1.55, scratch -0.45, -5.01. Day started at 240.26, so 1R = 7.21
+        var mday = new List<TradeGroup> { new TradeGroup { Net = -12.83 }, new TradeGroup { Net = 1.55 }, new TradeGroup { Net = -0.45 }, new TradeGroup { Net = -5.01 } };
+        double r1 = 240.26 * 0.03, scr2 = Day.ScratchMoney(240.26, 3, 20);
+        var cnt = DayRules.Evaluate(mday, DayRule.Count_losses, r1, 2, 2, scr2);
+        Ok(cnt.Losses == 2 && cnt.Scratches == 1 && cnt.Stopped, "count mode: 2 losses + 1 scratch = stopped at 2");
+        Ok(!DayRules.Evaluate(mday, DayRule.Count_losses, r1, 2, 3, scr2).Stopped, "count mode with 3 allowed: not stopped");
+        var r2 = DayRules.Evaluate(mday, DayRule.Day_down_in_R, r1, 2, 2, scr2);
+        Ok(r2.Stopped && Near(r2.Net, -16.74, 1e-9) && r2.Used == 1, "day down 2R: -16.74 is past -14.42, stopped");
+        var r3 = DayRules.Evaluate(mday, DayRule.Day_down_in_R, r1, 3, 2, scr2);
+        Ok(!r3.Stopped && r3.OneLeft, "day down 3R: -16.74 of -21.62, one more full loss ends it");
+        var many = Enumerable.Range(0, 10).Select(i => new TradeGroup { Net = i % 2 == 0 ? -7.2 : 7.0 }).ToList();
+        var rm = DayRules.Evaluate(many, DayRule.Day_down_in_R, 7.2, 2, 2, 1.44);
+        Ok(!rm.Stopped && rm.Losses == 5, "10 trades, 5 full losses, day only -1R: R mode lets you trade on");
+        Ok(DayRules.Evaluate(many, DayRule.Count_losses, 7.2, 2, 2, 1.44).Stopped, "same day in count mode would have stopped");
+        Ok(r2.Line.Contains("stop at -€14.42") && r2.Chip.StartsWith("day -2.3R"), "day line text (" + r2.Line + " | " + r2.Chip + ")");
         Ok(Day.MaxLosses(3, 0) == 2 && Day.MaxLosses(1, 0) == 3 && Day.MaxLosses(3, 4) == 4, "daily stop: 2 above 1% risk, 3 otherwise, override wins");
 
         // ---- journal row from a finished campaign
@@ -243,7 +258,9 @@ static class Tests
         var gb = Eur(false, false, 13, 0.08, 1.27000, 1.27250, null, 0, "GBPUSD"); gb.Current = 1.26930; gb.PipValue = 0.0001 / 1.085; gb.CommKnown = false;
         var ps = Analyzer.Build(new[] { pi1, pi2, gb }, 240, 3);
         var gl = new List<Note> { new Note(Lvl.Warn, "daily_last", "day|last", "One more loss ends your day (1 of 2).") };
-        var pm = PanelBuilder.Build(ps, gl, 240, 240.55, 3, 1, 1, 2, -3.70, "Journal: 12 trades  ·  58% won  ·  avg +0.21R  ·  net +€9.40  ·  report.html", Lvl.Info, "1.1.0");
+        var dayGroups = new List<TradeGroup> { new TradeGroup { Net = -3.70 }, new TradeGroup { Net = 1.10 } };
+        var dst = DayRules.Evaluate(dayGroups, DayRule.Day_down_in_R, 7.2, 2, 2, 1.44);
+        var pm = PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, "Journal: 12 trades  ·  58% won  ·  avg +0.21R  ·  net +€9.40  ·  report.html", Lvl.Info, "1.2.0");
         var ec = pm.Cards.Single(c => c.Symbol == "EURUSD");
         Ok(ec.Rows.Count == 2 && ec.Rows[0].Name == "E1" && ec.Rows[0].Filled && !ec.Rows[1].Filled, "card rows: E1 filled, E2 pending");
         var slm = ec.Marks.Single(x => x.Kind == "sl"); var tpm = ec.Marks.Where(x => x.Kind == "tp").ToList(); var e2m = ec.Marks.Single(x => x.Label == "E2");
@@ -252,7 +269,7 @@ static class Tests
         var gsl = gc.Marks.Single(x => x.Kind == "sl"); var gnow = gc.Marks.Single(x => x.Kind == "now");
         Ok(gsl.Pos < gc.ZoneEntry && gnow.Pos > gc.ZoneEntry, "sell ladder is flipped: SL still on the left, price below entry on the right");
         Ok(gc.RiskLvl == Lvl.Bad && gc.Status == Lvl.Bad && gc.Reward == "no TP", "GBPUSD: risk too high, no TP");
-        Ok(pm.Signature() == PanelBuilder.Build(ps, gl, 240, 240.55, 3, 1, 1, 2, -3.70, pm.Footer, Lvl.Info, "1.1.0").Signature(), "same data, same picture (no redraw)");
+        Ok(pm.Signature() == PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, pm.Footer, Lvl.Info, "1.2.0").Signature(), "same data, same picture (no redraw)");
         System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "panel-preview.html"), Preview.Panel(pm));
 
         Console.WriteLine($"{pass} passed, {fail} failed");

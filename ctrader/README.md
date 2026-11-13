@@ -67,9 +67,12 @@ A new yellow or red check plays a sound, shows a popup and is written to the cBo
 - Commission: for open positions it's cTrader's own figure. For pending orders it's an **estimate**
   from your last trade on that symbol, and the panel says so if there was none.
 - Swap per night uses the symbol's swap rates from cTrader (triple on the triple-swap day).
-- Daily stop: 2 losses when your target risk is above 1%, else 3 (can be changed in the settings).
-  A **scratch** is not a loss: a loss smaller than 20% of your risk per trade (at 3% of EUR 224 that's under EUR 1.34) is shown as a scratch
-  and doesn't count toward the daily stop. The day runs on Amsterdam time.
+- Daily stop (default **Day down in R**): the day ends when its closed results add up to 2 risks down
+  (1R = your risk % of the balance the day started with; at 3% of EUR 240 that's EUR 7.21, so the stop is at -EUR 14.42).
+  Wins in between give room back, and there's no limit on the number of trades. The header shows a chip like "day -1.2R / -2R".
+  The other rule, **Count losses**, stops after 2 losses (above 1% risk, else 3). A **scratch**, meaning a loss smaller than 20% of your
+  risk per trade, never counts as a loss. Positions on the same symbol and direction that close within 5 minutes of each other
+  count as one trade. The trading day runs on Amsterdam time from midnight, and you can set another start hour.
   Positions on the same symbol and direction that close within 5 minutes of each other count as one trade.
 
 ## Journal and report
@@ -102,7 +105,10 @@ logged the next time it runs, but without the best point.
 | Setting | Default |
 |---|---|
 | Risk target per trade (% of balance) | 3 |
-| Daily stop (losses, 0 = auto) | 0 (2 above 1% risk, else 3) |
+| Daily stop rule | Day down in R |
+| Day down in R: stop when the day is down this many risks | 2 |
+| Count losses: stop after (0 = auto) | 0 (2 above 1% risk, else 3) |
+| Trading day starts at (hour, Amsterdam time) | 0 |
 | Scratch: a loss smaller than this % of your risk per trade doesn't count | 20 |
 | Sound / popup on a new warning | on / on |
 | Warn before rollover (minutes) | 60 |
