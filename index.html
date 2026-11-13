@@ -46,6 +46,7 @@
   nav button{padding:6px 9px;font-size:11px;font-weight:600;border-radius:7px;border:1px solid transparent;color:var(--muted)}
   nav button.on{color:var(--amber);background:var(--bg3);border-color:var(--line)}
   nav button:hover{color:var(--paper)}
+  #syncBtn.sy-ok{color:var(--up)}#syncBtn.sy-err{color:var(--dn)}#syncBtn.sy-busy{color:var(--amber)}
   @media(max-width:620px){
     /* five tabs have to fit a phone header, so the chrome gives up its room first */
     nav{gap:2px}
@@ -56,7 +57,7 @@
     header{gap:6px;padding:7px 8px}
     .logo{font-size:11px;letter-spacing:.1em}
   }
-  @media(max-width:430px){.logo{font-size:0;letter-spacing:0}.logo::after{content:'TT';font-size:12px;letter-spacing:.12em}}
+  @media(max-width:430px){.logo{font-size:0;letter-spacing:0}.logo::after{content:'TT';font-size:12px;letter-spacing:.12em}nav{gap:1px}nav button{padding:6px 3px}}
 
   main{flex:1;min-height:0;position:relative}
   .view{position:absolute;inset:0;display:none;flex-direction:column;min-height:0}
@@ -693,6 +694,7 @@
     <button data-view="desk" data-ico="▦">Desk</button>
     <button data-view="history" data-ico="☰">History</button>
     <button data-view="stats" data-ico="◔">Stats</button>
+    <button id="syncBtn" data-ico="&#9729;">Sync</button>
     <button id="helpBtn" data-ico="?">Help</button>
   </nav>
 </header>
@@ -772,9 +774,269 @@
 <div class="toast" id="toast"></div>
 
 <script>
+/* =====================================================================
+   SYNC: the same progress on every device, through a private GitHub gist.
+   Everything the app keeps in this browser (keys starting tt_ or tt.) is
+   copied to one secret gist on the user's own GitHub account, one file per
+   key, with a _meta.json that holds when each key last changed. Each key
+   goes the way of its newest change; the guide's trade log (tt_glog) is
+   merged entry by entry when two devices both added to it.
+   The token is kept only in this browser (tt_sync) and is never uploaded.
+   This script runs before the app, so it sees every save the app makes.
+   ===================================================================== */
+var SYNC = (function () {
+  var LS; try { LS = window.localStorage; } catch (e) { return { on: function () { return false; } }; }
+  if (!LS || !window.fetch) return { on: function () { return false; } };
+  var P = Storage.prototype, rawSet = P.setItem, rawRemove = P.removeItem, rawGet = P.getItem;
+  var CFG = "tt_sync", MT = "tt_syncm", META = "_meta.json", API = "https://api.github.com";
+  var DESC = "Trade Trainer sync (made by the app, do not edit)";
+  /* device-only keys stay here: the token itself, the news cache, and the voice (voices differ per device) */
+  var LOCAL = { "tt_news": 1, "tt.prefs.v1": 1 };
+  function synced(k) { return typeof k === "string" && /^tt[_.]/.test(k) && k.indexOf("tt_sync") !== 0 && !LOCAL[k]; }
+  function jget(k, d) { try { var v = JSON.parse(rawGet.call(LS, k) || "null"); return v == null ? d : v; } catch (e) { return d; } }
+  function jset(k, v) { try { rawSet.call(LS, k, JSON.stringify(v)); } catch (e) { } }
+  function fname(k) { return k + ".json"; }
+
+  var cfg = jget(CFG, {});        /* { token, gist, base: {key: time at last sync}, at, err } */
+  var mt = jget(MT, {});          /* key -> time of the last change made on this device */
+  var frozen = false, dirtyT = null, busy = null, again = false, state = "off", listeners = [];
+  function on() { return !!(cfg.token && cfg.gist); }
+  function saveCfg() { jset(CFG, cfg); }
+  function saveMt() { jset(MT, mt); }
+  function localKeys() { var a = []; for (var i = 0; i < LS.length; i++) { var k = LS.key(i); if (synced(k)) a.push(k); } return a; }
+
+  /* every change the app saves is stamped, and a sync follows a few seconds later */
+  function touch(k) {
+    mt[k] = Math.max(Date.now(), ((cfg.base || {})[k] || 0) + 1); saveMt();
+    clearTimeout(dirtyT); dirtyT = setTimeout(function () { sync("change"); }, 3000);
+  }
+  P.setItem = function (k, v) {
+    if (this === LS && on() && synced(k)) {
+      if (frozen) return;   /* newer progress just arrived and the page is reloading: don't let the old copy in memory overwrite it */
+      var o = rawGet.call(LS, k);
+      rawSet.call(this, k, v);
+      if (o !== String(v)) touch(k);
+      return;
+    }
+    return rawSet.call(this, k, v);
+  };
+  P.removeItem = function (k) {
+    if (this === LS && on() && synced(k)) {
+      if (frozen) return;
+      var had = rawGet.call(LS, k) !== null;
+      rawRemove.call(this, k);
+      if (had) touch(k);
+      return;
+    }
+    return rawRemove.call(this, k);
+  };
+
+  function api(method, path, body) {
+    var h = { "Authorization": "Bearer " + cfg.token, "Accept": "application/vnd.github+json" };
+    if (body) h["Content-Type"] = "application/json";
+    return fetch(API + path, { method: method, cache: "no-store", headers: h, body: body ? JSON.stringify(body) : undefined }).then(function (r) {
+      if (r.ok) return r.status === 204 ? null : r.json();
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        var m = r.status === 401 ? "GitHub does not accept this token. It may be mistyped, expired or deleted: make a new one and paste it here." :
+          r.status === 403 || r.status === 404 ? "The token cannot reach your gists. Make it with the gist permission (see the steps below)." :
+          "GitHub answered " + r.status + (j && j.message ? ": " + j.message : "") + ".";
+        var e = new Error(m); e.status = r.status; throw e;
+      });
+    }, function () { throw new Error("No connection to GitHub. Your progress is kept here and goes up the next time you are online."); });
+  }
+  function fileText(f) {
+    if (!f) return Promise.resolve(null);
+    if (!f.truncated) return Promise.resolve(f.content);
+    return fetch(f.raw_url, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("Could not read " + f.filename + " from GitHub."); return r.text(); });
+  }
+  function unwrap(t) { try { var v = JSON.parse(t); return typeof v === "string" ? v : null; } catch (e) { return null; } }
+
+  /* two devices both logged trades: keep every entry, the newer copy of each one */
+  function mergeLog(a, b) {
+    var A, B; try { A = JSON.parse(a) || []; B = JSON.parse(b) || []; } catch (e) { return null; }
+    if (!Array.isArray(A) || !Array.isArray(B)) return null;
+    var by = {}, out = [];
+    A.concat(B).forEach(function (x) { if (!x || x.t == null) return; var id = x.t + "|" + x.ch; if (!(id in by)) { by[id] = out.length; out.push(x); } else if (x.res && !out[by[id]].res) out[by[id]] = x; });
+    out.sort(function (p, q) { return p.t - q.t; });
+    return JSON.stringify(out.slice(-500));
+  }
+  var MERGE = { "tt_glog": mergeLog };
+
+  function setState(s, err) {
+    state = s; cfg.err = err || ""; if (s === "ok") cfg.at = Date.now(); if (cfg.token) saveCfg();
+    paintBtn(); listeners.forEach(function (f) { try { f(); } catch (e) { } });
+  }
+
+  function sync(why) {
+    if (!on()) return Promise.resolve(0);
+    if (busy) { again = true; return busy; }
+    clearTimeout(dirtyT); setState("busy");
+    var got = 0;
+    busy = api("GET", "/gists/" + cfg.gist).then(function (g) {
+      var files = g.files || {};
+      return fileText(files[META]).then(function (mtxt) {
+        var M = {}; try { M = JSON.parse(mtxt || "{}") || {}; } catch (e) { }
+        var R = M.keys || {}, base = cfg.base || {}, keys = {}, up = {}, jobs = [], changedMeta = false;
+        Object.keys(R).concat(Object.keys(mt), localKeys()).forEach(function (k) { if (synced(k)) keys[k] = 1; });
+        Object.keys(keys).forEach(function (k) {
+          var r = R[k], rt = r ? r.t : 0, lv = rawGet.call(LS, k), lt = mt[k] || (lv !== null ? 1 : 0), b = base[k] || 0;
+          function push() {
+            var v = rawGet.call(LS, k);
+            if (v === null) { if (files[fname(k)]) up[fname(k)] = null; R[k] = { t: mt[k] || lt, del: 1 }; }
+            else { up[fname(k)] = { content: JSON.stringify(v) }; R[k] = { t: mt[k] || lt }; }
+            changedMeta = true; base[k] = R[k].t;
+          }
+          if (rt === lt) { base[k] = lt; return; }
+          var both = lt > b && rt > b && MERGE[k] && lv !== null && r && !r.del;
+          if (both) {
+            jobs.push(fileText(files[fname(k)]).then(function (t) {
+              var rv = unwrap(t), m = rv === null ? null : MERGE[k](lv, rv);
+              if (m === null) { if (rt > lt) apply(); else push(); return; }
+              rawSet.call(LS, k, m); mt[k] = Math.max(Date.now(), rt + 1, lt + 1); if (m !== lv) got++;
+              push();
+            }));
+            return;
+          }
+          function apply() {
+            if (r.del) { if (lv !== null) { rawRemove.call(LS, k); got++; } mt[k] = rt; base[k] = rt; return null; }
+            return fileText(files[fname(k)]).then(function (t) {
+              var rv = unwrap(t);
+              if (rv === null) { push(); return; }            /* the file is missing or damaged: our copy goes up */
+              if (rv !== lv) { rawSet.call(LS, k, rv); got++; }
+              mt[k] = rt; base[k] = rt;
+            });
+          }
+          if (rt > lt) { var p = apply(); if (p) jobs.push(p); }
+          else push();
+        });
+        return Promise.all(jobs).then(function () {
+          saveMt(); cfg.base = base; saveCfg();
+          if (!changedMeta) return;
+          up[META] = { content: JSON.stringify({ app: "Trade Trainer", note: "Written by the app. Each key's file holds what that device saved.", keys: R }, null, 1) };
+          return api("PATCH", "/gists/" + cfg.gist, { files: up });
+        });
+      });
+    }).then(function () {
+      busy = null; setState("ok");
+      if (got) {
+        frozen = true;
+        try { sessionStorage.setItem("tt_sync_note", "Updated with your progress from another device"); } catch (e) { }
+        location.reload();
+        return got;
+      }
+      if (again) { again = false; return sync("again"); }
+      return 0;
+    }, function (e) {
+      busy = null; again = false; setState("err", e.message || String(e)); return 0;
+    });
+    return busy;
+  }
+
+  /* connect this device: find the app's gist on the account, or make it */
+  function connect(token) {
+    token = (token || "").trim();
+    if (!/^(gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}$/.test(token)) return Promise.reject(new Error("That does not look like a GitHub token. It starts with ghp_ or github_pat_. Copy it again from GitHub."));
+    cfg = { token: token, base: {} }; mt = {};
+    setState("busy");
+    return api("GET", "/gists?per_page=100").then(function (list) {
+      var g = (list || []).filter(function (x) { return x.description === DESC; })[0];
+      var now = Date.now();
+      if (g) {   /* another device is already connected: its progress comes in, this one's own keys only fill the gaps */
+        cfg.gist = g.id; localKeys().forEach(function (k) { mt[k] = 1; });
+        saveMt(); saveCfg();
+        return sync("join");
+      }
+      localKeys().forEach(function (k) { mt[k] = now; }); saveMt();
+      return api("POST", "/gists", { description: DESC, public: false, files: { "_meta.json": { content: JSON.stringify({ app: "Trade Trainer", keys: {} }) } } }).then(function (n) {
+        cfg.gist = n.id; saveCfg(); return sync("new");
+      });
+    }).catch(function (e) { cfg = {}; saveCfg(); setState("err", e.message); throw e; });
+  }
+  function disconnect() { cfg = {}; mt = {}; rawRemove.call(LS, CFG); rawRemove.call(LS, MT); setState("off"); }
+
+  /* ---------- the Sync button and its sheet ---------- */
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function hm(t) { var d = new Date(t); return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); }
+  function paintBtn() {
+    var b = $("syncBtn"); if (!b) return;
+    var s = !cfg.token ? "off" : state === "busy" ? "busy" : cfg.err ? "err" : "ok";
+    b.className = "sy-" + s;
+    b.setAttribute("data-ico", s === "busy" ? "↻" : s === "err" ? "!" : "☁");
+    b.title = s === "off" ? "Sync your progress across devices" : s === "err" ? "Sync problem: " + cfg.err : s === "busy" ? "Syncing…" : "Synced" + (cfg.at ? " at " + hm(cfg.at) : "");
+  }
+  var TOKEN_URL = "https://github.com/settings/tokens/new?scopes=gist&description=Trade%20Trainer%20sync";
+  function sheetHtml() {
+    var steps = '<h3>Make the token (once, about a minute)</h3><ol style="margin:0 0 8px">' +
+      '<li>Open <a href="' + TOKEN_URL + '" target="_blank" rel="noopener" class="am">this GitHub page</a> (sign in if asked). The name and the <b>gist</b> tick are already filled in.</li>' +
+      '<li>Pick an <b>Expiration</b>, for example 1 year. Leave every other box empty: the token only needs <b>gist</b>, so it cannot touch your code or anything else.</li>' +
+      '<li>Press <b>Generate token</b> at the bottom and copy the token (it starts with <span class="mono">ghp_</span>). GitHub shows it only once.</li>' +
+      '<li>Paste it below and press <b>Connect</b>. Do the same on each of your devices, with the same token.</li></ol>' +
+      '<div class="hint">Prefer a fine-grained token? Make one with no repository access and, under Account permissions, <b>Gists: Read and write</b>. It works the same.</div>';
+    var safe = '<h3>Keep the token to yourself</h3><p>The token stays in this browser on this device. It is not put in the gist or in the app. Don\'t send it to anyone or paste it anywhere else: with it, someone can read and change your gists. Lost a device or shared it by mistake? Delete the token on GitHub (Settings, Developer settings, Personal access tokens) and make a new one.</p>';
+    var what = '<p>Your progress lives in this browser only. Connected, the app keeps a copy in a <b>private gist</b> on your own GitHub account and every connected device shows the same: the trade log, balance and risk, chosen market and chart, levels, guide steps, lessons, practice and history.</p>';
+    if (!cfg.token) return '<h2>Sync across your devices</h2>' + what + steps +
+      '<div class="prefrow" style="margin-top:12px;display:flex;gap:6px"><input id="syTok" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your token" style="flex:1;min-width:0;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--bg3);color:var(--paper)">' +
+      '<button class="btn primary" id="syGo">Connect</button></div>' +
+      '<div id="syMsg" class="hint" style="margin-top:6px">' + (cfg.err ? '<span class="dn">' + esc(cfg.err) + '</span>' : 'The first device you connect sets the starting point. A device connected later takes its progress from GitHub; trades it logged on its own are added to the log.') + '</div>' + safe;
+    var s = state === "busy" ? "Syncing…" : cfg.err ? '<span class="dn">' + esc(cfg.err) + '</span>' : '<span class="up">Synced</span>' + (cfg.at ? " at " + hm(cfg.at) : "");
+    return '<h2>Sync across your devices</h2>' +
+      '<p><b>' + s + '</b></p>' +
+      '<p>Every change goes up a few seconds after you make it. When you open the app, or come back to it, it fetches what your other devices saved and reloads if anything is new.</p>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button class="btn primary" id="syNow">Sync now</button>' +
+      '<a class="btn" href="https://gist.github.com/' + esc(cfg.gist || "") + '" target="_blank" rel="noopener">See the gist</a>' +
+      '<button class="btn" id="syOff">Disconnect this device</button></div>' +
+      '<div class="hint">Disconnect removes the token from this device only. Your progress stays here and in the gist.</div>' + safe +
+      (cfg.err && cfg.err.indexOf("token") >= 0 ? steps : "");
+  }
+  function openSheet() {
+    var sh = $("sheet"), m = $("modal"); if (!sh || !m) return;
+    sh.innerHTML = sheetHtml(); m.classList.add("on"); wire();
+  }
+  function wire() {
+    var go = $("syGo"), now = $("syNow"), off = $("syOff");
+    if (go) go.onclick = function () {
+      var t = $("syTok").value; go.disabled = true; $("syMsg").textContent = "Connecting…";
+      connect(t).then(function () { if ($("syGo")) openSheet(); }, function (e) { go.disabled = false; $("syMsg").innerHTML = '<span class="dn">' + esc(e.message) + '</span>'; });
+    };
+    if (now) now.onclick = function () { sync("button"); };
+    if (off) off.onclick = function () { disconnect(); openSheet(); };
+  }
+  /* keep the sheet's status current while it is open (and only while it shows sync) */
+  listeners.push(function () {
+    var m = $("modal"); if (!m || !m.classList.contains("on") || !($("syNow") || $("syGo"))) return;
+    if ($("syGo") && ($("syGo").disabled || document.activeElement === $("syTok"))) return;
+    openSheet();
+  });
+
+  function boot() {
+    var b = $("syncBtn"); if (b) b.addEventListener("click", openSheet);
+    if (cfg.token && !cfg.gist) cfg = {};
+    if (cfg.err) state = "err";
+    paintBtn();
+    try {
+      var note = sessionStorage.getItem("tt_sync_note");
+      if (note) { sessionStorage.removeItem("tt_sync_note"); var t = $("toast"); if (t) { t.textContent = note; t.classList.add("on"); setTimeout(function () { t.classList.remove("on"); }, 3000); } }
+    } catch (e) { }
+    if (!on()) return;
+    setTimeout(function () { sync("open"); }, 400);
+    var last = 0;
+    function back() { if (document.hidden || Date.now() - last < 20000) return; last = Date.now(); sync("back"); }
+    document.addEventListener("visibilitychange", function () { if (document.hidden) { if (dirtyT) { clearTimeout(dirtyT); dirtyT = null; sync("leave"); } } else back(); });
+    window.addEventListener("focus", back);
+    window.addEventListener("online", function () { sync("online"); });
+    setInterval(function () { if (!document.hidden) sync("timer"); }, 5 * 60000);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
+
+  return { on: on, sync: sync, connect: connect, disconnect: disconnect, open: openSheet, state: function () { return { state: state, err: cfg.err, at: cfg.at, gist: cfg.gist }; }, _keys: localKeys, _synced: synced };
+})();
+</script>
+
+<script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.95.0", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.96.0", build: "2026-11-13", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
