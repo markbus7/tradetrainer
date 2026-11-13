@@ -415,6 +415,20 @@
   .ltfull>summary{cursor:pointer;font-size:14.5px;line-height:1.5}.ltfull[open]>summary{margin-bottom:8px}
   .lglook{font-size:13px;color:#ffe2a8;background:#1d1709;border:1px solid var(--amber-dim);border-radius:8px;padding:6px 10px;margin:-2px 0 10px}
   .lglook b{color:#fff}
+  .lgstep{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+  .lgstep .ltq{margin-top:4px}.lgstep .ltq+.lgnote{margin:-4px 0 8px}
+  .lgnote{font-size:12.5px;line-height:1.5;margin:6px 0}
+  .lgdone{display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;align-items:center;font-size:14px}
+  .lgdone em.lgv,.lgmks em.lgv{font:700 10.5px Archivo,sans-serif;font-style:normal;border-radius:4px;padding:2px 6px;margin-left:4px;text-transform:uppercase}
+  em.lgv.go{background:#1c4a30;color:#b9f0cf}em.lgv.wait{background:#5b4a22;color:#ffe2a8}em.lgv.no{background:#161a21;color:var(--muted);border:1px solid var(--line)}
+  .lta.lgmks{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-bottom:12px}
+  .lta button.on{border-color:var(--amber);background:#1d1709}
+  .lgneed{font-size:13px;color:#ffe2a8;border-left:3px solid var(--amber);padding:2px 0 2px 9px;margin-bottom:10px}
+  .lgex{font-size:13px;margin:6px 0}.lgex summary{cursor:pointer;color:var(--muted)}
+  .lgmg{margin-bottom:4px}.lgmgout{margin-top:10px}.lgmg .lgnh{margin-top:12px}
+  .lgday{font-size:13.5px;line-height:1.5;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg3);margin-bottom:10px}
+  .lgday.stop{border-color:#6a2a2a;background:#241212}
+  .lgend{margin-top:10px}.lgend .lgmy{border:0;margin:0;padding:0}
   .lta.lgpics{grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));align-items:start}
   .lgpics .ltopt .lfscr{height:200px}.lgpics .ltopt .lfcopy{display:none}
   .lguide .ltfig .lfscr{height:clamp(280px,44vh,400px)}
@@ -726,7 +740,7 @@
 <script>
 /* Trade Trainer — version. Bump this when the file changes so a deployed
    copy can be identified from the UI, the page source, or the console. */
-var APP = { name: "Trade Trainer", version: "3.92.2", build: "2026-11-11", basis: "Al Brooks price action" };
+var APP = { name: "Trade Trainer", version: "3.93.1", build: "2026-11-11", basis: "Al Brooks price action" };
 
 /* =====================================================================
    TRADE TRAINER — market engine (Al Brooks price-action framework)
@@ -12073,6 +12087,66 @@ var PROG = (function () {
     help2: "The same last 20 bars.", help3: "Look at the <b>last 20 to 40 bars</b>.",
     help4: "Look at the <b>last 10 bars</b>, against the 20 before them.", help5: "Look at the <b>last two or three pullbacks</b>."
   };
+  /* steps 2 and 3: the market, the chart and the levels. [name, clock row, cost id, round numbers] */
+  var LG_MK = [["Gold", 0, "XAUUSD", "the whole 50s and 100s of dollars"], ["US100", 1, "NQ", "the whole hundreds"], ["US500", 1, "ES", "the whole 50s and 100s"],
+    ["GER40", 2, "GER40", "the whole hundreds"], ["EURUSD", 3, "EURUSD", "the 00 and 50 levels, such as 1.1500 and 1.1550"],
+    ["USDJPY", 4, "USDJPY", "the whole and half yen, such as 154.00 and 154.50"], ["UKOIL", 5, "CL", "the whole dollars"], ["BTCUSD", 6, "BTCUSD", "the whole thousands"]];
+  var LG_SWAP = "Every night at 23:00 the broker charges or pays <b>swap</b>, and one weekday counts three times, so on a trade held for days the swap becomes a real cost. How to count it: if cTrader's symbol info showed −0.80 per lot per night (an example to show the sum, not your broker's figure), 0.05 lots held two nights costs 0.05 × 0.80 × 2 = 0.08. Look up the real figure for your market before you hold.";
+  var LG_TFS = ["5", "15", "60", "240", "1440"];
+  /* the two fixed pairs of lines per trading chart */
+  var LG_LINES = { "5": ["yesterday's high</b> and <b>yesterday's low", "today's high and low so far"], "15": ["yesterday's high</b> and <b>yesterday's low", "today's high and low so far"],
+    "60": ["last week's high</b> and <b>last week's low", "yesterday's high and low"], "240": ["last month's high</b> and <b>last month's low", "last week's high and low"],
+    "1440": ["last year's high</b> and <b>last year's low", "last month's high and low"] };
+  var LG_TF = {
+    "5": { n: "5-minute", sub: "Many signals, small stops. You watch every bar.", htf: "1-hour", back: "the last two days", b20: "the last hour and 40 minutes",
+      hold: "A 5-minute trade usually lasts from about twenty minutes to two hours (a rule of thumb). Check every bar close: every 5 minutes." },
+    "15": { n: "15-minute", sub: "Fewer signals, calmer. Wider stops, so smaller size.", htf: "1-hour", back: "the last three to five days", b20: "the last five hours",
+      hold: "A 15-minute trade usually lasts from an hour to most of a session (a rule of thumb), so the stop is wider and the size smaller. If step 1 shows a \"be flat by\" time less than an hour away, skip the trade: it has no room to work." },
+    "60": { n: "1-hour", sub: "Swing trades held one or two days.", htf: "daily", back: "the last two to three months", b20: "the last 20 hours", slow: 1,
+      hold: "A 1-hour trade is usually held one or two days (a rule of thumb), so it stays open overnight. " + LG_SWAP },
+    "240": { n: "4-hour", sub: "Swing trades held several days. Six bar closes a day.", htf: "daily", back: "the last three to six months", b20: "the last three to four trading days", slow: 2,
+      hold: "A 4-hour trade is usually held several days (a rule of thumb). You only need to look when a 4-hour bar closes; the timer on the chart shows when. The stop is wide in pips, so the size is small: on a small account check that 0.01 lots still fits your risk. " + LG_SWAP },
+    "1440": { n: "Daily", sub: "Position trades held days to weeks. One bar close a day.", htf: "weekly", back: "the last one to two years", b20: "the last four weeks", slow: 2,
+      hold: "A daily trade is usually held from several days to a few weeks (a rule of thumb). One look a day is enough, after the daily bar closes (around the 23:00 rollover; the timer on the chart shows it). The stop is very wide in pips, so the size is very small: on a small account 0.01 lots may already be more than your risk, and then this chart is not for that account yet. " + LG_SWAP }
+  };
+  function lgset() { var G = LSt.gset || (LSt.gset = {}); if (!LG_TF[G.tf]) G.tf = ""; if (!LG_MK.some(function (m) { return m[0] === G.mk; })) G.mk = ""; G.lv = G.lv || {}; return G; }
+  function lgmk(G) { for (var i = 0; i < LG_MK.length; i++) if (LG_MK[i][0] === G.mk) return LG_MK[i]; return null; }
+  function lgLevelsDone(G) { return !!(G.mk && G.tf && G.lv.done && G.lv.day === new Date().toDateString() && G.lv.mk === G.mk && G.lv.tf === G.tf); }
+  /* step 5: what kind of trade an entry is. t = with the trend, r = range or scalp, v = reversal, x = the range scale-in */
+  var LG_KIND = { spike: "t", late: "t", tight: "t", breakout: "t", count: "t", broad: "r", counter: "r", range: "r", fbo: "r", climax: "r", limits: "x", mtr: "v", wedge: "v", flag: "v" };
+  function lgManage(ch) {
+    var k = LG_KIND[ch] || "t", o = [];
+    if (k === "x") return [
+      ["Neither limit is filled yet", "WAIT", "Leave both orders where they are. Cancel them both if two or three big bars close on their extremes toward the edge: that is a breakout starting, not a drift, and limits get run over."],
+      ["Only entry 1 is filled", "HOLD", "The target is the <b>middle of the range</b>; if the bars toward it are strong, the other side. The stop stays a full range height beyond the edge. Entry 2 stays in the market."],
+      ["Both entries are filled", "GET OUT AT ENTRY 1", "Move the target for <b>both</b> positions to the price of entry 1. Entry 2 then makes money and entry 1 breaks even. The stop does not move."],
+      ["A strong breakout through the edge", "LET THE STOP WORK", "The stop a full range height beyond the edge is the plan. Do not add a third entry and do not move the stop further away. After a stop-out here: only stop-order entries in this area until a new edge has turned price at least twice."],
+      ["News or the rollover is coming", "GET FLAT", "Close the trade and cancel the unfilled limit five minutes before a high-impact release from step 1. Flat before 23:00 as well, or look up the swap first."]];
+    o.push(ch === "late" ? ["I have not entered yet", "ENTER OR SKIP", "This entry is at market on the bar's close. If the next bar has already moved away, the entry is gone: do not chase it. Wait for the next strong close or the next pullback."]
+      : ["My order is not filled yet", "WAIT ONE BAR", "Leave the stop order for <b>one more bar</b>. If that bar closes without filling it, cancel: the signal is used up and you need a new signal bar. Cancel at once if price trades through your planned stop before the entry fills."]);
+    o.push(["Filled, and nothing has changed", "HOLD", k === "t"
+      ? "The stop stays where you put it, also when the trade is 1R in profit. In this app's own charts most winning trend trades came back toward the entry before they reached the target, so a stop moved to the entry turns winners into nothing. Look again at the next bar close."
+      : k === "v" ? "The stop stays where it is until the trade is <b>1R in profit</b> (as far in profit as your stop is away). Then move the stop to your entry price: a real reversal should not come back to its entry. Look again at the next bar close."
+      : "The stop stays where it is until the target. A range trade moves slowly and comes back often; that is normal. Look again at the next bar close."]);
+    o.push(["A normal pullback against me", "HOLD", "Small bars, overlapping, not closing on their extremes, and the stop is not hit: this is the market breathing. Nothing is broken. Do not move the stop closer and do not get out."]);
+    o.push(["Rejected at one of my lines", "TAKE HALF OFF", "Price reached a line from step 3, a prior high or low, or stopped just short of the target, and printed a reversal bar or a long tail. Put a stop order to close <b>half</b> one tick beyond that bar. If it fills, move the stop for the rest to your entry price. No rejection bar: no partial; 1R and 2R are not reasons."]);
+    o.push(["A strong bar against me", "GET OUT NOW", "A big bar closing on its extreme against you that breaks the last swing, or a strong signal the other way: the reason for the trade is gone. Close at market; do not wait for the stop. One big bar that does not break anything is a pullback: hold."]);
+    o.push(["News or the rollover is coming", "GET FLAT", "Close five minutes before a high-impact release from step 1, in profit or not. Before the 23:00 rollover: close, or look up the swap in cTrader's symbol info first and decide to pay it."]);
+    return o;
+  }
+  /** today's count from the guide's log, and whether the daily stop is reached */
+  function lgDay() {
+    var day = new Date().toDateString(), L = lglogGet().filter(function (x) { return x.took && new Date(x.t).toDateString() === day; });
+    var w = 0, l = 0, s = 0, op = 0; L.forEach(function (x) { if (x.res === "w") w++; else if (x.res === "l") l++; else if (x.res === "s") s++; else op++; });
+    var risk = ltcState().risk, max = risk > 1 ? 2 : 3;
+    return { n: L.length, w: w, l: l, s: s, open: op, max: max, risk: risk, stop: l >= max };
+  }
+  function lgDayHtml() {
+    var D = lgDay(), rule = "Daily stop: <b>" + (D.max === 2 ? "two" : "three") + " losses</b> (you risk " + D.risk + "% per trade, so that is " + (Math.round(D.max * D.risk * 10) / 10) + "% of the account).";
+    if (D.stop) return '<div class="lgday stop"><b>Done for today.</b> ' + D.l + ' losses: the daily stop is reached. Cancel every open order, close the platform and do the end-of-session ticks below. The next trade is tomorrow.</div>';
+    return '<div class="lgday"><b>Today:</b> ' + (D.n ? D.n + ' taken · ' + D.w + ' won · ' + D.l + ' lost · ' + D.s + ' near the entry' + (D.open ? ' · ' + D.open + ' open' : '') : 'no trades yet') + '. ' + rule +
+      (D.open ? ' Finish the open trade in step 5 before you look for another.' : D.n ? ' You may take the next trade: back to step 4.' : '') + '</div>';
+  }
   function mountGuide(el) {
     var figs = [], timer = null;
     var nowEl = document.createElement("div"), askEl = document.createElement("div");
@@ -12095,9 +12169,65 @@ var PROG = (function () {
       };
       [].forEach.call(myEl.querySelectorAll("[data-myx]"), function (b) { b.onclick = function () { list.splice(+b.dataset.myx, 1); lnewsMineSave(t, list); paintMy(); paintNow(); }; });
     };
-    var h2 = document.createElement("div"); h2.className = "lgh"; h2.innerHTML = '<span>2</span> What do you see? Press it, after every bar close';
-    el.appendChild(h2); el.appendChild(askEl);
-    var paintNow = function () { nowEl.innerHTML = lguideNow(lNow()); };
+    var mkh = function (n, txt, cls) { var h = document.createElement("div"); h.className = "lgh" + (cls ? " " + cls : ""); h.innerHTML = '<span>' + n + '</span> ' + txt; el.appendChild(h); return h; };
+    var mkd = function (cls) { var d = document.createElement("div"); d.className = cls; el.appendChild(d); return d; };
+    mkh(2, "Your chart: the market and the timeframe"); var setEl = mkd("lgstep lgset");
+    mkh(3, "Mark your levels on the higher timeframe"); var lvEl = mkd("lgstep lglv");
+    var h2 = mkh(4, ""); el.appendChild(askEl);
+    var G = lgset(), setEdit = false, lvEdit = false, lvFig = null;
+    function verdict() { var m = lgmk(G), t = lNow(); return m ? lguideRow(LTL_ROWS[m[1]], t, lnewsToday(t)) : null; }
+    function paintSet() {
+      var t = lNow(), news = lnewsToday(t), o = [];
+      if (G.mk && G.tf && !setEdit) {
+        var v = verdict();
+        o.push('<div class="lgdone"><span><b>' + G.mk + '</b> on the <b>' + LG_TF[G.tf].n + '</b> chart' + (LG_TF[G.tf].slow === 2 ? '' : ' <em class="lgv ' + v.k + '">' + v.tag + '</em>') + '</span><button class="btn sm" data-a="setchg">Change</button></div>' +
+          '<div class="mu lgnote">' + (LG_TF[G.tf].slow === 2 ? "On this chart the hour of the day matters little: the clock in step 1 is for the short charts. What still counts is the bar close, and no new entry just before a high-impact release. " : v.k === "go" ? "" : "The clock in step 1 does not say Trade for " + G.mk + " right now. ") + 'Chart setup: candles and the 20-bar EMA, nothing else. ' + LG_TF[G.tf].hold + '</div>');
+      } else {
+        o.push('<div class="ltq">Which market do you trade this session?</div><div class="mu lgnote">One market, and stay with it. The tag is what the clock says right now.</div><div class="lta lgopts lgmks">' + LG_MK.map(function (m) {
+          var v = lguideRow(LTL_ROWS[m[1]], t, news);
+          return '<button data-mk="' + m[0] + '"' + (G.mk === m[0] ? ' class="on"' : '') + '><b>' + m[0] + '</b> <em class="lgv ' + v.k + '">' + v.tag + '</em></button>';
+        }).join("") + '</div><div class="ltq">Which chart do you trade on?</div><div class="mu lgnote">' + (G.mk ? '' : 'Choose the market first. ') + 'The chart you take entries and stops from. Pick one and keep it for the whole session: switching timeframes in a trade is how a plan gets lost.</div><div class="lta lgopts">' +
+          LG_TFS.map(function (k) { return '<button data-tf="' + k + '"' + (G.tf === k ? ' class="on"' : '') + '><b>' + LG_TF[k].n + '</b><small>' + LG_TF[k].sub + ' Levels come from the ' + LG_TF[k].htf + ' chart.</small></button>'; }).join("") + '</div>');
+      }
+      setEl.innerHTML = o.join("");
+      var pickd = function (close) { if (G.mk && G.tf && close) setEdit = false; else setEdit = true; var m = lgmk(G); if (m) ltcState().mk = m[2]; learnSave(); paintSet(); paintLv(); render(); };
+      [].forEach.call(setEl.querySelectorAll("[data-mk]"), function (b) { b.onclick = function () { G.mk = b.dataset.mk; pickd(false); }; });
+      [].forEach.call(setEl.querySelectorAll("[data-tf]"), function (b) { b.onclick = function () { G.tf = b.dataset.tf; pickd(true); }; });
+      var c = setEl.querySelector('[data-a="setchg"]'); if (c) c.onclick = function () { setEdit = true; paintSet(); };
+    }
+    function paintLv() {
+      if (lvFig) { lvFig.dispose(); var ix = learnPlayers.indexOf(lvFig); if (ix >= 0) learnPlayers.splice(ix, 1); lvFig = null; }
+      if (!(G.mk && G.tf)) { lvEl.innerHTML = '<div class="mu lgnote">Choose the market and the chart in step 2 first.</div>'; return; }
+      var T = LG_TF[G.tf], m = lgmk(G), done = lgLevelsDone(G);
+      if (done && !lvEdit) {
+        lvEl.innerHTML = '<div class="lgdone"><span>Levels marked today on the <b>' + T.htf + '</b> chart of ' + G.mk + (G.lv.at ? ' at ' + G.lv.at : '') + '.</span><button class="btn sm" data-a="lvchg">Redo</button></div>' +
+          '<div class="mu lgnote">How you use them: a signal at a line is better than one in the middle of nowhere, and a line between your entry and your target <b>is</b> the target. Add a line when today makes a new clear high or low.</div>';
+        lvEl.querySelector('[data-a="lvchg"]').onclick = function () { lvEdit = true; paintLv(); };
+        return;
+      }
+      if (G.lv.day !== new Date().toDateString() || G.lv.mk !== G.mk || G.lv.tf !== G.tf) G.lv = { day: new Date().toDateString(), mk: G.mk, tf: G.tf, ticks: {} };
+      G.lv.ticks = G.lv.ticks || {};
+      var items = [
+        ["open", "Open the <b>" + T.htf + "</b> chart of " + G.mk + " and zoom out until you see <b>" + T.back + "</b>. You are not looking for a trade here, only for prices that matter."],
+        ["yest", "A line at <b>" + LG_LINES[G.tf][0] + "</b>."],
+        ["today", "A line at <b>" + LG_LINES[G.tf][1] + "</b>" + (T.slow || m[1] === 1 || m[1] === 2 ? "" : " (that includes the night session)") + "."],
+        ["swing", "A line at each <b>clear swing high or low</b> in between: a price where the market turned at least twice, or broke through and came back to test. Two or three, not every wiggle."],
+        ["round", "The nearest <b>big round number</b> above and below price: for " + G.mk + ", " + m[3] + "."],
+        ["dir", "Write down the <b>direction on the " + T.htf + " chart</b>: up, down or sideways (highs and lows stepping up, stepping down, or overlapping). A trade with it has room to run. A trade against it: only the best signal, and the first line in the way is the target."],
+        ["prune", "<b>Keep at most five lines</b>, the ones nearest to price. Delete the rest: a chart full of lines says nothing."],
+        ["back", "Go back to your <b>" + T.n + "</b> chart. The lines come with you. Say it out loud: the nearest line above price, and the nearest line below."]];
+      lvEl.innerHTML = '<div class="lticks">' + items.map(function (it) { return '<label class="ltick"><input type="checkbox" data-lvt="' + it[0] + '"' + (G.lv.ticks[it[0]] ? " checked" : "") + '> <span>' + it[1] + '</span></label>'; }).join("") + '</div>' +
+        '<div class="mu lgnote">Why: these are the prices where other traders have orders. They become your targets, and the places where a signal bar counts for more. Do this once before the session; it takes five minutes.</div>' +
+        '<details class="lgex"><summary>Show an example chart with the lines drawn</summary><figure class="lfig ltfig"><div class="lfscr"></div><figcaption>Three lines on a 1-hour chart: the low the move started from, the old high the market broke above (often support when price comes back), and the highest price so far (a magnet, where buyers take profits).</figcaption></figure></details>' +
+        '<div class="ltbar"><button class="btn sm primary" data-a="lvdone">My levels are marked &#8594; step 4</button></div>';
+      [].forEach.call(lvEl.querySelectorAll("[data-lvt]"), function (c) { c.onchange = function () { G.lv.ticks[c.dataset.lvt] = c.checked; learnSave(); }; });
+      var dx = lvEl.querySelector(".lgex"); dx.ontoggle = function () {
+        if (!dx.open || lvFig) return; var fe = dx.querySelector("figure");
+        try { lvFig = new LessonFigure(fe, "planHtf", "Mark the levels", true); learnPlayers.push(lvFig); } catch (e) { fe.querySelector(".lfscr").innerHTML = '<div class="hint">This chart could not be drawn (' + esc(e.message) + ').</div>'; }
+      };
+      lvEl.querySelector('[data-a="lvdone"]').onclick = function () { G.lv.done = true; G.lv.at = lhm(lNow().H); lvEdit = false; learnSave(); paintLv(); render(); h2.scrollIntoView({ behavior: "smooth", block: "start" }); };
+    }
+    var paintNow = function () { nowEl.innerHTML = lguideNow(lNow()); if (!setEl.querySelector(":focus")) paintSet(); };
     function fig(f, cap, extra) {
       return '<figure class="lfig ltfig" data-gfig="' + f[0] + '" data-title="' + f[1] + '"' + (extra ? ' data-extra="1"' : '') + '><div class="lfscr"></div>' + (cap ? '<figcaption>' + cap + '</figcaption>' : '') + '</figure>';
     }
@@ -12119,7 +12249,8 @@ var PROG = (function () {
         '<li><b>Order:</b> ' + w(E[1]) + '</li>' +
         '<li><b>Stop:</b> ' + w(E[2]) + '</li>' +
         '<li><b>Target:</b> ' + w(E[3]) + '</li>' +
-        '<li><b>Check before you send it:</b> the distance to the target is at least <b>' + r[3].replace(/,.*$/, "") + '</b> (R = the distance from entry to stop), and the clock above says Trade for your market. If not, skip this one.</li>' +
+        '<li><b>Check before you send it:</b> the distance to the target is at least <b>' + r[3].replace(/,.*$/, "") + '</b> (R = the distance from entry to stop), and the clock in step 1 says Trade for your market (on a 4-hour or daily chart: no high-impact release in the next hours). Then look at your lines from step 3: a line between the entry and the target <b>is</b> the target, and the reward is measured to that line. If either check fails, skip this one.</li>' +
+        '<li><b>Place it in cTrader:</b> New Order, type <b>' + (ch === "late" ? "Market" : ch === "limits" ? "Limit (two orders)" : "Stop") + '</b>. Fill in ' + (ch === "late" ? "" : "the entry price and ") + 'the lots from the size line, switch on <b>Stop Loss</b> and <b>Take Profit</b> and type both prices from your chart. An order without its stop on it is not this plan.</li>' +
         '<li><b>Size:</b> ' + (ch === "limits" ? 'both orders together risk one normal trade (half while this entry is advanced). Work it out in the calculator in the full plan below.'
           : (adv ? '<b>half your normal risk</b>, because this entry is advanced until you have logged twenty of them.' : 'your normal risk.') + ' Type your stop distance:') + '</li>' +
         '</ol>' +
@@ -12139,13 +12270,16 @@ var PROG = (function () {
     }
     function render() {
       figs.forEach(function (f) { f.dispose(); var i = learnPlayers.indexOf(f); if (i >= 0) learnPlayers.splice(i, 1); }); figs = [];
-      var W = where(), out = [], n = LGT[W.cur];
+      var W = where(), out = [], n = LGT[W.cur], TF = LG_TF[G.tf];
+      h2.innerHTML = '<span>4</span> What do you see' + (G.mk && TF ? ' on your ' + TF.n + ' ' + G.mk + ' chart' : '') + '? Press it, after every bar close';
+      if (!lgLevelsDone(G)) out.push('<div class="lgneed">' + (G.mk && G.tf ? 'Step 3 is not done yet today: mark your levels first. They decide your targets.' : 'Steps 2 and 3 come first: choose your chart and mark your levels. They decide your targets.') + '</div>');
+      var look = LGLOOK[W.cur]; if (look && W.cur === "start") look = "Look at the <b>last 20 bars</b>: the stretch the EMA covers. " + (TF ? "On your " + TF.n + " chart that is " + TF.b20 + "." : "On a 15-minute chart that is the last five hours; on a 5-minute chart, the last hour and 40 minutes.");
       out.push('<div class="ltpath">' + (LGUIDE_PATH.length ? LGUIDE_PATH.map(function (s, i) {
         return '<button class="ltcrumb" data-back="' + i + '" title="Go back to this question">' + esc(LGT[s.id].o[s.pick][0]) + '</button>';
       }).join('<span class="mu">›</span>') : '<span class="mu">Start here after every bar close.</span>') + '</div>');
       if (n) {
         var gp = lgpics(W.cur, W.dir), pics = !!gp && LGUIDE_PICS, sided = !!LGPX[W.cur] && (W.dir < 0 || W.cur === "turn");
-        out.push('<div class="ltq">' + n.q + '</div>' + (LGLOOK[W.cur] ? '<div class="lglook">' + LGLOOK[W.cur] + '</div>' : '') +
+        out.push('<div class="ltq">' + n.q + '</div>' + (look ? '<div class="lglook">' + look + '</div>' : '') +
           (pics && W.cur !== "start" && W.cur !== "help1" ? '<div class="mu ltfhint">Which picture looks most like your chart? ' + (sided ? 'Each shows a whole ' + (W.dir > 0 ? 'buy' : 'sell') + ' that worked: the orange box is the signal bar, the shaded box the trade.' : 'The pictures show one direction; yours may be the mirror image.') + '</div>' : '') +
           '<div class="lta' + (pics ? ' ltopts lgpics' : ' lgopts') + '">' + n.o.map(function (o, i) {
           var b = '<button data-pick="' + i + '"><b>' + o[0] + '</b>' + (o[1] ? '<small>' + o[1] + '</small>' : '') + '</button>';
@@ -12195,7 +12329,7 @@ var PROG = (function () {
       [].forEach.call(askEl.querySelectorAll("[data-log]"), function (b) {
         b.onclick = function () {
           var L = lglogGet(); L.push({ t: Date.now(), ch: cardNow.ch, nm: cardNow.nm, d: cardNow.d, took: b.dataset.log === "1", res: "" }); lglogSet(L);
-          askEl.querySelector("[data-logmsg]").textContent = b.dataset.log === "1" ? "Logged. Mark how it ended under \"Your trades\" below." : "Logged as skipped.";
+          askEl.querySelector("[data-logmsg]").textContent = b.dataset.log === "1" ? "Logged. Now step 5 below: in the trade." : "Logged as skipped.";
           [].forEach.call(askEl.querySelectorAll("[data-log]"), function (x) { x.disabled = true; });
           paintLog();
         };
@@ -12207,24 +12341,50 @@ var PROG = (function () {
         if (c) c.scrollIntoView({ behavior: "smooth", block: "start" });
       };
     }
-    var h3 = document.createElement("div"); h3.className = "lgh lgh3"; h3.innerHTML = '<span>3</span> Your trades with the guide';
-    var logEl = document.createElement("div"); logEl.className = "lglog"; el.appendChild(h3); el.appendChild(logEl);
+    mkh(5, "In the trade: press what happens, after every bar close", "lgh3"); var mgEl = mkd("lgmg");
+    var mgPick = -1, mgFor = 0;
+    function paintMg() {
+      var L = lglogGet(), idx = -1; L.forEach(function (x, i) { if (x.took && !x.res) idx = i; });
+      if (idx < 0) { mgEl.innerHTML = '<div class="mu lgnote">No open trade. This step starts when you press "I took this trade" on an instruction card in step 4.</div>'; return; }
+      var x = L[idx], opts = lgManage(x.ch); if (mgFor !== x.t) { mgFor = x.t; mgPick = -1; }
+      mgEl.innerHTML = '<div class="lgnote"><b class="' + (x.d > 0 ? "up" : "dn") + '">' + (x.d > 0 ? "BUY" : "SELL") + '</b> ' + esc(x.nm) + ' <span class="mu">since ' + lhm(lNow(new Date(x.t)).H) + '. The stop and the target were decided before the entry; now you only check.</span></div>' +
+        '<div class="lta lgopts">' + opts.map(function (o, i) { return '<button data-mg="' + i + '"' + (mgPick === i ? ' class="on"' : '') + '><b>' + o[0] + '</b></button>'; }).join("") + '</div>' +
+        (mgPick >= 0 ? '<div class="ltend ' + (/^(HOLD|WAIT)/.test(opts[mgPick][1]) ? "wait" : "order") + ' lgmgout"><span class="ltk">' + opts[mgPick][1] + '</span><p>' + opts[mgPick][2] + '</p></div>' : '') +
+        '<div class="lgnh">It is over: how did it end?</div><div class="lglb"><button class="btn sm" data-lres="w" data-li="' + idx + '">Target hit</button><button class="btn sm" data-lres="l" data-li="' + idx + '">Stopped</button>' +
+        '<button class="btn sm" data-lres="s" data-li="' + idx + '">Out near the entry</button></div>';
+      [].forEach.call(mgEl.querySelectorAll("[data-mg]"), function (b) { b.onclick = function () { mgPick = +b.dataset.mg; paintMg(); }; });
+      wireRes(mgEl);
+    }
+    function wireRes(root) {
+      [].forEach.call(root.querySelectorAll("[data-lres]"), function (b) {
+        b.onclick = function () { var L = lglogGet(), i = +b.dataset.li; if (!L[i]) return; if (b.dataset.lres === "x") L.splice(i, 1); else L[i].res = b.dataset.lres; lglogSet(L); paintLog(); };
+      });
+    }
+    var h3 = mkh(6, "After the trade: your log and your day", "lgh3");
+    var logEl = document.createElement("div"); logEl.className = "lglog"; el.appendChild(logEl);
+    var endEl = mkd("lgend");
+    endEl.innerHTML = '<details class="lgmy"><summary>Ending the session: four ticks</summary><div class="lticks" style="margin-top:8px">' +
+      ['<b>Every unfilled order is cancelled.</b> An order left behind fills while you are away.',
+        '<b>Flat before the 23:00 rollover</b>, or the swap is looked up and accepted.',
+        '<b>Every trade above has its result.</b> Your own win rate per entry is the only proof that counts.',
+        '<b>One sentence:</b> did I follow every step, from the clock to the exit? If not, which one did I skip?'].map(function (x) { return '<label class="ltick"><input type="checkbox"> <span>' + x + '</span></label>'; }).join("") + '</div></details>';
     function paintLog() {
-      logEl.innerHTML = lglogHtml();
+      paintMg();
+      logEl.innerHTML = lgDayHtml() + lglogHtml();
       [].forEach.call(logEl.querySelectorAll("[data-lres]"), function (b) {
         b.onclick = function () { var L = lglogGet(), i = +b.dataset.li; if (!L[i]) return; if (b.dataset.lres === "x") L.splice(i, 1); else L[i].res = b.dataset.lres; lglogSet(L); paintLog(); };
       });
     }
-    paintNow(); paintMy(); render(); paintLog();
+    paintNow(); paintMy(); paintLv(); render(); paintLog();
     lnewsLoad(paintNow);
     timer = setInterval(function () { lnewsLoad(paintNow); }, 30000);
-    return { pause: function () { }, dispose: function () { clearInterval(timer); figs.forEach(function (f) { f.dispose(); }); figs = []; } };
+    return { pause: function () { }, dispose: function () { clearInterval(timer); figs.forEach(function (f) { f.dispose(); }); figs = []; if (lvFig) { lvFig.dispose(); lvFig = null; } } };
   }
 
   lch({ id: "today", part: "Today", title: "Today's trade plan",
     sub: "The whole method on one page, in the order you use it: before the session, on every bar, before the order, and after the session.",
     body: function () {
-      return lp("Use the guide while you trade: it tells you what the clock allows, then you press what you see on the chart and it gives you the one instruction that fits, with the size. The same method written out in full is folded away underneath.") +
+      return lp("Follow the six steps from top to bottom: the clock, your chart, your levels, what you see, the trade, the log. Steps 2 and 3 you do once per session; steps 4 and 5 after every bar close. The same method written out in full is folded away underneath.") +
         '<div class="lguide" data-guide="1"></div>' +
         '<details class="ltfull" id="ltFull"><summary><b>The full plan in writing</b> <span class="mu">the daily ticks, every entry with its picture, the range scale-ins, the size and cost calculator, the review</span></summary>' +
         lkey("<b>Every entry Brooks uses is on this page.</b> The ones marked " + TLVL.s + " are where everyone starts. " + TLVL.n + " comes after about fifty starter trades. " + TLVL.a +
@@ -12236,7 +12396,7 @@ var PROG = (function () {
         ltick("news", "<b>News times</b> for today written down. Flat a few minutes before and after each.") +
         ltick("open", "<b>No trade in the first 15–30 minutes</b> after the open. " + lgo("open", "The open")) +
         ltick("risk", "<b>Risk per trade</b>: 0.5% (1% at most); half of that on an advanced entry. " + lgo("sizing", "Position size")) +
-        ltick("stop", "<b>Daily stop</b>: done for the day after −2% or three losses.") +
+        ltick("stop", "<b>Daily stop</b>: done for the day after three losses; after two when you risk more than 1% per trade.") +
         ltick("night", "<b>Flat before the 23:00 rollover</b>, or check the swap first: holding a CFD overnight costs (or pays) swap every night, and one weekday counts triple for the weekend (on FX, usually Wednesday). " + lgo("ccomm", "Swap")) +
         '</div>' +
 
