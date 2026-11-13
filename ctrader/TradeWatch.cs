@@ -310,6 +310,11 @@ namespace TradeWatchCore
             return res;
         }
 
+        /// A scratch (a small loss, under a share of one risk) is not a loss for the daily stop.
+        public static double ScratchMoney(double balance, double riskTargetPct, double scratchPctOfRisk) => balance * riskTargetPct / 100 * scratchPctOfRisk / 100;
+        public static bool IsLoss(double net, double scratchMoney) => net < -Math.Max(0, scratchMoney);
+        public static bool IsScratch(double net, double scratchMoney) => !IsLoss(net, scratchMoney) && net <= Math.Max(0, scratchMoney);
+
         public static int MaxLosses(double riskTargetPct, int overrideMax) => overrideMax > 0 ? overrideMax : (riskTargetPct > 1.0 ? 2 : 3);
     }
 
@@ -525,7 +530,10 @@ namespace TradeWatchCore
 
         sealed class Lesson { public double Impact; public string Text; }
 
-        public static string Build(List<TradeRow> trades, List<CancelRow> cancels, double riskTarget, DateTime now)
+        /// A scratch: a result within scratchR of zero (R known), or exactly zero.
+        public static bool IsScratch(TradeRow x, double scratchR) => double.IsNaN(x.R) ? x.Net == 0 : Math.Abs(x.R) <= scratchR;
+
+        public static string Build(List<TradeRow> trades, List<CancelRow> cancels, double riskTarget, DateTime now, double scratchR = 0.2)
         {
             var sb = new StringBuilder();
             sb.AppendLine("# Trade Watch report");
@@ -540,7 +548,7 @@ namespace TradeWatchCore
             }
 
             var t = trades.OrderBy(x => x.Close).ToList();
-            int wins = t.Count(x => x.Net > 0), losses = t.Count(x => x.Net < 0);
+            int scratches = t.Count(x => IsScratch(x, scratchR)), wins = t.Count(x => x.Net > 0 && !IsScratch(x, scratchR)), losses = t.Count(x => x.Net < 0 && !IsScratch(x, scratchR));
             double net = t.Sum(x => x.Net), comm = t.Sum(x => x.Comm), swap = t.Sum(x => x.Swap);
             var rs = t.Where(x => !double.IsNaN(x.R)).Select(x => x.R).ToList();
             double grossWin = t.Where(x => x.Net > 0).Sum(x => x.Net), grossLoss = -t.Where(x => x.Net < 0).Sum(x => x.Net);
@@ -550,8 +558,8 @@ namespace TradeWatchCore
             sb.AppendLine("| | |");
             sb.AppendLine("|---|---|");
             sb.AppendLine("| Period | " + t.First().Open.ToString("yyyy-MM-dd", Fmt.C) + " to " + t.Last().Close.ToString("yyyy-MM-dd", Fmt.C) + " |");
-            sb.AppendLine("| Trades | " + t.Count + " (" + wins + " won, " + losses + " lost, " + (t.Count - wins - losses) + " flat) |");
-            sb.AppendLine("| Win rate | " + Pct(wins, t.Count) + " |");
+            sb.AppendLine("| Trades | " + t.Count + " (" + wins + " won, " + losses + " lost, " + scratches + " scratch) |");
+            sb.AppendLine("| Win rate | " + Pct(wins, wins + losses) + " (scratches left out) |");
             sb.AppendLine("| Net result | " + Fmt.SM(net) + " |");
             sb.AppendLine("| Average R | " + (rs.Count > 0 ? Fmt.R(rs.Average()) : "-") + " |");
             sb.AppendLine("| Average win / loss | " + (wins > 0 ? M(grossWin / wins) : "-") + " / " + (losses > 0 ? M(-grossLoss / losses) : "-") + " |");
@@ -560,7 +568,7 @@ namespace TradeWatchCore
             sb.AppendLine("| Costs paid | commission " + M(comm) + ", swap " + M(swap) + " |");
             var pr = t.Where(x => !double.IsNaN(x.PlanRiskPct)).Select(x => x.PlanRiskPct).ToList();
             sb.AppendLine("| Average planned risk | " + (pr.Count > 0 ? Fmt.N(pr.Average()) + "%" : "-") + " |");
-            sb.AppendLine("| Max losing streak | " + Streak(t) + " |");
+            sb.AppendLine("| Max losing streak | " + Streak(t, scratchR) + " (scratches don't break or add to it) |");
             sb.AppendLine();
 
             // lessons
@@ -690,10 +698,14 @@ namespace TradeWatchCore
             return sb.ToString();
         }
 
-        static int Streak(List<TradeRow> t)
+        static int Streak(List<TradeRow> t, double scratchR)
         {
             int best = 0, cur = 0;
-            foreach (var x in t) { if (x.Net < 0) { cur++; best = Math.Max(best, cur); } else cur = 0; }
+            foreach (var x in t)
+            {
+                if (IsScratch(x, scratchR)) continue;
+                if (x.Net < 0) { cur++; best = Math.Max(best, cur); } else cur = 0;
+            }
             return best;
         }
 
@@ -791,7 +803,7 @@ namespace TradeWatchCore
     public sealed class PanelModel
     {
         public string Title, Balance, Target, DayPnl, AllRisk, Footer;
-        public int Losses, MaxLosses, Trades; public double DayPnlVal; public Lvl FooterLvl;
+        public int Losses, MaxLosses, Trades, Scratches; public double DayPnlVal; public Lvl FooterLvl;
         public List<Note> Global = new List<Note>();
         public List<PCard> Cards = new List<PCard>();
         static readonly JsonSerializerOptions SigOpt = new JsonSerializerOptions { IncludeFields = true,
@@ -802,14 +814,14 @@ namespace TradeWatchCore
     public static class PanelBuilder
     {
         public static PanelModel Build(List<Setup> setups, List<Note> global, double balance, double equity, double target,
-                                       int trades, int losses, int maxLosses, double dayPnl, string footer, Lvl footerLvl, string version)
+                                       int trades, int losses, int maxLosses, double dayPnl, string footer, Lvl footerLvl, string version, int scratches = 0)
         {
             var m = new PanelModel
             {
                 Title = "TRADE WATCH " + version,
                 Balance = "Balance " + Fmt.M(balance) + "  ·  equity " + Fmt.M(equity),
                 Target = "Risk per trade " + Fmt.N(target) + "% = " + Fmt.M(balance * target / 100),
-                Trades = trades, Losses = losses, MaxLosses = maxLosses, DayPnlVal = dayPnl, DayPnl = Fmt.SM(dayPnl),
+                Trades = trades, Losses = losses, Scratches = scratches, MaxLosses = maxLosses, DayPnlVal = dayPnl, DayPnl = Fmt.SM(dayPnl),
                 Global = global.OrderByDescending(n => n.Level).ToList(), Footer = footer, FooterLvl = footerLvl
             };
             if (setups.Count > 1)
@@ -894,9 +906,9 @@ namespace TradeWatchCore
         }
 
         /// The markdown report as a coloured page, with tiles and charts on top. Opens in any browser.
-        public static string Build(List<TradeRow> trades, List<CancelRow> cancels, double target, DateTime now)
+        public static string Build(List<TradeRow> trades, List<CancelRow> cancels, double target, DateTime now, double scratchR = 0.2)
         {
-            string md = Report.Build(trades, cancels, target, now);
+            string md = Report.Build(trades, cancels, target, now, scratchR);
             var t = trades.OrderBy(x => x.Close).ToList();
             var sb = new StringBuilder();
             sb.Append("<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>Trade Watch report</title><style>");
@@ -917,14 +929,14 @@ svg text{fill:var(--dim);font-size:11px}</style></head><body><main>");
             sb.Append("<h1>Trade Watch report</h1><div class=sub>Made " + H(now.ToString("yyyy-MM-dd HH:mm", Fmt.C)) + " (Amsterdam time) · risk target " + H(Fmt.N(target)) + "% per trade · R = result ÷ planned risk</div>");
             if (t.Count > 0)
             {
-                int wins = t.Count(x => x.Net > 0); double net = t.Sum(x => x.Net);
+                int wins = t.Count(x => x.Net > 0 && !Report.IsScratch(x, scratchR)), lost = t.Count(x => x.Net < 0 && !Report.IsScratch(x, scratchR)); double net = t.Sum(x => x.Net);
                 var rs = t.Where(x => !double.IsNaN(x.R)).Select(x => x.R).ToList();
                 double gw = t.Where(x => x.Net > 0).Sum(x => x.Net), gl = -t.Where(x => x.Net < 0).Sum(x => x.Net);
                 string Tile(string label, string val, string cls) => "<div class=tile><span>" + H(label) + "</span><b class=\"" + cls + "\">" + H(val) + "</b></div>";
                 sb.Append("<div class=tiles>");
                 sb.Append(Tile("Net result", Fmt.SM(net), net >= 0 ? "pos" : "neg"));
                 sb.Append(Tile("Trades", t.Count.ToString(Fmt.C), ""));
-                sb.Append(Tile("Win rate", (100.0 * wins / t.Count).ToString("0", Fmt.C) + "%", ""));
+                sb.Append(Tile("Win rate", wins + lost > 0 ? (100.0 * wins / (wins + lost)).ToString("0", Fmt.C) + "%" : "-", ""));
                 sb.Append(Tile("Average R", rs.Count > 0 ? Fmt.R(rs.Average()) : "-", rs.Count > 0 && rs.Average() >= 0 ? "pos" : "neg"));
                 sb.Append(Tile("Profit factor", gl > 0 ? (gw / gl).ToString("0.00", Fmt.C) : "-", gl > 0 && gw / gl >= 1 ? "pos" : "neg"));
                 double missed = t.Where(x => x.Follow == "tp_after").Sum(x => x.Missed) + cancels.Where(c => c.Follow == "tp").Sum(c => c.Result);
@@ -1031,13 +1043,16 @@ namespace cAlgo.Robots
     [Robot(TimeZone = TimeZones.WEuropeStandardTime, AccessRights = AccessRights.FullAccess)]
     public class TradeWatch : Robot
     {
-        public const string Version = "1.1.0";
+        public const string Version = "1.1.1";
 
         [Parameter("Risk target per trade (% of balance)", Group = "Plan", DefaultValue = 3.0, MinValue = 0.1, MaxValue = 10, Step = 0.1)]
         public double RiskTarget { get; set; }
 
         [Parameter("Daily stop (losses, 0 = auto: 2 above 1% risk, else 3)", Group = "Plan", DefaultValue = 0, MinValue = 0, MaxValue = 10)]
         public int DailyStopOverride { get; set; }
+
+        [Parameter("Scratch: a loss smaller than this % of your risk per trade doesn't count", Group = "Plan", DefaultValue = 20, MinValue = 0, MaxValue = 100)]
+        public double ScratchPct { get; set; }
 
         [Parameter("Sound on a new warning", Group = "Alerts", DefaultValue = true)]
         public bool Sound { get; set; }
@@ -1198,15 +1213,19 @@ namespace cAlgo.Robots
             catch (Exception e) { Print("Trade Watch error: " + e.Message); }
         }
 
+        double ScratchMoney => Day.ScratchMoney(Account.Balance, RiskTarget, ScratchPct);
+        int DayLosses() => today.Count(t => Day.IsLoss(t.Net, ScratchMoney));
+        int DayScratches() => today.Count(t => Day.IsScratch(t.Net, ScratchMoney) && t.Net < 0);
+
         List<Note> GlobalNotes(List<WItem> items)
         {
             var g = new List<Note>();
             int max = Day.MaxLosses(RiskTarget, DailyStopOverride);
-            int losses = today.Count(t => t.Net < 0);
+            int losses = DayLosses();
             string d = Server.Time.ToString("yyyyMMdd", Fmt.C);
             if (losses >= max)
             {
-                g.Add(new Note(Lvl.Bad, "daily_stop", "day|stop|" + d, "Daily stop: " + losses + " losses today. No new trades until tomorrow."));
+                g.Add(new Note(Lvl.Bad, "daily_stop", "day|stop|" + d, "Daily stop: " + losses + " losses today (scratches under " + Fmt.M(ScratchMoney) + " not counted). No new trades until tomorrow."));
                 if (items.Any(i => !i.Filled))
                     g.Add(new Note(Lvl.Bad, "daily_stop_orders", "day|orders|" + d + "|" + items.Count(i => !i.Filled), "Daily stop reached but orders are still pending: cancel them."));
             }
@@ -1262,7 +1281,7 @@ namespace cAlgo.Robots
         void TrackCampaigns(List<Note> global)
         {
             int maxLoss = Day.MaxLosses(RiskTarget, DailyStopOverride);
-            bool dayStopped = today.Count(t => t.Net < 0) >= maxLoss;
+            bool dayStopped = DayLosses() >= maxLoss;
             var withFills = setups.Where(s => s.Items.Any(i => i.Filled)).ToDictionary(s => s.Key);
 
             foreach (var s in withFills.Values)
@@ -1430,8 +1449,8 @@ namespace cAlgo.Robots
             {
                 System.IO.File.WriteAllText(Path.Combine(dir, "journal.csv"), string.Join(",", TradeRow.Cols) + "\n" + string.Concat(journal.Select(r => r.ToCsv() + "\n")));
                 System.IO.File.WriteAllText(Path.Combine(dir, "cancelled.csv"), string.Join(",", CancelRow.Cols) + "\n" + string.Concat(cancelled.Select(r => r.ToCsv() + "\n")));
-                System.IO.File.WriteAllText(Path.Combine(dir, "report.md"), Report.Build(journal, cancelled, RiskTarget, Server.Time));
-                System.IO.File.WriteAllText(Path.Combine(dir, "report.html"), ReportHtml.Build(journal, cancelled, RiskTarget, Server.Time));
+                System.IO.File.WriteAllText(Path.Combine(dir, "report.md"), Report.Build(journal, cancelled, RiskTarget, Server.Time, ScratchPct / 100));
+                System.IO.File.WriteAllText(Path.Combine(dir, "report.html"), ReportHtml.Build(journal, cancelled, RiskTarget, Server.Time, ScratchPct / 100));
                 SaveState();
             }
             catch (Exception e) { Print("Trade Watch: can't write the journal: " + e.Message); }
@@ -1584,7 +1603,7 @@ namespace cAlgo.Robots
 
         void Draw(List<Note> global)
         {
-            int max = Day.MaxLosses(RiskTarget, DailyStopOverride), losses = today.Count(t => t.Net < 0);
+            int max = Day.MaxLosses(RiskTarget, DailyStopOverride), losses = DayLosses();
             string footer = ""; Lvl fl = Lvl.Info;
             if (Journal)
             {
@@ -1598,7 +1617,7 @@ namespace cAlgo.Robots
                              (rs.Count > 0 ? Fmt.R(rs.Average()) : "-") + "  ·  net " + Fmt.SM(journal.Sum(t => t.Net)) + "  ·  report.html";
                 }
             }
-            var m = PanelBuilder.Build(setups, global, Account.Balance, Account.Equity, RiskTarget, today.Count, losses, max, today.Sum(t => t.Net), footer, fl, Version);
+            var m = PanelBuilder.Build(setups, global, Account.Balance, Account.Equity, RiskTarget, today.Count, losses, max, today.Sum(t => t.Net), footer, fl, Version, DayScratches());
 
             string sig = m.Signature() + collapsed;
             if (sig == lastSig) return;
@@ -1622,7 +1641,7 @@ namespace cAlgo.Robots
             body.AddChild(Txt(m.Target, CDim, FontSize - 1));
             var day = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0) };
             day.AddChild(Txt("TODAY  ", CDim, FontSize - 2, true));
-            day.AddChild(Txt(m.Losses + " of " + m.MaxLosses + " losses  ·  " + m.Trades + " trade" + (m.Trades == 1 ? "" : "s") + "  ·  ",
+            day.AddChild(Txt(m.Losses + " of " + m.MaxLosses + " losses  ·  " + (m.Scratches > 0 ? m.Scratches + " scratch  ·  " : "") + m.Trades + " trade" + (m.Trades == 1 ? "" : "s") + "  ·  ",
                              m.Losses >= m.MaxLosses ? CBad : m.Losses == m.MaxLosses - 1 ? CWarn : CText, FontSize, true));
             day.AddChild(Txt(m.DayPnl, m.DayPnlVal >= 0 ? COk : CBad, FontSize, true));
             body.AddChild(day);

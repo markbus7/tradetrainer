@@ -130,6 +130,13 @@ static class Tests
         });
         Ok(day.Count == 3, "scale-in stopped together counts once; sell separate; later buy separate");
         Ok(day.Count(d => d.Net < 0) == 2, "two losses");
+        // Mark's 13 Nov: gold -12.83, EURUSD +1.55, EURUSD -0.45 (a scratch). Balance 223.52, 3% risk = 6.71, scratch under 20% = 1.34
+        double scr = Day.ScratchMoney(223.52, 3, 20);
+        var mark = new[] { -12.83, 1.55, -0.45 };
+        Ok(Near(scr, 1.34112, 1e-4), "scratch limit = 20% of 3% of balance");
+        Ok(mark.Count(n => Day.IsLoss(n, scr)) == 1 && mark.Count(n => Day.IsScratch(n, scr) && n < 0) == 1, "-0.45 is a scratch, only gold is a loss");
+        Ok(Day.IsLoss(-1.5, scr) && !Day.IsLoss(-1.3, scr) && !Day.IsLoss(0.2, scr), "scratch edge");
+        Ok(Day.IsLoss(-0.01, 0), "scratch off (0%): every loss counts");
         Ok(Day.MaxLosses(3, 0) == 2 && Day.MaxLosses(1, 0) == 3 && Day.MaxLosses(3, 4) == 4, "daily stop: 2 above 1% risk, 3 otherwise, override wins");
 
         // ---- journal row from a finished campaign
@@ -217,7 +224,10 @@ static class Tests
         Ok(rep.Contains("closed 1 trade(s) early"), "early exit lesson");
         Ok(rep.Contains("risked more than 3.0%"), "risk lesson");
         Ok(rep.Contains("would have won"), "cancelled order lesson");
-        Ok(rep.Contains("| Trades | 4 (2 won, 2 lost, 0 flat) |"), "trade count line");
+        Ok(rep.Contains("| Trades | 4 (2 won, 2 lost, 0 scratch) |"), "trade count line (" + rep.Split('\n').FirstOrDefault(l => l.StartsWith("| Trades")) + ")");
+        var scratchRow = TradeRow.FromCsv(Csv.Parse(early.ToCsv()).Single()); scratchRow.Net = -0.4; scratchRow.R = -0.1;
+        var rep2 = Report.Build(new List<TradeRow> { row, stopped, scratchRow }, new List<CancelRow>(), 3, t0.AddDays(1));
+        Ok(rep2.Contains("(1 won, 1 lost, 1 scratch)") && rep2.Contains("| Win rate | 50% (scratches left out) |"), "scratch in the report");
         Ok(!rep.Contains(",00"), "no Dutch decimal commas in the report");
         Ok(Report.Build(new List<TradeRow>(), new List<CancelRow>(), 3, t0).Contains("No finished trades"), "empty report");
         System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "sample-report.md"), rep);

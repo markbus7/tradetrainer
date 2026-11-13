@@ -68,6 +68,8 @@ A new yellow or red check plays a sound, shows a popup and is written to the cBo
   from your last trade on that symbol, and the panel says so if there was none.
 - Swap per night uses the symbol's swap rates from cTrader (triple on the triple-swap day).
 - Daily stop: 2 losses when your target risk is above 1%, else 3 (can be changed in the settings).
+  A **scratch** is not a loss: a loss smaller than 20% of your risk per trade (at 3% of EUR 224 that's under EUR 1.34) is shown as a scratch
+  and doesn't count toward the daily stop. The day runs on Amsterdam time.
   Positions on the same symbol and direction that close within 5 minutes of each other count as one trade.
 
 ## Journal and report
@@ -77,6 +79,7 @@ The files go in **Documents/TradeWatch** (you can pick another folder in the set
   planned risk, result in money and R, commission, swap, how far the trade went your way at best (best R),
   how you exited (TP, SL, manual), and which rules were broken for more than a minute while it was open.
 - `cancelled.csv`: orders you cancelled or that expired, and what they would have done.
+- In the report, results within 0.2R of zero count as scratch: they are left out of the win rate and the losing streak.
 - `report.html`: the same report as a coloured page with tiles, a balance curve and a bar per trade in R. Double-click it to open it in your browser.
 - `report.md`: rewritten after every trade. It covers performance (win rate, average R, profit factor, losing streak),
   **what to work on** (the 3 things that cost you most), what went well,
@@ -100,6 +103,7 @@ logged the next time it runs, but without the best point.
 |---|---|
 | Risk target per trade (% of balance) | 3 |
 | Daily stop (losses, 0 = auto) | 0 (2 above 1% risk, else 3) |
+| Scratch: a loss smaller than this % of your risk per trade doesn't count | 20 |
 | Sound / popup on a new warning | on / on |
 | Warn before rollover (minutes) | 60 |
 | Keep journal and report | on |

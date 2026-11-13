@@ -51,7 +51,7 @@ table{width:100%;margin-top:6px;border-collapse:collapse;font-size:11px;table-la
         sb.Append("</span></div>");
         sb.Append($"<div class=dim style='margin-top:6px;font-size:11px'>{H(m.Balance)}</div><div class=dim style='font-size:11px'>{H(m.Target)}</div>");
         string dayCol = m.Losses >= m.MaxLosses ? "#FF6B6B" : m.Losses == m.MaxLosses - 1 ? "#F2B84B" : "#E6E9EF";
-        sb.Append($"<div style='margin-top:6px'><span class='dim b' style='font-size:10px'>TODAY &nbsp;</span><span class=b style='color:{dayCol}'>{m.Losses} of {m.MaxLosses} losses · {m.Trades} trade{(m.Trades == 1 ? "" : "s")} · </span><span class=b style='color:{(m.DayPnlVal >= 0 ? "#4CC38A" : "#FF6B6B")}'>{H(m.DayPnl)}</span></div>");
+        sb.Append($"<div style='margin-top:6px'><span class='dim b' style='font-size:10px'>TODAY &nbsp;</span><span class=b style='color:{dayCol}'>{m.Losses} of {m.MaxLosses} losses · {(m.Scratches > 0 ? m.Scratches + " scratch · " : "")}{m.Trades} trade{(m.Trades == 1 ? "" : "s")} · </span><span class=b style='color:{(m.DayPnlVal >= 0 ? "#4CC38A" : "#FF6B6B")}'>{H(m.DayPnl)}</span></div>");
         if (!string.IsNullOrEmpty(m.AllRisk)) sb.Append($"<div class=dim style='font-size:11px;margin-top:2px'>{H(m.AllRisk)}</div>");
         foreach (var n in m.Global) sb.Append("<div style='width:430px'>" + Pill(n) + "</div>");
         foreach (var c in m.Cards)
