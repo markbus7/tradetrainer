@@ -1,0 +1,24 @@
+# Builds the Trade Watch cBot and runs its tests whenever something in ctrader/ changes.
+name: cTrader bot tests
+
+on:
+  push:
+    paths: ["ctrader/**", ".github/workflows/ctrader-tests.yml"]
+  pull_request:
+    paths: ["ctrader/**", ".github/workflows/ctrader-tests.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Run tests
+        working-directory: ctrader/tests
+        run: dotnet run

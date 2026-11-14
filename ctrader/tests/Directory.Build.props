@@ -1,0 +1,1 @@
+<Project><PropertyGroup><NoWarn>$(NoWarn);NETSDK1138</NoWarn><CheckEolTargetFramework>false</CheckEolTargetFramework></PropertyGroup></Project>
