@@ -74,6 +74,7 @@ namespace TradeWatchCore
         public string TripleDay = "";    // the symbol's triple-swap weekday, e.g. "Wed"
         public double SpreadPips;
         public double Current = double.NaN;   // price the position would close at now
+        public DateTime EntryTime;            // filled only
 
         public double Sign => Buy ? 1 : -1;
         public double? SlPips => Sl.HasValue ? (Entry - Sl.Value) * Sign / PipSize : (double?)null;   // > 0 = risk
@@ -666,8 +667,8 @@ namespace TradeWatchCore
             var cWon = cancels.Where(c => c.Follow == "tp").ToList();
             if (cWon.Count > 0) lessons.Add(new Lesson { Impact = cWon.Sum(c => c.Result),
                 Text = cWon.Count + " order(s) you cancelled would have won " + M(cWon.Sum(c => c.Result)) + ". If the setup was still valid, let the order sit." });
-            if (comm + swap < 0 && grossWin > 0 && -(comm + swap) > 0.15 * grossWin) lessons.Add(new Lesson { Impact = -(comm + swap),
-                Text = "Costs (" + M(comm + swap) + ") ate " + (-(comm + swap) / grossWin * 100).ToString("0", Fmt.C) + "% of your winnings. Wider stops with smaller size, or fewer trades, keep more of it." });
+            if (t.Count >= 5 && comm + swap < 0 && grossWin > 0 && -(comm + swap) > 0.15 * grossWin) lessons.Add(new Lesson { Impact = -(comm + swap),
+                Text = "Commission and swap (" + M(-(comm + swap)) + ") took " + (-(comm + swap) / grossWin * 100).ToString("0", Fmt.C) + "% of what your winning trades made. Fewer, bigger moves keep more of it (cost per trade stays the same, the reward grows)." });
             foreach (var g in t.GroupBy(x => x.Open.Hour).Where(g => g.Count() >= 3 && g.Sum(x => x.Net) < 0))
                 lessons.Add(new Lesson { Impact = -g.Sum(x => x.Net) * 0.5,
                     Text = "Trades opened " + g.Key.ToString("00", Fmt.C) + ":00-" + g.Key.ToString("00", Fmt.C) + ":59 lost " + M(-g.Sum(x => x.Net)) + " over " + g.Count() + " trades." });
@@ -752,7 +753,7 @@ namespace TradeWatchCore
             foreach (var x in t.AsEnumerable().Reverse().Take(20))
             {
                 string notes = string.Join("; ", (x.Breaks ?? "").Split(';').Where(c => c != "").Select(RuleName));
-                if (x.AfterStop) notes = (notes == "" ? "" : notes + "; ") + "after daily stop";
+                if (x.AfterStop && !(x.Breaks ?? "").Contains("after_stop")) notes = (notes == "" ? "" : notes + "; ") + RuleName("after_stop");
                 if (!string.IsNullOrEmpty(x.FollowText)) notes = (notes == "" ? "" : notes + "; ") + x.FollowText;
                 sb.AppendLine("| " + x.Close.ToString("MM-dd HH:mm", Fmt.C) + " | " + x.Symbol + " " + x.Dir.ToLowerInvariant() + " " + x.Kind +
                     " | " + x.Entries + " | " + (double.IsNaN(x.PlanRisk) ? "no stop" : M(x.PlanRisk) + " (" + Fmt.N(x.PlanRiskPct) + "%)") + " | " + Fmt.SM(x.Net) +
@@ -808,6 +809,18 @@ namespace TradeWatchCore
 
     public static class TradeBuilder
     {
+        /// Widen the best/worst price seen with a high and low (bar data or the exit itself).
+        public static void AddExtremes(Campaign c, double hi, double lo)
+        {
+            double sign = c.Buy ? 1 : -1;
+            foreach (var px in new[] { hi, lo })
+            {
+                if (double.IsNaN(px) || px <= 0) continue;
+                if (double.IsNaN(c.Best) || (px - c.Best) * sign > 0) c.Best = px;
+                if (double.IsNaN(c.Worst) || (px - c.Worst) * sign < 0) c.Worst = px;
+            }
+        }
+
         /// Turns a finished campaign plus its closed positions into one journal row.
         public static TradeRow Finish(Campaign c, List<ClosedPos> parts, double exitTolPips = 1.0)
         {
@@ -837,6 +850,8 @@ namespace TradeWatchCore
                 ExitType = exit, ExitPrice = avgExit, Units = units, PipSize = c.PipSize, PipValue = c.PipValue, Digits = c.Digits,
                 Breaks = string.Join(";", c.Breaks.OrderBy(b => b, StringComparer.Ordinal)), AfterStop = c.AfterDailyStop
             };
+            // the exit price was reached, so the best point is never worse than the exit and the worst never better
+            AddExtremes(c, avgExit, avgExit);
             if (!double.IsNaN(c.Best) && c.PlanRisk > 0) row.BestR = (c.Best - avgEntry) * sign / c.PipSize * c.PipValue * units / c.PlanRisk;
             if (!double.IsNaN(c.Worst) && c.PlanRisk > 0) row.WorstR = (c.Worst - avgEntry) * sign / c.PipSize * c.PipValue * units / c.PlanRisk;
             return row;
@@ -1109,7 +1124,7 @@ namespace cAlgo.Robots
     [Robot(TimeZone = TimeZones.WEuropeStandardTime, AccessRights = AccessRights.FullAccess)]
     public class TradeWatch : Robot
     {
-        public const string Version = "1.3.0";
+        public const string Version = "1.3.1";
 
         [Parameter("Risk target per trade (% of balance)", Group = "Plan", DefaultValue = 3.0, MinValue = 0.1, MaxValue = 10, Step = 0.1)]
         public double RiskTarget { get; set; }
@@ -1233,7 +1248,7 @@ namespace cAlgo.Robots
                     Symbol = p.SymbolName, Buy = buy, Filled = true, Id = p.Id, Units = p.VolumeInUnits, Lots = s.VolumeInUnitsToQuantity(p.VolumeInUnits),
                     Entry = p.EntryPrice, Sl = p.StopLoss, Tp = p.TakeProfit, PipSize = s.PipSize, PipValue = s.PipValue, Digits = s.Digits,
                     StepLots = s.VolumeInUnitsToQuantity(s.VolumeInUnitsStep), CommRT = 2 * Math.Abs(p.Commissions), CommKnown = true,
-                    NetProfit = p.NetProfit, SwapPerNight = SwapNight(s, buy, p.VolumeInUnits, p.EntryPrice), SwapMultTonight = TripleTonight(s) ? 3 : 1, TripleDay = TripleDayName(s), SpreadPips = s.Spread / s.PipSize, OrderType = "filled", Current = buy ? s.Bid : s.Ask
+                    NetProfit = p.NetProfit, SwapPerNight = SwapNight(s, buy, p.VolumeInUnits, p.EntryPrice), SwapMultTonight = TripleTonight(s) ? 3 : 1, TripleDay = TripleDayName(s), SpreadPips = s.Spread / s.PipSize, OrderType = "filled", Current = buy ? s.Bid : s.Ask, EntryTime = p.EntryTime
                 });
             }
             foreach (var o in PendingOrders)
@@ -1292,6 +1307,16 @@ namespace cAlgo.Robots
 
         double ScratchMoney => Day.ScratchMoney(Account.Balance, RiskTarget, ScratchPct);
         DateTime TradingDay(DateTime t) => t.AddHours(-DayStartHour).Date;
+        /// The daily stop as it stood at a moment today (only trades closed before it). Another day: not stopped.
+        DayState DayAt(DateTime t)
+        {
+            if (TradingDay(t) != todayFor) return new DayState();
+            var before = today.Where(x => x.Close <= t).ToList();
+            double dayStartBalance = Account.Balance - today.Sum(x => x.Net);
+            return DayRules.Evaluate(before, StopRule, dayStartBalance * RiskTarget / 100, DayLimitR,
+                                     Day.MaxLosses(RiskTarget, DailyStopOverride), ScratchMoney);
+        }
+
         DayState DayNow()
         {
             double dayStartBalance = Account.Balance - today.Sum(t => t.Net);   // one risk measured on the balance the day started with
@@ -1370,7 +1395,6 @@ namespace cAlgo.Robots
         // ------------------------------------------------------------ journal
         void TrackCampaigns(List<Note> global)
         {
-            bool dayStopped = DayNow().Stopped;
             var withFills = setups.Where(s => s.Items.Any(i => i.Filled)).ToDictionary(s => s.Key);
 
             foreach (var s in withFills.Values)
@@ -1379,9 +1403,13 @@ namespace cAlgo.Robots
                 {
                     var first = s.Items[0];
                     var l1 = s.Levels[0];
+                    // the daily stop counts as broken only if it was already hit when the first position opened
+                    DateTime opened = s.Items.Where(i => i.Filled).Min(i => i.EntryTime);
+                    if (opened == default(DateTime)) opened = Server.Time;
+                    bool dayStopped = DayAt(opened).Stopped;
                     c = new Campaign
                     {
-                        Symbol = s.Symbol, Buy = s.Buy, Start = Server.Time, Kind = TradeBuilder.Kind(s), PlannedOrders = s.Items.Count,
+                        Symbol = s.Symbol, Buy = s.Buy, Start = opened, Kind = TradeBuilder.Kind(s), PlannedOrders = s.Items.Count,
                         PlanRisk = s.FullRisk ?? double.NaN, PlanRiskPct = s.FullRisk.HasValue ? s.RiskPct : double.NaN, PlanReward = s.FullReward ?? double.NaN,
                         PlanSl = l1.FirstOrDefault(i => i.Sl.HasValue)?.Sl ?? double.NaN, PlanTp = l1.FirstOrDefault(i => i.Tp.HasValue)?.Tp ?? double.NaN,
                         PipSize = first.PipSize, PipValue = first.PipValue, Digits = first.Digits, AfterDailyStop = dayStopped
@@ -1425,6 +1453,12 @@ namespace cAlgo.Robots
                 finishWait.Remove(key);
                 campaigns.Remove(key);
                 if (parts.Count == 0) { SaveState(); continue; }
+                try
+                {   // best and worst price over the whole trade from minute bars, in case the bot was off or missed a tick
+                    var bars = BarsAfter(c.Symbol, parts.Min(p => p.Open).AddMinutes(-1), parts.Max(p => p.Close)).ToList();
+                    if (bars.Count > 0) TradeBuilder.AddExtremes(c, bars.Max(b => b.H), bars.Min(b => b.L));
+                }
+                catch { }
                 var row = TradeBuilder.Finish(c, parts);
                 journal.Add(row);
                 Print("Journal: " + row.Symbol + " " + row.Dir.ToLowerInvariant() + " " + row.Kind + " closed " + Fmt.SM(row.Net) +
@@ -1520,9 +1554,48 @@ namespace cAlgo.Robots
                 if (System.IO.File.Exists(st))
                     campaigns = JsonSerializer.Deserialize<Dictionary<string, Campaign>>(System.IO.File.ReadAllText(st), Json.Opt) ?? new Dictionary<string, Campaign>();
                 fileOk = true;
+                foreach (var r in journal.Where(r => !double.IsNaN(r.R)))   // rows from 1.3.0 and older could show a best point below the result
+                {
+                    if (!double.IsNaN(r.BestR) && r.BestR < r.R) r.BestR = r.R;
+                    if (!double.IsNaN(r.WorstR) && r.WorstR > r.R) r.WorstR = r.R;
+                }
+                RecheckDailyStopFlags();
                 SaveAll();
             }
             catch (Exception e) { fileOk = false; fileErr = e.Message; Print("Trade Watch: journal is off, files can't be written (" + e.Message + "). Allow file access, or set a Journal folder."); }
+        }
+
+        /// Re-judges "traded after the daily stop" for logged trades from the account history:
+        /// was the stop already hit (by trades closed earlier that trading day) when the trade opened?
+        void RecheckDailyStopFlags()
+        {
+            var hist = new List<HistoricalTrade>();
+            for (int i = History.Count - 1, n = 0; i >= 0 && n < 3000; i--, n++) hist.Add(History[i]);
+            var closed = hist.GroupBy(h => (long)h.PositionId).Select(g => new
+            {
+                Id = g.Key.ToString(Fmt.C), Symbol = g.First().SymbolName, Buy = g.First().TradeType == TradeType.Buy,
+                Close = g.Max(h => h.ClosingTime), Net = g.Sum(h => h.NetProfit), BalanceAfter = g.OrderBy(h => h.ClosingTime).Last().Balance
+            }).ToList();
+            int changed = 0;
+            foreach (var row in journal)
+            {
+                var ids = new HashSet<string>(row.Id.Split('-'));
+                var day = TradingDay(row.Open);
+                var sameDay = closed.Where(x => TradingDay(x.Close) == day).OrderBy(x => x.Close).ToList();
+                if (sameDay.Count == 0 && !closed.Any(x => ids.Contains(x.Id))) continue;   // older than the history we can see
+                var before = sameDay.Where(x => x.Close <= row.Open && !ids.Contains(x.Id))
+                                    .Select(x => new ClosedPos { Symbol = x.Symbol, Buy = x.Buy, Close = x.Close, Open = x.Close, Net = x.Net }).ToList();
+                double startBal = sameDay.Count > 0 ? sameDay[0].BalanceAfter - sameDay[0].Net : Account.Balance;
+                bool stopped = before.Count > 0 && DayRules.Evaluate(Day.Group(before), StopRule, startBal * RiskTarget / 100, DayLimitR,
+                                                                    Day.MaxLosses(RiskTarget, DailyStopOverride), Day.ScratchMoney(startBal, RiskTarget, ScratchPct)).Stopped;
+                if (stopped == row.AfterStop) continue;
+                row.AfterStop = stopped;
+                var b = new HashSet<string>((row.Breaks ?? "").Split(';').Where(x => x != ""));
+                if (stopped) b.Add("after_stop"); else b.Remove("after_stop");
+                row.Breaks = string.Join(";", b.OrderBy(x => x, StringComparer.Ordinal));
+                changed++;
+            }
+            if (changed > 0) Print("Trade Watch: re-checked the daily stop on " + changed + " logged trade(s) against your account history.");
         }
 
         void SaveState()

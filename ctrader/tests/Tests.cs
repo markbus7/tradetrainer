@@ -182,6 +182,18 @@ static class Tests
         Ok(!double.IsNaN(row.BestR) && row.BestR > 0, "best point in R");
         Ok(row.Breaks == "tp2", "rule breaks kept");
 
+        // Mark's sell on 13 Nov: best seen +0.18R but closed at +0.25R -> best can never be below the exit
+        var cs = new Campaign { Symbol = "EURUSD", Buy = false, Kind = "single", PlanRisk = 5.45, PlanRiskPct = 2.4, PlanSl = 1.10600, PlanTp = 1.09900,
+                                PipSize = 0.0001, PipValue = PV, Digits = 5, Best = 1.10260, Worst = 1.10330 };
+        var sellRow = TradeBuilder.Finish(cs, new List<ClosedPos> { new ClosedPos { PositionId = 31, Symbol = "EURUSD", Buy = false, Open = t0, Close = t0.AddHours(5), Net = 1.35, Units = 2000, EntryPrice = 1.10316, ClosePrice = 1.10240 } });
+        Ok(sellRow.BestR >= (1.10316 - 1.10240) / 0.0001 * PV * 2000 / 5.45 - 1e-9, "best point includes the exit price (" + sellRow.BestR + ")");
+        var cb2 = new Campaign { Symbol = "EURUSD", Buy = true, Kind = "single", PlanRisk = 2.21, PipSize = 0.0001, PipValue = PV, Digits = 5, Best = 1.10400, Worst = 1.10330 };
+        var buyRow = TradeBuilder.Finish(cb2, new List<ClosedPos> { new ClosedPos { PositionId = 32, Symbol = "EURUSD", Buy = true, Open = t0, Close = t0.AddHours(1), Net = -0.99, Units = 2000, EntryPrice = 1.10363, ClosePrice = 1.10310 } });
+        Ok(buyRow.WorstR <= (1.10310 - 1.10363) / 0.0001 * PV * 2000 / 2.21 + 1e-9, "worst point includes the exit price (" + buyRow.WorstR + ")");
+        var cb3 = new Campaign { Symbol = "EURUSD", Buy = true, PipSize = 0.0001 };
+        TradeBuilder.AddExtremes(cb3, 1.10500, 1.10200);
+        Ok(cb3.Best == 1.10500 && cb3.Worst == 1.10200, "bar high/low widen best and worst");
+
         // manual early exit, then price reaches TP
         var camp2 = new Campaign { Symbol = "EURUSD", Buy = true, Kind = "single", PlanRisk = 3.7, PlanRiskPct = 1.5, PlanSl = 1.08300, PlanTp = 1.08800,
                                    PipSize = 0.0001, PipValue = PV, Digits = 5 };
@@ -257,6 +269,10 @@ static class Tests
         Ok(rep2.Contains("(1 won, 1 lost, 1 scratch)") && rep2.Contains("| Win rate | 50% (scratches left out) |"), "scratch in the report");
         Ok(!rep.Contains(",00"), "no Dutch decimal commas in the report");
         Ok(Report.Build(new List<TradeRow>(), new List<CancelRow>(), 3, t0).Contains("No finished trades"), "empty report");
+        var two = new List<TradeRow> { row, stopped }; foreach (var x in two) { x.AfterStop = true; x.Breaks = "after_stop"; }
+        var rep3 = Report.Build(two, new List<CancelRow>(), 3, t0.AddDays(1));
+        Ok(!rep3.Contains("Traded after the daily stop; Traded after the daily stop") && !rep3.Contains("after daily stop |"), "after-stop note not shown twice");
+        Ok(!rep3.Contains("Commission and swap ("), "no cost lesson from fewer than 5 trades");
         System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "sample-report.md"), rep);
         var html = ReportHtml.Build(trades, new List<CancelRow> { cr, cr2 }, 3, t0.AddDays(1));
         Ok(html.Contains("<h2>What to work on</h2>") && html.Contains("class=tile") && html.Contains("<polyline"), "report page has tiles, curve and sections");
@@ -273,7 +289,7 @@ static class Tests
         var t9 = new DateTime(2026, 11, 13, 9, 30, 0);
         var dayGroups = new List<TradeGroup> { new TradeGroup { Symbol = "EURUSD", Buy = true, Close = t9, Net = -3.70 }, new TradeGroup { Symbol = "EURUSD", Buy = false, Close = t9.AddHours(2), Net = 1.10 }, new TradeGroup { Symbol = "GBPUSD", Buy = true, Close = t9.AddHours(3), Net = -0.40 } };
         var dst = DayRules.Evaluate(dayGroups, DayRule.Day_down_in_R, 7.2, 2, 2, 1.44);
-        var pm = PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, "Journal: 12 trades  ·  58% won  ·  avg +0.21R  ·  net +€9.40  ·  report.html", Lvl.Info, "1.3.0");
+        var pm = PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, "Journal: 12 trades  ·  58% won  ·  avg +0.21R  ·  net +€9.40  ·  report.html", Lvl.Info, "1.3.1");
         var ec = pm.Cards.Single(c => c.Symbol == "EURUSD");
         Ok(ec.Rows.Count == 2 && ec.Rows[0].Name == "E1" && ec.Rows[0].Filled && !ec.Rows[1].Filled, "card rows: E1 filled, E2 pending");
         var slm = ec.Marks.Single(x => x.Kind == "sl"); var tpm = ec.Marks.Where(x => x.Kind == "tp").ToList(); var e2m = ec.Marks.Single(x => x.Label == "E2");
@@ -282,7 +298,7 @@ static class Tests
         var gsl = gc.Marks.Single(x => x.Kind == "sl"); var gnow = gc.Marks.Single(x => x.Kind == "now");
         Ok(gsl.Pos < gc.ZoneEntry && gnow.Pos > gc.ZoneEntry, "sell ladder is flipped: SL still on the left, price below entry on the right");
         Ok(gc.RiskLvl == Lvl.Bad && gc.Status == Lvl.Bad && gc.Reward == "no TP", "GBPUSD: risk too high, no TP");
-        Ok(pm.Signature() == PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, pm.Footer, Lvl.Info, "1.3.0").Signature(), "same data, same picture (no redraw)");
+        Ok(pm.Signature() == PanelBuilder.Build(ps, gl, 240, 240.55, 3, dst, pm.Footer, Lvl.Info, "1.3.1").Signature(), "same data, same picture (no redraw)");
         System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "panel-preview.html"), Preview.Panel(pm));
 
         Console.WriteLine($"{pass} passed, {fail} failed");
