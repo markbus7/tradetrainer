@@ -132,6 +132,12 @@
     "impact": "High"
   },
   {
+    "title": "FOMC Member Hammack Speaks",
+    "country": "USD",
+    "date": "2026-11-16T14:15:00-05:00",
+    "impact": "Low"
+  },
+  {
     "title": "RBNZ Financial Stability Report",
     "country": "NZD",
     "date": "2026-11-16T15:00:00-05:00",
@@ -375,7 +381,7 @@
     "title": "BOE Gov Bailey Speaks",
     "country": "GBP",
     "date": "2026-11-18T02:30:00-05:00",
-    "impact": "High"
+    "impact": "Medium"
   },
   {
     "title": "ECB Financial Stability Review",
@@ -675,7 +681,7 @@
     "title": "FOMC Member Waller Speaks",
     "country": "USD",
     "date": "2026-11-20T08:25:00-05:00",
-    "impact": "Medium"
+    "impact": "Low"
   },
   {
     "title": "Core Retail Sales m/m",
