@@ -156,6 +156,24 @@
     "impact": "High"
   },
   {
+    "title": "FOMC Member Barkin Speaks",
+    "country": "USD",
+    "date": "2026-11-16T18:10:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "FOMC Member Goolsbee Speaks",
+    "country": "USD",
+    "date": "2026-11-16T18:30:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "RBNZ Gov Breman Speaks",
+    "country": "NZD",
+    "date": "2026-11-16T19:00:00-05:00",
+    "impact": "Medium"
+  },
+  {
     "title": "Monetary Policy Meeting Minutes",
     "country": "AUD",
     "date": "2026-11-16T19:30:00-05:00",
@@ -450,6 +468,12 @@
     "impact": "Low"
   },
   {
+    "title": "FOMC Member Daly Speaks",
+    "country": "USD",
+    "date": "2026-11-18T12:15:00-05:00",
+    "impact": "Low"
+  },
+  {
     "title": "Gov Council Member Gravelle Speaks",
     "country": "CAD",
     "date": "2026-11-18T12:30:00-05:00",
@@ -573,6 +597,12 @@
     "title": "FOMC Member Hammack Speaks",
     "country": "USD",
     "date": "2026-11-19T08:50:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "FOMC Member Jefferson Speaks",
+    "country": "USD",
+    "date": "2026-11-19T09:25:00-05:00",
     "impact": "Low"
   },
   {
