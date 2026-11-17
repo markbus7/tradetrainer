@@ -288,6 +288,12 @@
     "impact": "Low"
   },
   {
+    "title": "GDT Price Index",
+    "country": "NZD",
+    "date": "2026-11-17T09:29:00-05:00",
+    "impact": "Low"
+  },
+  {
     "title": "FOMC Member Hammack Speaks",
     "country": "USD",
     "date": "2026-11-17T09:30:00-05:00",
@@ -303,12 +309,6 @@
     "title": "NAHB Housing Market Index",
     "country": "USD",
     "date": "2026-11-17T10:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "GDT Price Index",
-    "country": "NZD",
-    "date": "2026-11-17T10:50:00-05:00",
     "impact": "Low"
   },
   {
