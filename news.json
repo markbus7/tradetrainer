@@ -204,6 +204,12 @@
     "impact": "Low"
   },
   {
+    "title": "HMRC Payrolls Change",
+    "country": "GBP",
+    "date": "2026-11-17T02:00:00-05:00",
+    "impact": "Low"
+  },
+  {
     "title": "Unemployment Rate",
     "country": "GBP",
     "date": "2026-11-17T02:00:00-05:00",
@@ -690,12 +696,6 @@
     "impact": "Low"
   },
   {
-    "title": "Foreign Direct Investment ytd/y",
-    "country": "CNY",
-    "date": "2026-11-20T02:02:00-05:00",
-    "impact": "Low"
-  },
-  {
     "title": "ECB President Lagarde Speaks",
     "country": "EUR",
     "date": "2026-11-20T03:15:00-05:00",
@@ -741,6 +741,12 @@
     "title": "Revised UoM Inflation Expectations",
     "country": "USD",
     "date": "2026-11-20T10:00:00-05:00",
+    "impact": "Medium"
+  },
+  {
+    "title": "President Trump Speaks",
+    "country": "USD",
+    "date": "2026-11-20T12:00:00-05:00",
     "impact": "Medium"
   },
   {
