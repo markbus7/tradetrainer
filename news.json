@@ -1,758 +1,452 @@
 [
   {
-    "title": "BusinessNZ Services Index",
+    "title": "Core Retail Sales q/q",
     "country": "NZD",
-    "date": "2026-11-15T16:30:00-05:00",
+    "date": "2026-11-22T16:45:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "Prelim GDP Price Index y/y",
+    "title": "Retail Sales q/q",
+    "country": "NZD",
+    "date": "2026-11-22T16:45:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Flash Manufacturing PMI",
+    "country": "AUD",
+    "date": "2026-11-22T17:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Flash Services PMI",
+    "country": "AUD",
+    "date": "2026-11-22T17:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Bank Holiday",
     "country": "JPY",
-    "date": "2026-11-15T18:50:00-05:00",
-    "impact": "Low"
+    "date": "2026-11-22T19:00:00-05:00",
+    "impact": "Holiday"
   },
   {
-    "title": "Prelim GDP q/q",
-    "country": "JPY",
-    "date": "2026-11-15T18:50:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Rightmove HPI m/m",
-    "country": "GBP",
-    "date": "2026-11-15T19:01:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "New Home Prices m/m",
-    "country": "CNY",
-    "date": "2026-11-15T20:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Fixed Asset Investment ytd/y",
-    "country": "CNY",
-    "date": "2026-11-15T21:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Industrial Production y/y",
-    "country": "CNY",
-    "date": "2026-11-15T21:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "NBS Press Conference",
-    "country": "CNY",
-    "date": "2026-11-15T21:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Retail Sales y/y",
-    "country": "CNY",
-    "date": "2026-11-15T21:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Unemployment Rate",
-    "country": "CNY",
-    "date": "2026-11-15T21:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Revised Industrial Production m/m",
-    "country": "JPY",
-    "date": "2026-11-15T23:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Industrial Production m/m",
+    "title": "French Flash Manufacturing PMI",
     "country": "EUR",
-    "date": "2026-11-16T05:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "FOMC Member Barr Speaks",
-    "country": "USD",
-    "date": "2026-11-16T05:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "CPI m/m",
-    "country": "CAD",
-    "date": "2026-11-16T08:30:00-05:00",
-    "impact": "High"
-  },
-  {
-    "title": "Median CPI y/y",
-    "country": "CAD",
-    "date": "2026-11-16T08:30:00-05:00",
-    "impact": "High"
-  },
-  {
-    "title": "Trimmed CPI y/y",
-    "country": "CAD",
-    "date": "2026-11-16T08:30:00-05:00",
-    "impact": "High"
-  },
-  {
-    "title": "Common CPI y/y",
-    "country": "CAD",
-    "date": "2026-11-16T08:30:00-05:00",
+    "date": "2026-11-23T03:15:00-05:00",
     "impact": "Medium"
   },
   {
-    "title": "Core CPI m/m",
-    "country": "CAD",
-    "date": "2026-11-16T08:30:00-05:00",
+    "title": "French Flash Services PMI",
+    "country": "EUR",
+    "date": "2026-11-23T03:15:00-05:00",
+    "impact": "Medium"
+  },
+  {
+    "title": "German Flash Manufacturing PMI",
+    "country": "EUR",
+    "date": "2026-11-23T03:30:00-05:00",
+    "impact": "Medium"
+  },
+  {
+    "title": "German Flash Services PMI",
+    "country": "EUR",
+    "date": "2026-11-23T03:30:00-05:00",
+    "impact": "Medium"
+  },
+  {
+    "title": "Flash Manufacturing PMI",
+    "country": "EUR",
+    "date": "2026-11-23T04:00:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "Empire State Manufacturing Index",
-    "country": "USD",
-    "date": "2026-11-16T08:30:00-05:00",
+    "title": "Flash Services PMI",
+    "country": "EUR",
+    "date": "2026-11-23T04:00:00-05:00",
     "impact": "Low"
+  },
+  {
+    "title": "Flash Manufacturing PMI",
+    "country": "GBP",
+    "date": "2026-11-23T04:30:00-05:00",
+    "impact": "Medium"
+  },
+  {
+    "title": "Flash Services PMI",
+    "country": "GBP",
+    "date": "2026-11-23T04:30:00-05:00",
+    "impact": "Medium"
+  },
+  {
+    "title": "MPC Member Pill Speaks",
+    "country": "GBP",
+    "date": "2026-11-23T08:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Corporate Profits q/q",
+    "country": "CAD",
+    "date": "2026-11-23T08:30:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Flash Manufacturing PMI",
+    "country": "USD",
+    "date": "2026-11-23T09:45:00-05:00",
+    "impact": "Medium"
+  },
+  {
+    "title": "Flash Services PMI",
+    "country": "USD",
+    "date": "2026-11-23T09:45:00-05:00",
+    "impact": "Medium"
   },
   {
     "title": "FOMC Member Williams Speaks",
     "country": "USD",
-    "date": "2026-11-16T09:05:00-05:00",
+    "date": "2026-11-23T16:00:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "Cleveland Fed Inflation Expectations",
-    "country": "USD",
-    "date": "2026-11-16T09:45:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Fed Chairman Warsh Speaks",
-    "country": "USD",
-    "date": "2026-11-16T12:00:00-05:00",
-    "impact": "High"
-  },
-  {
-    "title": "FOMC Member Hammack Speaks",
-    "country": "USD",
-    "date": "2026-11-16T14:15:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "RBNZ Financial Stability Report",
-    "country": "NZD",
-    "date": "2026-11-16T15:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "FPI m/m",
-    "country": "NZD",
-    "date": "2026-11-16T16:45:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "RBA Gov Bullock Speaks",
-    "country": "AUD",
-    "date": "2026-11-16T17:50:00-05:00",
-    "impact": "High"
-  },
-  {
-    "title": "FOMC Member Barkin Speaks",
-    "country": "USD",
-    "date": "2026-11-16T18:10:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "FOMC Member Goolsbee Speaks",
-    "country": "USD",
-    "date": "2026-11-16T18:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "RBNZ Gov Breman Speaks",
-    "country": "NZD",
-    "date": "2026-11-16T19:00:00-05:00",
-    "impact": "Medium"
-  },
-  {
-    "title": "Monetary Policy Meeting Minutes",
-    "country": "AUD",
-    "date": "2026-11-16T19:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Inflation Expectations q/q",
-    "country": "NZD",
-    "date": "2026-11-16T21:00:00-05:00",
-    "impact": "High"
-  },
-  {
-    "title": "Tertiary Industry Activity m/m",
+    "title": "Flash Manufacturing PMI",
     "country": "JPY",
-    "date": "2026-11-16T23:30:00-05:00",
+    "date": "2026-11-23T19:30:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "Average Earnings Index 3m/y",
-    "country": "GBP",
-    "date": "2026-11-17T02:00:00-05:00",
-    "impact": "Medium"
-  },
-  {
-    "title": "Claimant Count Change",
-    "country": "GBP",
-    "date": "2026-11-17T02:00:00-05:00",
+    "title": "Foreign Direct Investment ytd/y",
+    "country": "CNY",
+    "date": "2026-11-24T02:02:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "HMRC Payrolls Change",
-    "country": "GBP",
-    "date": "2026-11-17T02:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Unemployment Rate",
-    "country": "GBP",
-    "date": "2026-11-17T02:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "EU Economic Forecasts",
+    "title": "German ifo Business Climate",
     "country": "EUR",
-    "date": "2026-11-17T05:00:00-05:00",
+    "date": "2026-11-24T04:00:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "ZEW Economic Sentiment",
-    "country": "EUR",
-    "date": "2026-11-17T05:00:00-05:00",
+    "title": "CBI Realized Sales",
+    "country": "GBP",
+    "date": "2026-11-24T06:00:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "German ZEW Economic Sentiment",
-    "country": "EUR",
-    "date": "2026-11-17T05:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "FOMC Member Musalem Speaks",
-    "country": "USD",
-    "date": "2026-11-17T07:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Housing Starts",
-    "country": "CAD",
-    "date": "2026-11-17T08:15:00-05:00",
+    "title": "MPC Member Greene Speaks",
+    "country": "GBP",
+    "date": "2026-11-24T07:30:00-05:00",
     "impact": "Low"
   },
   {
     "title": "ADP Weekly Employment Change",
     "country": "USD",
-    "date": "2026-11-17T08:15:00-05:00",
+    "date": "2026-11-24T08:15:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "Foreign Securities Purchases",
+    "title": "CB Leading Index m/m",
+    "country": "CNY",
+    "date": "2026-11-24T09:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Belgian NBB Business Climate",
+    "country": "EUR",
+    "date": "2026-11-24T09:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "HPI m/m",
+    "country": "USD",
+    "date": "2026-11-24T09:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "S&P/CS Composite-20 HPI y/y",
+    "country": "USD",
+    "date": "2026-11-24T09:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "CB Consumer Confidence",
+    "country": "USD",
+    "date": "2026-11-24T10:00:00-05:00",
+    "impact": "Medium"
+  },
+  {
+    "title": "Richmond Manufacturing Index",
+    "country": "USD",
+    "date": "2026-11-24T10:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "BOC Gov Macklem Speaks",
     "country": "CAD",
-    "date": "2026-11-17T08:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Core Retail Sales m/m",
-    "country": "USD",
-    "date": "2026-11-17T08:30:00-05:00",
-    "impact": "High"
-  },
-  {
-    "title": "Retail Sales m/m",
-    "country": "USD",
-    "date": "2026-11-17T08:30:00-05:00",
-    "impact": "High"
-  },
-  {
-    "title": "Import Prices m/m",
-    "country": "USD",
-    "date": "2026-11-17T08:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "FOMC Member Waller Speaks",
-    "country": "USD",
-    "date": "2026-11-17T09:10:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Capacity Utilization Rate",
-    "country": "USD",
-    "date": "2026-11-17T09:15:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Industrial Production m/m",
-    "country": "USD",
-    "date": "2026-11-17T09:15:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "GDT Price Index",
-    "country": "NZD",
-    "date": "2026-11-17T09:29:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "FOMC Member Hammack Speaks",
-    "country": "USD",
-    "date": "2026-11-17T09:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Business Inventories m/m",
-    "country": "USD",
-    "date": "2026-11-17T10:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "NAHB Housing Market Index",
-    "country": "USD",
-    "date": "2026-11-17T10:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "FOMC Member Williams Speaks",
-    "country": "USD",
-    "date": "2026-11-17T14:25:00-05:00",
-    "impact": "Low"
+    "date": "2026-11-24T12:25:00-05:00",
+    "impact": "Medium"
   },
   {
     "title": "API Weekly Statistical Bulletin",
     "country": "USD",
-    "date": "2026-11-17T16:30:00-05:00",
+    "date": "2026-11-24T16:30:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "PPI Input q/q",
-    "country": "NZD",
-    "date": "2026-11-17T16:45:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "PPI Output q/q",
-    "country": "NZD",
-    "date": "2026-11-17T16:45:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "MI Leading Index m/m",
-    "country": "AUD",
-    "date": "2026-11-17T18:39:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Trade Balance",
+    "title": "SPPI y/y",
     "country": "JPY",
-    "date": "2026-11-17T18:50:00-05:00",
+    "date": "2026-11-24T18:50:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "Wage Price Index q/q",
+    "title": "CPI m/m",
     "country": "AUD",
-    "date": "2026-11-17T19:30:00-05:00",
-    "impact": "Medium"
-  },
-  {
-    "title": "German Buba President Nagel Speaks",
-    "country": "EUR",
-    "date": "2026-11-17T21:45:00-05:00",
-    "impact": "Low"
+    "date": "2026-11-24T19:30:00-05:00",
+    "impact": "High"
   },
   {
     "title": "CPI y/y",
-    "country": "GBP",
-    "date": "2026-11-18T02:00:00-05:00",
+    "country": "AUD",
+    "date": "2026-11-24T19:30:00-05:00",
     "impact": "High"
   },
   {
-    "title": "Core CPI y/y",
-    "country": "GBP",
-    "date": "2026-11-18T02:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "PPI Input m/m",
-    "country": "GBP",
-    "date": "2026-11-18T02:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "PPI Output m/m",
-    "country": "GBP",
-    "date": "2026-11-18T02:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "RPI y/y",
-    "country": "GBP",
-    "date": "2026-11-18T02:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "BOE Gov Bailey Speaks",
-    "country": "GBP",
-    "date": "2026-11-18T02:30:00-05:00",
-    "impact": "Medium"
-  },
-  {
-    "title": "ECB Financial Stability Review",
-    "country": "EUR",
-    "date": "2026-11-18T04:00:00-05:00",
-    "impact": "Medium"
-  },
-  {
-    "title": "HPI y/y",
-    "country": "GBP",
-    "date": "2026-11-18T04:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Final Core CPI y/y",
-    "country": "EUR",
-    "date": "2026-11-18T05:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Final CPI y/y",
-    "country": "EUR",
-    "date": "2026-11-18T05:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "NHPI m/m",
-    "country": "CAD",
-    "date": "2026-11-18T08:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Building Permits",
-    "country": "USD",
-    "date": "2026-11-18T08:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Housing Starts",
-    "country": "USD",
-    "date": "2026-11-18T08:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "ECB President Lagarde Speaks",
-    "country": "EUR",
-    "date": "2026-11-18T09:25:00-05:00",
-    "impact": "Medium"
-  },
-  {
-    "title": "BOE Gov Bailey Speaks",
-    "country": "GBP",
-    "date": "2026-11-18T10:00:00-05:00",
+    "title": "Trimmed Mean CPI m/m",
+    "country": "AUD",
+    "date": "2026-11-24T19:30:00-05:00",
     "impact": "High"
   },
   {
-    "title": "Pending Home Sales m/m",
-    "country": "USD",
-    "date": "2026-11-18T10:00:00-05:00",
+    "title": "Construction Work Done q/q",
+    "country": "AUD",
+    "date": "2026-11-24T19:30:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "Crude Oil Inventories",
-    "country": "USD",
-    "date": "2026-11-18T10:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "FOMC Member Daly Speaks",
-    "country": "USD",
-    "date": "2026-11-18T12:15:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Gov Council Member Gravelle Speaks",
-    "country": "CAD",
-    "date": "2026-11-18T12:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "RBNZ Gov Breman Speaks",
-    "country": "NZD",
-    "date": "2026-11-18T13:00:00-05:00",
-    "impact": "Medium"
-  },
-  {
-    "title": "FOMC Member Barr Speaks",
-    "country": "USD",
-    "date": "2026-11-18T13:35:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "FOMC Meeting Minutes",
-    "country": "USD",
-    "date": "2026-11-18T14:00:00-05:00",
-    "impact": "High"
-  },
-  {
-    "title": "FOMC Member Williams Speaks",
-    "country": "USD",
-    "date": "2026-11-18T14:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "TIC Long-Term Purchases",
-    "country": "USD",
-    "date": "2026-11-18T16:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "FOMC Member Kashkari Speaks",
-    "country": "USD",
-    "date": "2026-11-18T16:15:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Trade Balance",
-    "country": "NZD",
-    "date": "2026-11-18T16:45:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Core Machinery Orders m/m",
+    "title": "BOJ Core CPI y/y",
     "country": "JPY",
-    "date": "2026-11-18T18:50:00-05:00",
+    "date": "2026-11-25T00:00:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "Employment Change",
-    "country": "AUD",
-    "date": "2026-11-18T19:30:00-05:00",
-    "impact": "High"
-  },
-  {
-    "title": "Unemployment Rate",
-    "country": "AUD",
-    "date": "2026-11-18T19:30:00-05:00",
-    "impact": "High"
-  },
-  {
-    "title": "Current Account",
+    "title": "German Final GDP q/q",
     "country": "EUR",
-    "date": "2026-11-19T04:00:00-05:00",
+    "date": "2026-11-25T02:00:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "German Buba Monthly Report",
+    "title": "UBS Economic Expectations",
+    "country": "CHF",
+    "date": "2026-11-25T04:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "German 10-y Bond Auction",
     "country": "EUR",
-    "date": "2026-11-19T06:00:00-05:00",
+    "date": "2026-11-25T05:42:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "CBI Industrial Order Expectations",
-    "country": "GBP",
-    "date": "2026-11-19T06:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "MPC Member Dhingra Speaks",
-    "country": "GBP",
-    "date": "2026-11-19T07:15:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "IPPI m/m",
-    "country": "CAD",
-    "date": "2026-11-19T08:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "RMPI m/m",
-    "country": "CAD",
-    "date": "2026-11-19T08:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "ECB President Lagarde Speaks",
-    "country": "EUR",
-    "date": "2026-11-19T08:30:00-05:00",
-    "impact": "Medium"
-  },
-  {
-    "title": "Philly Fed Manufacturing Index",
+    "title": "Core PCE Price Index m/m",
     "country": "USD",
-    "date": "2026-11-19T08:30:00-05:00",
+    "date": "2026-11-25T08:30:00-05:00",
+    "impact": "High"
+  },
+  {
+    "title": "Prelim GDP q/q",
+    "country": "USD",
+    "date": "2026-11-25T08:30:00-05:00",
+    "impact": "High"
+  },
+  {
+    "title": "Prelim GDP Price Index q/q",
+    "country": "USD",
+    "date": "2026-11-25T08:30:00-05:00",
     "impact": "Medium"
   },
   {
     "title": "Unemployment Claims",
     "country": "USD",
-    "date": "2026-11-19T08:30:00-05:00",
+    "date": "2026-11-25T08:30:00-05:00",
     "impact": "Medium"
   },
   {
-    "title": "FOMC Member Hammack Speaks",
+    "title": "Core Durable Goods Orders m/m",
     "country": "USD",
-    "date": "2026-11-19T08:50:00-05:00",
+    "date": "2026-11-25T08:30:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "FOMC Member Jefferson Speaks",
+    "title": "Durable Goods Orders m/m",
     "country": "USD",
-    "date": "2026-11-19T09:25:00-05:00",
+    "date": "2026-11-25T08:30:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "CB Leading Index m/m",
+    "title": "Personal Income m/m",
     "country": "USD",
-    "date": "2026-11-19T10:00:00-05:00",
+    "date": "2026-11-25T08:30:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Personal Spending m/m",
+    "country": "USD",
+    "date": "2026-11-25T08:30:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "New Home Sales",
+    "country": "USD",
+    "date": "2026-11-25T10:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Crude Oil Inventories",
+    "country": "USD",
+    "date": "2026-11-25T10:30:00-05:00",
     "impact": "Low"
   },
   {
     "title": "Natural Gas Storage",
     "country": "USD",
-    "date": "2026-11-19T10:30:00-05:00",
+    "date": "2026-11-25T12:00:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "Mortgage Delinquencies",
+    "title": "Beige Book",
     "country": "USD",
-    "date": "2026-11-19T10:46:00-05:00",
+    "date": "2026-11-25T14:00:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "FOMC Member Goolsbee Speaks",
+    "title": "Private Capital Expenditure q/q",
+    "country": "AUD",
+    "date": "2026-11-25T19:30:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "RBA Bulletin",
+    "country": "AUD",
+    "date": "2026-11-25T19:30:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "German GfK Consumer Climate",
+    "country": "EUR",
+    "date": "2026-11-26T02:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "M3 Money Supply y/y",
+    "country": "EUR",
+    "date": "2026-11-26T04:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Private Loans y/y",
+    "country": "EUR",
+    "date": "2026-11-26T04:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "BOE Financial Stability Report",
+    "country": "GBP",
+    "date": "2026-11-26T05:30:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "FPC Meeting Minutes",
+    "country": "GBP",
+    "date": "2026-11-26T05:30:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "FPC Statement",
+    "country": "GBP",
+    "date": "2026-11-26T05:30:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "ECB Monetary Policy Meeting Accounts",
+    "country": "EUR",
+    "date": "2026-11-26T07:30:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Bank Holiday",
     "country": "USD",
-    "date": "2026-11-19T12:30:00-05:00",
-    "impact": "Low"
+    "date": "2026-11-26T08:00:00-05:00",
+    "impact": "Holiday"
   },
   {
-    "title": "FOMC Member Barr Speaks",
-    "country": "USD",
-    "date": "2026-11-19T14:15:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "FOMC Member Barkin Speaks",
-    "country": "USD",
-    "date": "2026-11-19T16:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "National Core CPI y/y",
+    "title": "Tokyo Core CPI y/y",
     "country": "JPY",
-    "date": "2026-11-19T18:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "FOMC Member Paulson Speaks",
-    "country": "USD",
-    "date": "2026-11-19T18:30:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "GfK Consumer Confidence",
-    "country": "GBP",
-    "date": "2026-11-19T19:01:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "1-y Loan Prime Rate",
-    "country": "CNY",
-    "date": "2026-11-19T20:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "5-y Loan Prime Rate",
-    "country": "CNY",
-    "date": "2026-11-19T20:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Credit Card Spending y/y",
-    "country": "NZD",
-    "date": "2026-11-19T21:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "German PPI m/m",
-    "country": "EUR",
-    "date": "2026-11-20T02:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Retail Sales m/m",
-    "country": "GBP",
-    "date": "2026-11-20T02:00:00-05:00",
+    "date": "2026-11-26T18:30:00-05:00",
     "impact": "Medium"
   },
   {
-    "title": "Public Sector Net Borrowing",
-    "country": "GBP",
-    "date": "2026-11-20T02:00:00-05:00",
+    "title": "French Consumer Spending m/m",
+    "country": "EUR",
+    "date": "2026-11-27T02:45:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "ECB President Lagarde Speaks",
+    "title": "French Final Private Payrolls q/q",
     "country": "EUR",
-    "date": "2026-11-20T03:15:00-05:00",
-    "impact": "Medium"
+    "date": "2026-11-27T02:45:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "French Prelim CPI m/m",
+    "country": "EUR",
+    "date": "2026-11-27T02:45:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "French Prelim GDP q/q",
+    "country": "EUR",
+    "date": "2026-11-27T02:45:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Spanish Flash CPI y/y",
+    "country": "EUR",
+    "date": "2026-11-27T03:00:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "German Unemployment Change",
+    "country": "EUR",
+    "date": "2026-11-27T03:55:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Italian 10-y Bond Auction",
+    "country": "EUR",
+    "date": "2026-11-27T05:33:00-05:00",
+    "impact": "Low"
   },
   {
     "title": "German Buba President Nagel Speaks",
     "country": "EUR",
-    "date": "2026-11-20T08:00:00-05:00",
+    "date": "2026-11-27T07:40:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "FOMC Member Waller Speaks",
-    "country": "USD",
-    "date": "2026-11-20T08:25:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Core Retail Sales m/m",
+    "title": "Current Account",
     "country": "CAD",
-    "date": "2026-11-20T08:30:00-05:00",
+    "date": "2026-11-27T08:30:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "Retail Sales m/m",
-    "country": "CAD",
-    "date": "2026-11-20T08:30:00-05:00",
+    "title": "Goods Trade Balance",
+    "country": "USD",
+    "date": "2026-11-27T08:30:00-05:00",
     "impact": "Low"
   },
   {
-    "title": "Consumer Confidence",
-    "country": "EUR",
-    "date": "2026-11-20T10:00:00-05:00",
-    "impact": "Low"
-  },
-  {
-    "title": "Revised UoM Consumer Sentiment",
+    "title": "Prelim Wholesale Inventories m/m",
     "country": "USD",
-    "date": "2026-11-20T10:00:00-05:00",
-    "impact": "Medium"
-  },
-  {
-    "title": "Revised UoM Inflation Expectations",
-    "country": "USD",
-    "date": "2026-11-20T10:00:00-05:00",
-    "impact": "Medium"
-  },
-  {
-    "title": "President Trump Speaks",
-    "country": "USD",
-    "date": "2026-11-20T12:00:00-05:00",
-    "impact": "Medium"
-  },
-  {
-    "title": "FOMC Member Cook Speaks",
-    "country": "USD",
-    "date": "2026-11-20T12:15:00-05:00",
+    "date": "2026-11-27T08:30:00-05:00",
     "impact": "Low"
   }
 ]
