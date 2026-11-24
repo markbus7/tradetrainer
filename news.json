@@ -114,12 +114,6 @@
     "impact": "Low"
   },
   {
-    "title": "Foreign Direct Investment ytd/y",
-    "country": "CNY",
-    "date": "2026-11-24T02:02:00-05:00",
-    "impact": "Low"
-  },
-  {
     "title": "German ifo Business Climate",
     "country": "EUR",
     "date": "2026-11-24T04:00:00-05:00",
@@ -264,12 +258,6 @@
     "impact": "Medium"
   },
   {
-    "title": "Unemployment Claims",
-    "country": "USD",
-    "date": "2026-11-25T08:30:00-05:00",
-    "impact": "Medium"
-  },
-  {
     "title": "Core Durable Goods Orders m/m",
     "country": "USD",
     "date": "2026-11-25T08:30:00-05:00",
@@ -289,6 +277,12 @@
   },
   {
     "title": "Personal Spending m/m",
+    "country": "USD",
+    "date": "2026-11-25T08:30:00-05:00",
+    "impact": "Low"
+  },
+  {
+    "title": "Unemployment Claims",
     "country": "USD",
     "date": "2026-11-25T08:30:00-05:00",
     "impact": "Low"
