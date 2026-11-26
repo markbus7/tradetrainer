@@ -294,6 +294,12 @@
     "impact": "Low"
   },
   {
+    "title": "Monetary Policy Report Hearings",
+    "country": "GBP",
+    "date": "2026-11-25T09:15:00-05:00",
+    "impact": "Medium"
+  },
+  {
     "title": "New Home Sales",
     "country": "USD",
     "date": "2026-11-25T10:00:00-05:00",
